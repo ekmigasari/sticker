@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "react-perf", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "react/react-in-jsx-scope": "off"
+  },
+  "overrides": [
+    {
+      "files": ["src/components/ui/**/*.tsx", "src/hooks/use-mobile.ts"],
+      "rules": {
+        "no-shadow": "off",
+        "no-underscore-dangle": "off",
+        "react/no-unstable-nested-components": "off",
+        "react/set-state-in-effect": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    ".output/",
+    ".tanstack/",
+    "node_modules/",
+    "public/",
+    "src/routeTree.gen.ts"
+  ]
+}
