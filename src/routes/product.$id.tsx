@@ -2,8 +2,6 @@ import { useEffect } from "react"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { ArrowSquareOut, MapPin } from "@phosphor-icons/react"
 import { AppChrome } from "@/components/layout/app-chrome"
-import { Button, buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { useWallStore } from "@/store/wall-store"
 
 export const Route = createFileRoute("/product/$id")({
@@ -31,7 +29,7 @@ function ProductPage() {
   if (!hydrated) {
     return (
       <AppChrome>
-        <p className="px-8 py-24 font-mono text-xs tracking-widest uppercase">
+        <p className="font-ui px-8 py-24 text-[15px] text-neutral-500">
           Loading…
         </p>
       </AppChrome>
@@ -41,13 +39,13 @@ function ProductPage() {
   if (!product) {
     return (
       <AppChrome>
-        <div className="mx-auto max-w-lg px-6 py-24 text-center">
-          <h1 className="font-heading text-3xl font-extrabold">
+        <div className="font-ui mx-auto max-w-lg px-6 py-24 text-center">
+          <h1 className="text-[32px] font-semibold tracking-[-0.03em] text-neutral-900">
             Product not found
           </h1>
           <Link
             to="/directory"
-            className={cn(buttonVariants(), "mt-4 inline-flex rounded-2xl")}
+            className="press mt-6 inline-flex h-11 items-center rounded-full bg-neutral-900 px-6 text-[15px] font-semibold text-white"
           >
             Back to directory
           </Link>
@@ -63,7 +61,7 @@ function ProductPage() {
 
   return (
     <AppChrome>
-      <div className="mx-auto grid max-w-4xl gap-8 px-4 py-10 sm:px-8 lg:grid-cols-[200px_1fr]">
+      <div className="font-ui mx-auto grid max-w-4xl gap-10 px-4 py-12 sm:px-8 lg:grid-cols-[200px_1fr]">
         <div className="flex justify-center lg:justify-start">
           {sticker ? (
             <img
@@ -72,80 +70,81 @@ function ProductPage() {
               className="max-h-52 object-contain drop-shadow-xl"
             />
           ) : (
-            <div className="size-40 rounded-3xl bg-muted" />
+            <div className="size-40 rounded-[28px] bg-[#f5f5f7]" />
           )}
         </div>
         <div>
-          <p className="font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+          <p className="text-[13px] font-medium tracking-[-0.01em] text-neutral-500">
             {product.category}
           </p>
-          <h1 className="font-heading text-4xl font-extrabold tracking-tight sm:text-5xl">
+          <h1 className="mt-1 text-[40px] leading-none font-semibold tracking-[-0.035em] text-neutral-900 sm:text-[48px]">
             {product.name}
           </h1>
-          <p className="mt-3 max-w-xl text-lg text-muted-foreground">
+          <p className="mt-4 max-w-xl text-[17px] leading-snug text-neutral-500">
             {product.oneLiner}
           </p>
           {product.offer ? (
-            <p className="mt-3 font-mono text-xs tracking-wide text-sticker-teal uppercase">
+            <p className="mt-3 text-[14px] font-medium tracking-[-0.01em] text-neutral-700">
               {product.offer}
             </p>
           ) : null}
 
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="mt-7 flex flex-wrap gap-3">
             <a
               href={product.url}
               target="_blank"
               rel="noreferrer"
-              className={cn(buttonVariants(), "rounded-2xl")}
+              className="press inline-flex h-11 items-center gap-1.5 rounded-full bg-neutral-900 px-5 text-[15px] font-semibold tracking-[-0.01em] text-white"
             >
               Visit website
-              <ArrowSquareOut weight="bold" data-icon="inline-end" />
+              <ArrowSquareOut weight="bold" className="size-4" />
             </a>
             {latest ? (
-              <Button
-                variant="secondary"
-                className="rounded-2xl"
+              <button
+                type="button"
+                className="press inline-flex h-11 items-center gap-1.5 rounded-full bg-black/[0.06] px-5 text-[15px] font-semibold tracking-[-0.01em] text-neutral-900 transition-colors hover:bg-black/[0.09]"
                 onClick={() => {
                   focusPlacement(latest, 2.6)
                   void navigate({ to: "/" })
                 }}
               >
-                <MapPin weight="bold" data-icon="inline-start" />
+                <MapPin weight="bold" className="size-4" />
                 Jump to wall
-              </Button>
+              </button>
             ) : null}
           </div>
 
-          <section className="mt-10">
-            <h2 className="font-heading text-xl font-extrabold">Placements</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+          <section className="mt-12">
+            <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-neutral-900">
+              Placements
+            </h2>
+            <p className="mt-1 text-[14px] text-neutral-500">
               Each payment creates a new layer. Older placements stay in history.
             </p>
-            <ul className="mt-4 divide-y divide-border rounded-2xl border border-border">
+            <ul className="mt-5 divide-y divide-black/[0.06]">
               {placements.map((p) => (
                 <li
                   key={p.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
+                  className="flex items-center justify-between gap-3 py-3.5 text-[14px]"
                 >
-                  <span className="font-mono text-xs tracking-wider uppercase">
+                  <span className="text-neutral-600">
                     {p.sizeTier} · z{p.zIndex} · ({Math.round(p.x)},{" "}
                     {Math.round(p.y)})
                   </span>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    className="rounded-lg"
+                  <button
+                    type="button"
+                    className="press rounded-full bg-black/[0.045] px-3.5 py-1.5 text-[13px] font-medium text-neutral-800 transition-colors hover:bg-black/[0.07]"
                     onClick={() => {
                       focusPlacement(p, 2.6)
                       void navigate({ to: "/" })
                     }}
                   >
                     View
-                  </Button>
+                  </button>
                 </li>
               ))}
               {placements.length === 0 ? (
-                <li className="px-4 py-6 text-sm text-muted-foreground">
+                <li className="py-8 text-[14px] text-neutral-500">
                   No placements yet.
                 </li>
               ) : null}

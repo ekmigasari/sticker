@@ -1,38 +1,75 @@
+import { useState } from "react"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { motion } from "motion/react"
+import { motion, AnimatePresence } from "motion/react"
 import { AppChrome } from "@/components/layout/app-chrome"
 import { StickerWall } from "@/components/wall/sticker-wall"
-import { buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/")({ component: Home })
 
 function Home() {
+  const [heroVisible, setHeroVisible] = useState(true)
+
   return (
     <AppChrome variant="wall">
-      <StickerWall />
-      <motion.div
-        data-ui-chrome
-        className="pointer-events-none absolute bottom-3 left-3 z-20 hidden max-w-xs sm:block"
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35, duration: 0.45 }}
+      <div
+        onPointerDownCapture={() => {
+          if (heroVisible) setHeroVisible(false)
+        }}
       >
-        <div className="pointer-events-auto rounded-2xl border border-border/80 bg-card/90 px-4 py-3 shadow-md backdrop-blur-md">
-          <p className="font-heading text-sm font-extrabold leading-snug">
-            Make a sticker. Put it anywhere. The wall never stops growing.
-          </p>
-          <Link
-            to="/make"
-            className={cn(
-              buttonVariants({ size: "xs", variant: "secondary" }),
-              "mt-2 rounded-lg"
-            )}
+        <StickerWall />
+      </div>
+
+      <AnimatePresence>
+        {heroVisible ? (
+          <motion.div
+            data-ui-chrome
+            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
           >
-            Start free
-          </Link>
-        </div>
-      </motion.div>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(245,245,247,0.92)_0%,rgba(245,245,247,0.55)_42%,transparent_70%)]"
+            />
+            <motion.div
+              className="pointer-events-auto relative flex max-w-lg flex-col items-center text-center"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{
+                delay: 0.08,
+                duration: 0.45,
+                ease: [0.23, 1, 0.32, 1],
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <h1 className="font-ui text-[48px] leading-none font-semibold tracking-[-0.035em] text-neutral-900 sm:text-[64px]">
+                Netkraft
+              </h1>
+              <p className="font-ui mt-4 max-w-[22rem] text-[17px] leading-snug text-neutral-500 sm:text-[19px]">
+                cool things built by people on internet
+              </p>
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                <Link
+                  to="/make"
+                  className="press inline-flex h-12 items-center rounded-full bg-neutral-900 px-7 text-[15px] font-semibold tracking-[-0.01em] text-white shadow-[0_8px_24px_-10px_rgba(0,0,0,0.45)] transition-opacity hover:opacity-90"
+                >
+                  Create sticker
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setHeroVisible(false)}
+                  className="press inline-flex h-12 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold tracking-[-0.01em] text-neutral-900 transition-colors hover:bg-black/[0.09]"
+                >
+                  Explore wall
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </AppChrome>
   )
 }

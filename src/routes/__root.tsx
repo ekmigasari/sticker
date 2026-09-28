@@ -21,15 +21,15 @@ export const Route = createRootRoute({
       },
       {
         name: "theme-color",
-        content: "#c9a96e",
+        content: "#f5f5f7",
       },
       {
         name: "description",
         content:
-          "Make a sticker of your indie product. Put it on a living 1000×1000 wall.",
+          "Netkraft - cool things built by people on internet. Make a sticker and put it on the wall.",
       },
       {
-        title: "Sticker Wall — for indie makers",
+        title: "Netkraft",
       },
     ],
     links: [
@@ -61,9 +61,11 @@ export const Route = createRootRoute({
     ],
   }),
   notFoundComponent: () => (
-    <main className="mx-auto max-w-lg px-6 py-24 text-center">
-      <h1 className="font-heading text-3xl font-extrabold">404</h1>
-      <p className="mt-2 text-muted-foreground">
+    <main className="font-ui mx-auto max-w-lg px-6 py-24 text-center">
+      <h1 className="text-[32px] font-semibold tracking-[-0.03em] text-neutral-900">
+        404
+      </h1>
+      <p className="mt-2 text-[15px] text-neutral-500">
         That sticker peeled off the wall.
       </p>
     </main>

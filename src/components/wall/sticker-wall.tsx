@@ -69,7 +69,7 @@ export function StickerWall({ placeMode, ghostSize = 50, onPlace }: Props) {
   const selectedSticker = selected ? getSticker(selected.stickerId) : undefined
 
   return (
-    <div className="relative h-[min(100dvh,100svh)] w-full overflow-hidden bg-cork">
+    <div className="relative h-[min(100dvh,100svh)] w-full overflow-hidden bg-[#f5f5f7]">
       <div
         ref={viewportRef}
         className="absolute inset-0 touch-none select-none"
@@ -132,9 +132,9 @@ export function StickerWall({ placeMode, ghostSize = 50, onPlace }: Props) {
             transform: `translate(-50%, -50%) translate(${(WALL_SIZE / 2 - camera.x) * camera.zoom}px, ${(WALL_SIZE / 2 - camera.y) * camera.zoom}px) scale(${camera.zoom})`,
           }}
         >
-          <div className="wall-board absolute inset-0 overflow-hidden rounded-sm shadow-2xl">
-            <div className="wall-grid pointer-events-none absolute inset-0 opacity-40" />
-            <div className="pointer-events-none absolute top-1/2 left-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-ink/20" />
+          <div className="wall-board absolute inset-0 overflow-hidden rounded-2xl">
+            <div className="wall-grid pointer-events-none absolute inset-0 opacity-50" />
+            <div className="pointer-events-none absolute top-1/2 left-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-300/80" />
 
             {hydrated
               ? placements.map((p) => {
@@ -175,7 +175,7 @@ export function StickerWall({ placeMode, ghostSize = 50, onPlace }: Props) {
 
             {placeMode ? (
               <div
-                className="pointer-events-none absolute inset-0 border-2 border-dashed border-ink/30"
+                className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-dashed border-neutral-900/20"
                 aria-hidden
               />
             ) : null}
