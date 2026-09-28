@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useShallow } from "zustand/react/shallow"
 import { WALL_SIZE } from "@/domain/types"
 import { useWallStore } from "@/store/wall-store"
 import { ProductSheet } from "./product-sheet"
@@ -19,10 +20,14 @@ export function StickerWall({ placeMode, ghostSize = 50, onPlace }: Props) {
 
   const hydrate = useWallStore((s) => s.hydrate)
   const hydrated = useWallStore((s) => s.hydrated)
-  const camera = useWallStore((s) => s.camera)
+  const camera = useWallStore(useShallow((s) => s.camera))
   const setCamera = useWallStore((s) => s.setCamera)
-  const placements = useWallStore((s) => s.placementsSorted())
+  const rawPlacements = useWallStore((s) => s.placements)
   const selectedPlacementId = useWallStore((s) => s.selectedPlacementId)
+  const placements = useMemo(
+    () => [...rawPlacements].sort((a, b) => a.zIndex - b.zIndex),
+    [rawPlacements]
+  )
   const selectPlacement = useWallStore((s) => s.selectPlacement)
   const getProduct = useWallStore((s) => s.getProduct)
   const getSticker = useWallStore((s) => s.getSticker)
@@ -37,18 +42,18 @@ export function StickerWall({ placeMode, ghostSize = 50, onPlace }: Props) {
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
+      const cam = useWallStore.getState().camera
       const rect = el.getBoundingClientRect()
       const mx = e.clientX - rect.left
       const my = e.clientY - rect.top
       const factor = e.deltaY > 0 ? 0.9 : 1.1
-      const nextZoom = Math.min(6, Math.max(0.55, camera.zoom * factor))
+      const nextZoom = Math.min(6, Math.max(0.55, cam.zoom * factor))
 
-      // Zoom toward cursor in world space
-      const worldX = camera.x + (mx - rect.width / 2) / camera.zoom
-      const worldY = camera.y + (my - rect.height / 2) / camera.zoom
+      const worldX = cam.x + (mx - rect.width / 2) / cam.zoom
+      const worldY = cam.y + (my - rect.height / 2) / cam.zoom
       const newX = worldX - (mx - rect.width / 2) / nextZoom
       const newY = worldY - (my - rect.height / 2) / nextZoom
-      setCamera({
+      useWallStore.getState().setCamera({
         zoom: nextZoom,
         x: Math.min(WALL_SIZE, Math.max(0, newX)),
         y: Math.min(WALL_SIZE, Math.max(0, newY)),
@@ -57,7 +62,7 @@ export function StickerWall({ placeMode, ghostSize = 50, onPlace }: Props) {
 
     el.addEventListener("wheel", onWheel, { passive: false })
     return () => el.removeEventListener("wheel", onWheel)
-  }, [camera, setCamera])
+  }, [])
 
   const selected = placements.find((p) => p.id === selectedPlacementId)
   const selectedProduct = selected ? getProduct(selected.productId) : undefined
@@ -86,15 +91,10 @@ export function StickerWall({ placeMode, ghostSize = 50, onPlace }: Props) {
           if (Math.abs(dx) + Math.abs(dy) > 3) moved.current = true
           last.current = { x: e.clientX, y: e.clientY }
           if (placeMode) return
+          const cam = useWallStore.getState().camera
           setCamera({
-            x: Math.min(
-              WALL_SIZE,
-              Math.max(0, camera.x - dx / camera.zoom)
-            ),
-            y: Math.min(
-              WALL_SIZE,
-              Math.max(0, camera.y - dy / camera.zoom)
-            ),
+            x: Math.min(WALL_SIZE, Math.max(0, cam.x - dx / cam.zoom)),
+            y: Math.min(WALL_SIZE, Math.max(0, cam.y - dy / cam.zoom)),
           })
         }}
         onPointerUp={(e) => {
@@ -102,19 +102,19 @@ export function StickerWall({ placeMode, ghostSize = 50, onPlace }: Props) {
           dragging.current = false
           setGrabbing(false)
           if (!el) return
+          const cam = useWallStore.getState().camera
 
           if (placeMode && onPlace && !moved.current) {
             const rect = el.getBoundingClientRect()
             const mx = e.clientX - rect.left
             const my = e.clientY - rect.top
-            const worldX = camera.x + (mx - rect.width / 2) / camera.zoom
-            const worldY = camera.y + (my - rect.height / 2) / camera.zoom
+            const worldX = cam.x + (mx - rect.width / 2) / cam.zoom
+            const worldY = cam.y + (my - rect.height / 2) / cam.zoom
             onPlace(worldX - ghostSize / 2, worldY - ghostSize / 2)
             return
           }
 
           if (!moved.current && !placeMode) {
-            // Click empty wall → deselect
             const target = e.target as HTMLElement
             if (target.dataset.placementId) {
               selectPlacement(target.dataset.placementId)
@@ -133,9 +133,7 @@ export function StickerWall({ placeMode, ghostSize = 50, onPlace }: Props) {
           }}
         >
           <div className="wall-board absolute inset-0 overflow-hidden rounded-sm shadow-2xl">
-            {/* subtle grid */}
             <div className="wall-grid pointer-events-none absolute inset-0 opacity-40" />
-            {/* center crosshair hint */}
             <div className="pointer-events-none absolute top-1/2 left-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-ink/20" />
 
             {hydrated

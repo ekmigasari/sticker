@@ -16,11 +16,10 @@ export function WallControls() {
   const focusNewest = useWallStore((s) => s.focusNewest)
   const focusRandom = useWallStore((s) => s.focusRandom)
   const searchJump = useWallStore((s) => s.searchJump)
-  const camera = useWallStore((s) => s.camera)
   const setCamera = useWallStore((s) => s.setCamera)
 
   return (
-    <div className="pointer-events-auto absolute top-3 right-3 left-3 z-20 flex flex-col gap-2 sm:top-4 sm:right-4 sm:left-auto sm:w-[22rem]">
+    <div className="pointer-events-auto absolute top-16 right-3 left-3 z-20 flex flex-col gap-2 sm:top-18 sm:right-4 sm:left-auto sm:w-[22rem]">
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -38,7 +37,7 @@ export function WallControls() {
               setMiss(false)
             }}
             placeholder="Find a maker product…"
-            className="rounded-xl border-border/80 bg-card/95 pl-9 shadow-sm backdrop-blur-md"
+            className="h-10 rounded-xl border border-border/80 bg-card/95 px-3 pl-9 shadow-sm backdrop-blur-md"
           />
         </div>
         <Button type="submit" size="sm" className="rounded-xl">
@@ -77,9 +76,10 @@ export function WallControls() {
             size="icon-sm"
             variant="ghost"
             className="rounded-none"
-            onClick={() =>
-              setCamera({ zoom: Math.max(0.55, camera.zoom * 0.85) })
-            }
+            onClick={() => {
+              const zoom = useWallStore.getState().camera.zoom
+              setCamera({ zoom: Math.max(0.55, zoom * 0.85) })
+            }}
             aria-label="Zoom out"
           >
             <Minus weight="bold" />
@@ -89,9 +89,10 @@ export function WallControls() {
             size="icon-sm"
             variant="ghost"
             className="rounded-none"
-            onClick={() =>
-              setCamera({ zoom: Math.min(6, camera.zoom * 1.15) })
-            }
+            onClick={() => {
+              const zoom = useWallStore.getState().camera.zoom
+              setCamera({ zoom: Math.min(6, zoom * 1.15) })
+            }}
             aria-label="Zoom in"
           >
             <Plus weight="bold" />
