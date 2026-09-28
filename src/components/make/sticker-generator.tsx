@@ -10,7 +10,12 @@ import { motion } from "motion/react"
 import type { StickerFilter, StickerStyle } from "@/domain/types"
 import { STICKER_STYLES } from "@/domain/types"
 import { cn } from "@/lib/utils"
-import { downloadDataUrl, renderSticker } from "@/lib/sticker-process"
+import {
+  downloadDataUrl,
+  getSourceMaxSide,
+  renderSticker,
+  SIZE_DEFAULT,
+} from "@/lib/sticker-process"
 import { useWallStore } from "@/store/wall-store"
 import { EditorToolbar, type EditorTab } from "./editor-toolbar"
 import { FloatingSticker } from "./floating-sticker"
@@ -35,10 +40,13 @@ export function StickerGenerator({ productId }: { productId?: string }) {
 
   const [source, setSource] = useState<string | null>(null)
   const [sourceId, setSourceId] = useState(0)
-  const [style, setStyle] = useState<StickerStyle>("classic")
+  const [sourceMaxSide, setSourceMaxSide] = useState<number | null>(null)
+  const [style, setStyle] = useState<StickerStyle>("none")
   const [filter, setFilter] = useState<StickerFilter>("original")
   const [outlineColor, setOutlineColor] = useState("#FFFFFF")
   const [thickness, setThickness] = useState(16)
+  const [removeBackground, setRemoveBackground] = useState(false)
+  const [sizePx, setSizePx] = useState(SIZE_DEFAULT)
   const [tab, setTab] = useState<EditorTab>("style")
 
   const [preview, setPreview] = useState<string | null>(null)
@@ -55,7 +63,14 @@ export function StickerGenerator({ productId }: { productId?: string }) {
     if (!source) return
     let cancelled = false
     const t = window.setTimeout(() => {
-      renderSticker(source, { style, filter, outlineColor, outlineThickness: thickness })
+      renderSticker(source, {
+        style,
+        filter,
+        outlineColor,
+        outlineThickness: thickness,
+        removeBackground,
+        maxSide: sizePx,
+      })
         .then((url) => {
           if (cancelled) return
           setPreview(url)
@@ -69,7 +84,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [source, style, filter, outlineColor, thickness])
+  }, [source, style, filter, outlineColor, thickness, removeBackground, sizePx])
 
   useEffect(() => {
     if (!source) return
@@ -82,6 +97,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
             filter,
             outlineColor,
             outlineThickness: thickness,
+            removeBackground,
             maxSide: 128,
           }).then((url) => [s, url] as const)
         )
@@ -93,6 +109,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
         filter: "original",
         outlineColor,
         outlineThickness: thickness,
+        removeBackground,
         maxSide: 128,
       }).then((url) => {
         if (!cancelled) setFilterThumb(url)
@@ -102,7 +119,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [source, style, filter, outlineColor, thickness])
+  }, [source, style, filter, outlineColor, thickness, removeBackground])
 
   function onFile(file: File | undefined) {
     if (!file) return
@@ -116,12 +133,18 @@ export function StickerGenerator({ productId }: { productId?: string }) {
     }
     const reader = new FileReader()
     reader.onload = () => {
+      const dataUrl = String(reader.result)
       setError(null)
       setPreview(null)
       setStyleThumbs({})
       setFilterThumb(null)
-      setSource(String(reader.result))
+      setRemoveBackground(false)
+      setSource(dataUrl)
       setSourceId((n) => n + 1)
+      void getSourceMaxSide(dataUrl).then((max) => {
+        setSourceMaxSide(max)
+        setSizePx(Math.min(SIZE_DEFAULT, Math.max(64, max)))
+      })
     }
     reader.readAsDataURL(file)
   }
@@ -130,12 +153,14 @@ export function StickerGenerator({ productId }: { productId?: string }) {
     if (!source) return
     setExporting(true)
     try {
+      // Same maxSide as the on-screen preview so download matches what you see.
       const url = await renderSticker(source, {
         style,
         filter,
         outlineColor,
         outlineThickness: thickness,
-        maxSide: 1200,
+        removeBackground,
+        maxSide: sizePx,
       })
       downloadDataUrl(url, `sticker-${style}.png`)
     } finally {
@@ -152,7 +177,8 @@ export function StickerGenerator({ productId }: { productId?: string }) {
         filter,
         outlineColor,
         outlineThickness: thickness,
-        maxSide: 480,
+        removeBackground,
+        maxSide: Math.min(sizePx, 480),
       })
       setDraftSticker({
         imageDataUrl: url,
@@ -303,12 +329,13 @@ export function StickerGenerator({ productId }: { productId?: string }) {
         </div>
       </header>
 
-      <main className="relative flex min-h-0 flex-1 items-center justify-center px-6 pb-[172px]">
+      <main className="relative flex min-h-0 flex-1 items-center justify-center px-6 pb-[188px]">
         {source ? (
           preview ? (
             <FloatingSticker
               src={preview}
               holo={filter === "glitter"}
+              sizePx={sizePx}
               appearKey={sourceId}
             />
           ) : (
@@ -321,7 +348,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
         {error ? (
           <p
             role="alert"
-            className="absolute bottom-[184px] left-1/2 -translate-x-1/2 rounded-full bg-neutral-900 px-4 py-2 text-[13px] font-medium text-white"
+            className="absolute bottom-[200px] left-1/2 -translate-x-1/2 rounded-full bg-neutral-900 px-4 py-2 text-[13px] font-medium text-white"
           >
             {error}
           </p>
@@ -343,6 +370,11 @@ export function StickerGenerator({ productId }: { productId?: string }) {
           onOutlineColorChange={setOutlineColor}
           thickness={thickness}
           onThicknessChange={setThickness}
+          removeBackground={removeBackground}
+          onRemoveBackgroundChange={setRemoveBackground}
+          sizePx={sizePx}
+          onSizePxChange={setSizePx}
+          sourceMaxSide={sourceMaxSide}
         />
       </div>
 
@@ -387,7 +419,7 @@ function EmptyState({ inputId }: { inputId: string }) {
         Add an image
       </span>
       <span className="mt-1.5 max-w-[260px] text-[15px] leading-snug text-neutral-500">
-        Logo, product, or artwork. The background is removed for you.
+        Logo, product, or artwork. Remove the background anytime from Style.
       </span>
       <span className="mt-6 inline-flex h-11 items-center rounded-full bg-neutral-900 px-6 text-[15px] font-semibold text-white">
         Choose Photo

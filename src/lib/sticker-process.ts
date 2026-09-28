@@ -8,9 +8,14 @@ export type RenderOptions = {
   outlineThickness: number
   /** Longest side of the subject in output pixels. */
   maxSide?: number
+  /** When true, flood-fill remove a solid backdrop. PNGs with alpha always keep their cutout. */
+  removeBackground?: boolean
 }
 
 const BASELINE = 640
+export const SIZE_MIN = 64
+export const SIZE_MAX = 2000
+export const SIZE_DEFAULT = 640
 
 type Canvas = HTMLCanvasElement
 
@@ -226,20 +231,32 @@ function roundedClip(src: Canvas): Canvas {
 
 const subjectCache = new Map<string, Promise<Canvas>>()
 
-function prepareSubject(source: string, maxSide: number): Promise<Canvas> {
-  const key = `${maxSide}|${source}`
+function prepareSubject(
+  source: string,
+  maxSide: number,
+  cutBackground: boolean
+): Promise<Canvas> {
+  const key = `${maxSide}|${cutBackground ? 1 : 0}|${source}`
   const hit = subjectCache.get(key)
   if (hit) return hit
 
   const job = loadImage(source).then((img) => {
-    const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
+    // Allow upscaling when the user asks for a larger sticker size.
+    const scale = maxSide / Math.max(img.width, img.height)
     const c = makeCanvas(img.width * scale, img.height * scale)
     const ctx = ctx2d(c)
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = "high"
     ctx.drawImage(img, 0, 0, c.width, c.height)
     const data = ctx.getImageData(0, 0, c.width, c.height)
 
+    // PNGs (and any image with a clear border) keep an object-shaped cutout
+    // so outlines follow the subject instead of a square frame.
     if (hasTransparentBorder(data.data, c.width, c.height)) {
       return trim(c)
+    }
+    if (!cutBackground) {
+      return c
     }
     const removed = removeBackground(data)
     ctx.putImageData(data, 0, 0)
@@ -253,6 +270,12 @@ function prepareSubject(source: string, maxSide: number): Promise<Canvas> {
     if (first) subjectCache.delete(first)
   }
   return job
+}
+
+/** Longest side of the source image in pixels (natural size). */
+export async function getSourceMaxSide(source: string): Promise<number> {
+  const img = await loadImage(source)
+  return Math.max(img.width, img.height)
 }
 
 /* ------------------------------------------------------------------ */
@@ -341,6 +364,14 @@ function grain(c: Canvas, amount: number, seed: number) {
 /* ------------------------------------------------------------------ */
 
 type Composed = { base: Canvas; subjectX: number; subjectY: number }
+
+/** No outline — subject alone, with a 1px hairline for light artwork. */
+function composeNone(subject: Canvas): Composed {
+  const pad = 2
+  const base = makeCanvas(subject.width + pad * 2, subject.height + pad * 2)
+  // Transparent base; hairline is drawn later from the subject mask.
+  return { base, subjectX: pad, subjectY: pad }
+}
 
 function composeClassic(subject: Canvas, t: number, color: string): Composed {
   const r = Math.max(2, t)
@@ -473,7 +504,13 @@ function clamp255(v: number) {
 }
 
 function toneFilter(c: Canvas, filter: StickerFilter) {
-  if (filter === "original" || filter === "glitter") return
+  if (
+    filter === "original" ||
+    filter === "glitter" ||
+    filter === "glow"
+  ) {
+    return
+  }
   const ctx = ctx2d(c)
   const img = ctx.getImageData(0, 0, c.width, c.height)
   const { data } = img
@@ -509,6 +546,26 @@ function toneFilter(c: Canvas, filter: StickerFilter) {
         break
       case "noir":
         r = g = b = (gray - 128) * 1.55 + 118
+        break
+      case "red":
+        r = gray * 1.15 + 40
+        g = gray * 0.25
+        b = gray * 0.2
+        break
+      case "blue":
+        r = gray * 0.2
+        g = gray * 0.45
+        b = gray * 1.2 + 35
+        break
+      case "green":
+        r = gray * 0.25
+        g = gray * 1.15 + 30
+        b = gray * 0.35
+        break
+      case "yellow":
+        r = gray * 1.1 + 45
+        g = gray * 1.05 + 35
+        b = gray * 0.25
         break
     }
     data[i] = clamp255(r)
@@ -588,6 +645,52 @@ function glitter(c: Canvas) {
   ctx.putImageData(img, 0, 0)
 }
 
+/**
+ * Glossy vinyl sheen: soft specular highlights + slight contrast lift so the
+ * sticker reads like laminated sticker stock.
+ */
+function glow(c: Canvas) {
+  const ctx = ctx2d(c)
+  const img = ctx.getImageData(0, 0, c.width, c.height)
+  const { data, width: w, height: h } = img
+  const cx = w * 0.32
+  const cy = h * 0.28
+  const radius = Math.hypot(w, h) * 0.55
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const o = (y * w + x) * 4
+      if (data[o + 3] === 0) continue
+      let r = data[o]
+      let g = data[o + 1]
+      let b = data[o + 2]
+
+      // Mild contrast so the vinyl base looks punchier.
+      r = (r - 128) * 1.12 + 128
+      g = (g - 128) * 1.12 + 128
+      b = (b - 128) * 1.12 + 128
+
+      const dist = Math.hypot(x - cx, y - cy) / radius
+      const sheen = Math.max(0, 1 - dist)
+      const gloss = sheen * sheen * 0.42
+      r += (255 - r) * gloss
+      g += (255 - g) * gloss
+      b += (255 - b) * gloss
+
+      // Secondary rim light from the opposite corner.
+      const rim = Math.max(0, (x / w + y / h) * 0.5 - 0.55) * 0.25
+      r += (255 - r) * rim
+      g += (255 - g) * rim
+      b += (255 - b) * rim
+
+      data[o] = clamp255(r)
+      data[o + 1] = clamp255(g)
+      data[o + 2] = clamp255(b)
+    }
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
 /* ------------------------------------------------------------------ */
 /* Public API                                                         */
 /* ------------------------------------------------------------------ */
@@ -597,40 +700,62 @@ export async function renderSticker(
   options: RenderOptions
 ): Promise<string> {
   const maxSide = options.maxSide ?? BASELINE
-  const subject = await prepareSubject(source, maxSide)
+  const subject = await prepareSubject(
+    source,
+    maxSide,
+    Boolean(options.removeBackground)
+  )
   const t = options.outlineThickness * (maxSide / BASELINE)
 
   const composed =
-    options.style === "stamp"
-      ? composeStamp(subject, t, options.outlineColor)
-      : options.style === "rough"
-        ? composeRough(subject, t, options.outlineColor)
-        : composeClassic(subject, t, options.outlineColor)
+    options.style === "none"
+      ? composeNone(subject)
+      : options.style === "stamp"
+        ? composeStamp(subject, t, options.outlineColor)
+        : options.style === "rough"
+          ? composeRough(subject, t, options.outlineColor)
+          : composeClassic(subject, t, options.outlineColor)
 
   const { base } = composed
-  const hairPad = 2
+  const hairPad = options.style === "none" ? 0 : 2
   const out = makeCanvas(base.width + hairPad * 2, base.height + hairPad * 2)
   const ctx = ctx2d(out)
 
-  // A faint cut line keeps light-coloured stickers legible on white.
-  const hair = tint(base, "rgba(0,0,0,0.09)")
-  for (const [dx, dy] of [
-    [-1, 0],
-    [1, 0],
-    [0, -1],
-    [0, 1],
-  ]) {
-    ctx.drawImage(hair, hairPad + dx, hairPad + dy)
+  if (options.style === "none") {
+    // Soft cut line from the subject alpha so light stickers stay legible.
+    const mask = dilate(subject, 0, 2)
+    const hair = tint(mask, "rgba(0,0,0,0.08)")
+    for (const [dx, dy] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ]) {
+      ctx.drawImage(hair, composed.subjectX - 2 + dx, composed.subjectY - 2 + dy)
+    }
+    ctx.drawImage(subject, composed.subjectX, composed.subjectY)
+  } else {
+    // A faint cut line keeps light-coloured stickers legible on white.
+    const hair = tint(base, "rgba(0,0,0,0.09)")
+    for (const [dx, dy] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ]) {
+      ctx.drawImage(hair, hairPad + dx, hairPad + dy)
+    }
+    ctx.drawImage(base, hairPad, hairPad)
+    ctx.drawImage(
+      subject,
+      hairPad + composed.subjectX,
+      hairPad + composed.subjectY
+    )
   }
-  ctx.drawImage(base, hairPad, hairPad)
-  ctx.drawImage(
-    subject,
-    hairPad + composed.subjectX,
-    hairPad + composed.subjectY
-  )
 
   toneFilter(out, options.filter)
   if (options.filter === "glitter") glitter(out)
+  if (options.filter === "glow") glow(out)
 
   return out.toDataURL("image/png")
 }
