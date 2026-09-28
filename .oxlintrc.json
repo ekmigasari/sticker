@@ -17,6 +17,12 @@
         "react/no-unstable-nested-components": "off",
         "react/set-state-in-effect": "off"
       }
+    },
+    {
+      "files": ["src/lib/product-api.ts", "src/lib/products.ts", "src/routes/api/products/**/*.ts"],
+      "rules": {
+        "no-underscore-dangle": "off"
+      }
     }
   ],
   "ignorePatterns": [

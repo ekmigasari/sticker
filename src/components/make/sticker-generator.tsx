@@ -17,7 +17,16 @@ import { FloatingSticker } from "./floating-sticker"
 
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 
-export function StickerGenerator() {
+function dataUrlToFile(dataUrl: string, fileName: string) {
+  const [header, data] = dataUrl.split(",")
+  const mime = /data:(.*?);/.exec(header)?.[1] || "image/png"
+  const binary = atob(data)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+  return new File([bytes], fileName, { type: mime })
+}
+
+export function StickerGenerator({ productId }: { productId?: string }) {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
@@ -40,6 +49,7 @@ export function StickerGenerator() {
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const savingToProduct = Boolean(productId)
 
   useEffect(() => {
     if (!source) return
@@ -158,6 +168,52 @@ export function StickerGenerator() {
     }
   }
 
+  async function handleSaveToProduct() {
+    if (!source || !productId) return
+    setExporting(true)
+    setError(null)
+    try {
+      const url = await renderSticker(source, {
+        style,
+        filter,
+        outlineColor,
+        outlineThickness: thickness,
+        maxSide: 1200,
+      })
+      const file = dataUrlToFile(url, `sticker-${style}.png`)
+      const form = new FormData()
+      form.set("file", file)
+      form.set("style", style)
+      form.set("filter", filter)
+      form.set("outlineColor", outlineColor)
+      form.set("outlineThickness", String(thickness))
+
+      const response = await fetch(`/api/products/${productId}/stickers`, {
+        method: "POST",
+        body: form,
+      })
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string
+        } | null
+        if (response.status === 401) {
+          setError("Sign in to save stickers to a product.")
+          void navigate({ to: "/sign-in" })
+          return
+        }
+        setError(payload?.error ?? "Could not save sticker.")
+        return
+      }
+
+      void navigate({
+        to: "/dashboard/products/$id",
+        params: { id: productId },
+      })
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const ready = Boolean(source && preview)
 
   return (
@@ -177,13 +233,24 @@ export function StickerGenerator() {
       }}
     >
       <header className="relative z-20 flex h-14 shrink-0 items-center justify-between px-3 pt-[env(safe-area-inset-top)] sm:px-5">
-        <Link
-          to="/"
-          aria-label="Back to wall"
-          className="press grid size-10 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07]"
-        >
-          <CaretLeft weight="bold" className="size-[18px]" />
-        </Link>
+        {savingToProduct && productId ? (
+          <Link
+            to="/dashboard/products/$id"
+            params={{ id: productId }}
+            aria-label="Back to product"
+            className="press grid size-10 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07]"
+          >
+            <CaretLeft weight="bold" className="size-[18px]" />
+          </Link>
+        ) : (
+          <Link
+            to="/"
+            aria-label="Back to wall"
+            className="press grid size-10 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07]"
+          >
+            <CaretLeft weight="bold" className="size-[18px]" />
+          </Link>
+        )}
 
         <h1
           className={cn(
@@ -191,7 +258,7 @@ export function StickerGenerator() {
             source && "hidden sm:block"
           )}
         >
-          New Sticker
+          {savingToProduct ? "Save to product" : "New Sticker"}
         </h1>
 
         <div className="flex items-center gap-2">
@@ -214,14 +281,25 @@ export function StickerGenerator() {
           >
             <DownloadSimple weight="bold" className="size-[18px]" />
           </button>
-          <button
-            type="button"
-            disabled={!ready || exporting}
-            onClick={() => void handlePlace()}
-            className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity disabled:opacity-35"
-          >
-            Place
-          </button>
+          {savingToProduct ? (
+            <button
+              type="button"
+              disabled={!ready || exporting}
+              onClick={() => void handleSaveToProduct()}
+              className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity disabled:opacity-35"
+            >
+              {exporting ? "Saving…" : "Save"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={!ready || exporting}
+              onClick={() => void handlePlace()}
+              className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity disabled:opacity-35"
+            >
+              Place
+            </button>
+          )}
         </div>
       </header>
 

@@ -16,11 +16,19 @@ import { Route as MakeRouteImport } from './routes/make'
 import { Route as PlaceRouteImport } from './routes/place'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dashboard'
 import { Route as ProtectedFilesRouteImport } from './routes/_protected/files'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
+import { Route as ProtectedDashboardIndexRouteImport } from './routes/_protected/dashboard/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiProductsIndexRouteImport } from './routes/api/products/index'
+import { Route as ApiProductsIdRouteImport } from './routes/api/products/$id'
+import { Route as ApiStickersIdRouteImport } from './routes/api/stickers/$id'
 import { Route as ApiUploadsIndexRouteImport } from './routes/api/uploads/index'
 import { Route as ApiUploadsIdRouteImport } from './routes/api/uploads/$id'
+import { Route as ProtectedDashboardProductsIdRouteImport } from './routes/_protected/dashboard/products.$id'
+import { Route as ApiProductsIdStickersRouteImport } from './routes/api/products/$id.stickers'
+import { Route as ApiStickersIdImageRouteImport } from './routes/api/stickers/$id.image'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -56,6 +64,11 @@ const SignUpRoute = SignUpRouteImport.update({
   path: '/sign-up',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProtectedDashboardRoute = ProtectedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 const ProtectedFilesRoute = ProtectedFilesRouteImport.update({
   id: '/files',
   path: '/files',
@@ -66,9 +79,29 @@ const ProductIdRoute = ProductIdRouteImport.update({
   path: '/product/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProtectedDashboardIndexRoute = ProtectedDashboardIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProtectedDashboardRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProductsIndexRoute = ApiProductsIndexRouteImport.update({
+  id: '/api/products/',
+  path: '/api/products/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProductsIdRoute = ApiProductsIdRouteImport.update({
+  id: '/api/products/$id',
+  path: '/api/products/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStickersIdRoute = ApiStickersIdRouteImport.update({
+  id: '/api/stickers/$id',
+  path: '/api/stickers/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiUploadsIndexRoute = ApiUploadsIndexRouteImport.update({
@@ -81,6 +114,22 @@ const ApiUploadsIdRoute = ApiUploadsIdRouteImport.update({
   path: '/api/uploads/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProtectedDashboardProductsIdRoute =
+  ProtectedDashboardProductsIdRouteImport.update({
+    id: '/products/$id',
+    path: '/products/$id',
+    getParentRoute: () => ProtectedDashboardRoute,
+  } as any)
+const ApiProductsIdStickersRoute = ApiProductsIdStickersRouteImport.update({
+  id: '/stickers',
+  path: '/stickers',
+  getParentRoute: () => ApiProductsIdRoute,
+} as any)
+const ApiStickersIdImageRoute = ApiStickersIdImageRouteImport.update({
+  id: '/image',
+  path: '/image',
+  getParentRoute: () => ApiStickersIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,11 +138,19 @@ export interface FileRoutesByFullPath {
   '/place': typeof PlaceRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/dashboard': typeof ProtectedDashboardRouteWithChildren
   '/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/products/$id': typeof ApiProductsIdRouteWithChildren
+  '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
+  '/dashboard/': typeof ProtectedDashboardIndexRoute
+  '/api/products/': typeof ApiProductsIndexRoute
   '/api/uploads/': typeof ApiUploadsIndexRoute
+  '/dashboard/products/$id': typeof ProtectedDashboardProductsIdRoute
+  '/api/products/$id/stickers': typeof ApiProductsIdStickersRoute
+  '/api/stickers/$id/image': typeof ApiStickersIdImageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -105,8 +162,15 @@ export interface FileRoutesByTo {
   '/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/products/$id': typeof ApiProductsIdRouteWithChildren
+  '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
+  '/dashboard': typeof ProtectedDashboardIndexRoute
+  '/api/products': typeof ApiProductsIndexRoute
   '/api/uploads': typeof ApiUploadsIndexRoute
+  '/dashboard/products/$id': typeof ProtectedDashboardProductsIdRoute
+  '/api/products/$id/stickers': typeof ApiProductsIdStickersRoute
+  '/api/stickers/$id/image': typeof ApiStickersIdImageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -117,11 +181,19 @@ export interface FileRoutesById {
   '/place': typeof PlaceRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/_protected/dashboard': typeof ProtectedDashboardRouteWithChildren
   '/_protected/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/products/$id': typeof ApiProductsIdRouteWithChildren
+  '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
+  '/_protected/dashboard/': typeof ProtectedDashboardIndexRoute
+  '/api/products/': typeof ApiProductsIndexRoute
   '/api/uploads/': typeof ApiUploadsIndexRoute
+  '/_protected/dashboard/products/$id': typeof ProtectedDashboardProductsIdRoute
+  '/api/products/$id/stickers': typeof ApiProductsIdStickersRoute
+  '/api/stickers/$id/image': typeof ApiStickersIdImageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -132,11 +204,19 @@ export interface FileRouteTypes {
     | '/place'
     | '/sign-in'
     | '/sign-up'
+    | '/dashboard'
     | '/files'
     | '/product/$id'
     | '/api/auth/$'
+    | '/api/products/$id'
+    | '/api/stickers/$id'
     | '/api/uploads/$id'
+    | '/dashboard/'
+    | '/api/products/'
     | '/api/uploads/'
+    | '/dashboard/products/$id'
+    | '/api/products/$id/stickers'
+    | '/api/stickers/$id/image'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -148,8 +228,15 @@ export interface FileRouteTypes {
     | '/files'
     | '/product/$id'
     | '/api/auth/$'
+    | '/api/products/$id'
+    | '/api/stickers/$id'
     | '/api/uploads/$id'
+    | '/dashboard'
+    | '/api/products'
     | '/api/uploads'
+    | '/dashboard/products/$id'
+    | '/api/products/$id/stickers'
+    | '/api/stickers/$id/image'
   id:
     | '__root__'
     | '/'
@@ -159,11 +246,19 @@ export interface FileRouteTypes {
     | '/place'
     | '/sign-in'
     | '/sign-up'
+    | '/_protected/dashboard'
     | '/_protected/files'
     | '/product/$id'
     | '/api/auth/$'
+    | '/api/products/$id'
+    | '/api/stickers/$id'
     | '/api/uploads/$id'
+    | '/_protected/dashboard/'
+    | '/api/products/'
     | '/api/uploads/'
+    | '/_protected/dashboard/products/$id'
+    | '/api/products/$id/stickers'
+    | '/api/stickers/$id/image'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -176,7 +271,10 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   ProductIdRoute: typeof ProductIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiProductsIdRoute: typeof ApiProductsIdRouteWithChildren
+  ApiStickersIdRoute: typeof ApiStickersIdRouteWithChildren
   ApiUploadsIdRoute: typeof ApiUploadsIdRoute
+  ApiProductsIndexRoute: typeof ApiProductsIndexRoute
   ApiUploadsIndexRoute: typeof ApiUploadsIndexRoute
 }
 
@@ -231,6 +329,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignUpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_protected/dashboard': {
+      id: '/_protected/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof ProtectedDashboardRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/_protected/files': {
       id: '/_protected/files'
       path: '/files'
@@ -245,11 +350,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProductIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_protected/dashboard/': {
+      id: '/_protected/dashboard/'
+      path: '/'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof ProtectedDashboardIndexRouteImport
+      parentRoute: typeof ProtectedDashboardRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/products/': {
+      id: '/api/products/'
+      path: '/api/products'
+      fullPath: '/api/products/'
+      preLoaderRoute: typeof ApiProductsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/products/$id': {
+      id: '/api/products/$id'
+      path: '/api/products/$id'
+      fullPath: '/api/products/$id'
+      preLoaderRoute: typeof ApiProductsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/stickers/$id': {
+      id: '/api/stickers/$id'
+      path: '/api/stickers/$id'
+      fullPath: '/api/stickers/$id'
+      preLoaderRoute: typeof ApiStickersIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/uploads/': {
@@ -266,19 +399,79 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiUploadsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_protected/dashboard/products/$id': {
+      id: '/_protected/dashboard/products/$id'
+      path: '/products/$id'
+      fullPath: '/dashboard/products/$id'
+      preLoaderRoute: typeof ProtectedDashboardProductsIdRouteImport
+      parentRoute: typeof ProtectedDashboardRoute
+    }
+    '/api/products/$id/stickers': {
+      id: '/api/products/$id/stickers'
+      path: '/stickers'
+      fullPath: '/api/products/$id/stickers'
+      preLoaderRoute: typeof ApiProductsIdStickersRouteImport
+      parentRoute: typeof ApiProductsIdRoute
+    }
+    '/api/stickers/$id/image': {
+      id: '/api/stickers/$id/image'
+      path: '/image'
+      fullPath: '/api/stickers/$id/image'
+      preLoaderRoute: typeof ApiStickersIdImageRouteImport
+      parentRoute: typeof ApiStickersIdRoute
+    }
   }
 }
 
+interface ProtectedDashboardRouteChildren {
+  ProtectedDashboardIndexRoute: typeof ProtectedDashboardIndexRoute
+  ProtectedDashboardProductsIdRoute: typeof ProtectedDashboardProductsIdRoute
+}
+
+const ProtectedDashboardRouteChildren: ProtectedDashboardRouteChildren = {
+  ProtectedDashboardIndexRoute: ProtectedDashboardIndexRoute,
+  ProtectedDashboardProductsIdRoute: ProtectedDashboardProductsIdRoute,
+}
+
+const ProtectedDashboardRouteWithChildren =
+  ProtectedDashboardRoute._addFileChildren(ProtectedDashboardRouteChildren)
+
 interface ProtectedRouteChildren {
+  ProtectedDashboardRoute: typeof ProtectedDashboardRouteWithChildren
   ProtectedFilesRoute: typeof ProtectedFilesRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
+  ProtectedDashboardRoute: ProtectedDashboardRouteWithChildren,
   ProtectedFilesRoute: ProtectedFilesRoute,
 }
 
 const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
   ProtectedRouteChildren,
+)
+
+interface ApiProductsIdRouteChildren {
+  ApiProductsIdStickersRoute: typeof ApiProductsIdStickersRoute
+}
+
+const ApiProductsIdRouteChildren: ApiProductsIdRouteChildren = {
+  ApiProductsIdStickersRoute: ApiProductsIdStickersRoute,
+}
+
+const ApiProductsIdRouteWithChildren = ApiProductsIdRoute._addFileChildren(
+  ApiProductsIdRouteChildren,
+)
+
+interface ApiStickersIdRouteChildren {
+  ApiStickersIdImageRoute: typeof ApiStickersIdImageRoute
+}
+
+const ApiStickersIdRouteChildren: ApiStickersIdRouteChildren = {
+  ApiStickersIdImageRoute: ApiStickersIdImageRoute,
+}
+
+const ApiStickersIdRouteWithChildren = ApiStickersIdRoute._addFileChildren(
+  ApiStickersIdRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
@@ -291,7 +484,10 @@ const rootRouteChildren: RootRouteChildren = {
   SignUpRoute: SignUpRoute,
   ProductIdRoute: ProductIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiProductsIdRoute: ApiProductsIdRouteWithChildren,
+  ApiStickersIdRoute: ApiStickersIdRouteWithChildren,
   ApiUploadsIdRoute: ApiUploadsIdRoute,
+  ApiProductsIndexRoute: ApiProductsIndexRoute,
   ApiUploadsIndexRoute: ApiUploadsIndexRoute,
 }
 export const routeTree = rootRouteImport

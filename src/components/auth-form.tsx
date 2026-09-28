@@ -32,7 +32,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     }
 
     await router.invalidate()
-    await navigate({ to: "/files" })
+    await navigate({ to: "/dashboard" })
   }
 
   return (

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { auth } from "@/lib/auth"
 import { contentDisposition } from "@/lib/files"
 import { prisma } from "@/lib/prisma"
-import { getObject } from "@/lib/s3"
+import { getObjectStream } from "@/lib/s3"
 
 export const Route = createFileRoute("/api/uploads/$id")({
   server: {
@@ -20,15 +20,17 @@ export const Route = createFileRoute("/api/uploads/$id")({
           return Response.json({ error: "File not found." }, { status: 404 })
         }
 
-        const body = await getObject(upload.key)
-        if (!body) {
+        let stream: ReadableStream
+        try {
+          stream = await getObjectStream(upload.key)
+        } catch {
           return Response.json(
             { error: "File is missing from storage." },
             { status: 404 }
           )
         }
 
-        return new Response(body.transformToWebStream(), {
+        return new Response(stream, {
           headers: {
             "content-type": upload.contentType,
             "content-length": String(upload.sizeBytes),
