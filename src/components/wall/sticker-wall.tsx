@@ -11,6 +11,8 @@ type Props = {
   onPlace?: (x: number, y: number) => void
   /** Hide search/zoom chrome (e.g. while the landing hero is up). */
   hideControls?: boolean
+  /** Hide placed stickers (e.g. while the landing hero is up). */
+  hideStickers?: boolean
 }
 
 export function StickerWall({
@@ -18,6 +20,7 @@ export function StickerWall({
   ghostSize = 50,
   onPlace,
   hideControls,
+  hideStickers,
 }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
@@ -76,15 +79,21 @@ export function StickerWall({
   const selectedSticker = selected ? getSticker(selected.stickerId) : undefined
 
   return (
-    <div className="relative h-[min(100dvh,100svh)] w-full overflow-hidden bg-[#f5f5f7]">
+    <div className="relative h-[min(100dvh,100svh)] w-full overflow-hidden bg-white">
       <div
         ref={viewportRef}
         className="absolute inset-0 touch-none select-none"
         style={{
-          cursor: placeMode ? "crosshair" : grabbing ? "grabbing" : "grab",
+          cursor: placeMode
+            ? "crosshair"
+            : hideStickers
+              ? "default"
+              : grabbing
+                ? "grabbing"
+                : "grab",
         }}
         onPointerDown={(e) => {
-          if (e.button !== 0) return
+          if (e.button !== 0 || hideStickers) return
           dragging.current = true
           setGrabbing(true)
           moved.current = false
@@ -92,7 +101,7 @@ export function StickerWall({
           ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
         }}
         onPointerMove={(e) => {
-          if (!dragging.current) return
+          if (!dragging.current || hideStickers) return
           const dx = e.clientX - last.current.x
           const dy = e.clientY - last.current.y
           if (Math.abs(dx) + Math.abs(dy) > 3) moved.current = true
@@ -108,7 +117,7 @@ export function StickerWall({
           const el = viewportRef.current
           dragging.current = false
           setGrabbing(false)
-          if (!el) return
+          if (!el || hideStickers) return
           const cam = useWallStore.getState().camera
 
           if (placeMode && onPlace && !moved.current) {
@@ -139,11 +148,9 @@ export function StickerWall({
             transform: `translate(-50%, -50%) translate(${(WALL_SIZE / 2 - camera.x) * camera.zoom}px, ${(WALL_SIZE / 2 - camera.y) * camera.zoom}px) scale(${camera.zoom})`,
           }}
         >
-          <div className="wall-board absolute inset-0 overflow-hidden rounded-2xl">
-            <div className="wall-grid pointer-events-none absolute inset-0 opacity-50" />
-            <div className="pointer-events-none absolute top-1/2 left-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-300/80" />
-
-            {hydrated
+          {/* Infinite plane that blends into the page background — no board chrome */}
+          <div className="absolute inset-0">
+            {hydrated && !hideStickers
               ? placements.map((p) => {
                   const sticker = getSticker(p.stickerId)
                   if (!sticker) return null
@@ -153,7 +160,7 @@ export function StickerWall({
                       key={p.id}
                       type="button"
                       data-placement-id={p.id}
-                      className="absolute overflow-visible bg-transparent p-0 transition-transform hover:scale-[1.03] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                      className="absolute overflow-visible bg-transparent p-0 transition-transform hover:scale-[1.03] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-400"
                       style={{
                         left: p.x,
                         top: p.y,
@@ -182,7 +189,7 @@ export function StickerWall({
 
             {placeMode ? (
               <div
-                className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-dashed border-neutral-900/20"
+                className="pointer-events-none absolute inset-0 border-2 border-dashed border-neutral-900/15"
                 aria-hidden
               />
             ) : null}

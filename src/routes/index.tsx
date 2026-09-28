@@ -11,28 +11,21 @@ function Home() {
 
   return (
     <AppChrome variant="wall">
-      <div
-        onPointerDownCapture={() => {
-          if (heroVisible) setHeroVisible(false)
-        }}
-      >
-        <StickerWall hideControls={heroVisible} />
-      </div>
+      <StickerWall
+        hideControls={heroVisible}
+        hideStickers={heroVisible}
+      />
 
       <AnimatePresence>
         {heroVisible ? (
           <motion.div
             data-ui-chrome
-            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-6"
+            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-white px-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, y: 8 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
           >
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(245,245,247,0.92)_0%,rgba(245,245,247,0.55)_42%,transparent_70%)]"
-            />
             <motion.div
               className="pointer-events-auto relative flex max-w-lg flex-col items-center text-center"
               initial={{ opacity: 0, y: 14 }}
@@ -43,7 +36,6 @@ function Home() {
                 duration: 0.45,
                 ease: [0.23, 1, 0.32, 1],
               }}
-              onPointerDown={(e) => e.stopPropagation()}
             >
               <h1 className="font-ui text-[48px] leading-none font-semibold tracking-[-0.035em] text-neutral-900 sm:text-[64px]">
                 Netkraft

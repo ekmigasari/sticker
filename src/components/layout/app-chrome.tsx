@@ -15,7 +15,7 @@ export function AppChrome({ children, variant = "page" }: Props) {
     <div
       className={cn(
         "font-ui relative min-h-svh text-neutral-900 antialiased",
-        variant === "wall" ? "bg-[#f5f5f7]" : "bg-white"
+        "bg-white"
       )}
     >
       <header
