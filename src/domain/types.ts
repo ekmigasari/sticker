@@ -57,13 +57,26 @@ export type Placement = {
   createdAt: string
 }
 
+export const STICKER_STYLES = ["classic", "stamp", "rough"] as const
+export type StickerStyle = (typeof STICKER_STYLES)[number]
+
+export const STICKER_FILTERS = [
+  "original",
+  "glitter",
+  "vivid",
+  "warm",
+  "cool",
+  "mono",
+  "noir",
+] as const
+export type StickerFilter = (typeof STICKER_FILTERS)[number]
+
 export type DraftSticker = {
   imageDataUrl: string
+  style: StickerStyle
+  filter: StickerFilter
   outlineColor: string
   outlineThickness: number
-  shadow: boolean
-  background: "transparent" | "checker" | "solid"
-  backgroundColor: string
 }
 
 export type PlaceDraft = {

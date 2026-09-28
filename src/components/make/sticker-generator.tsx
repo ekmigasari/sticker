@@ -1,343 +1,314 @@
-import { useEffect, useId, useState, type CSSProperties } from "react"
-import { DownloadSimple, UploadSimple, Wall } from "@phosphor-icons/react"
-import { useNavigate } from "@tanstack/react-router"
-import { motion } from "motion/react"
-import { Button, buttonVariants } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Slider } from "@/components/ui/slider"
-import { Switch } from "@/components/ui/switch"
-import { cn } from "@/lib/utils"
+import { useEffect, useId, useRef, useState } from "react"
+import { Link, useNavigate } from "@tanstack/react-router"
 import {
-  downloadDataUrl,
-  renderClassicSticker,
-} from "@/lib/sticker-process"
+  CaretLeft,
+  DownloadSimple,
+  ImageSquare,
+  Plus,
+} from "@phosphor-icons/react"
+import { motion } from "motion/react"
+import type { StickerFilter, StickerStyle } from "@/domain/types"
+import { STICKER_STYLES } from "@/domain/types"
+import { cn } from "@/lib/utils"
+import { downloadDataUrl, renderSticker } from "@/lib/sticker-process"
 import { useWallStore } from "@/store/wall-store"
-import type { DraftSticker } from "@/domain/types"
+import { EditorToolbar, type EditorTab } from "./editor-toolbar"
+import { FloatingSticker } from "./floating-sticker"
 
-const OUTLINE_PRESETS = ["#ffffff", "#111111", "#0f766e", "#be123c", "#1d4ed8", "#b45309"]
+const MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 
 export function StickerGenerator() {
   const inputId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const setDraftSticker = useWallStore((s) => s.setDraftSticker)
   const setPlaceDraft = useWallStore((s) => s.setPlaceDraft)
 
   const [source, setSource] = useState<string | null>(null)
-  const [outlineColor, setOutlineColor] = useState("#ffffff")
-  const [outlineThickness, setOutlineThickness] = useState(14)
-  const [shadow, setShadow] = useState(true)
-  const [punchBg, setPunchBg] = useState(true)
-  const [previewBg, setPreviewBg] = useState<"checker" | "solid" | "transparent">(
-    "checker"
-  )
-  const [solidBg, setSolidBg] = useState("#f4e7c8")
+  const [sourceId, setSourceId] = useState(0)
+  const [style, setStyle] = useState<StickerStyle>("classic")
+  const [filter, setFilter] = useState<StickerFilter>("original")
+  const [outlineColor, setOutlineColor] = useState("#FFFFFF")
+  const [thickness, setThickness] = useState(16)
+  const [tab, setTab] = useState<EditorTab>("style")
+
   const [preview, setPreview] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [styleThumbs, setStyleThumbs] = useState<
+    Partial<Record<StickerStyle, string>>
+  >({})
+  const [filterThumb, setFilterThumb] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
 
   useEffect(() => {
     if (!source) return
     let cancelled = false
     const t = window.setTimeout(() => {
-      void renderClassicSticker(source, {
-        outlineColor,
-        outlineThickness,
-        shadow,
-        punchLightBackground: punchBg,
-        watermark: false,
-        solidBackground: null,
-      })
+      renderSticker(source, { style, filter, outlineColor, outlineThickness: thickness })
         .then((url) => {
-          if (!cancelled) {
-            setPreview(url)
-            setError(null)
-            setBusy(false)
-          }
+          if (cancelled) return
+          setPreview(url)
+          setError(null)
         })
         .catch(() => {
-          if (!cancelled) {
-            setError("Could not process that image.")
-            setBusy(false)
-          }
+          if (!cancelled) setError("That image couldn't be processed.")
         })
-    }, 80)
+    }, 40)
     return () => {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [source, outlineColor, outlineThickness, shadow, punchBg])
+  }, [source, style, filter, outlineColor, thickness])
+
+  useEffect(() => {
+    if (!source) return
+    let cancelled = false
+    const t = window.setTimeout(() => {
+      void Promise.all(
+        STICKER_STYLES.map((s) =>
+          renderSticker(source, {
+            style: s,
+            filter,
+            outlineColor,
+            outlineThickness: thickness,
+            maxSide: 128,
+          }).then((url) => [s, url] as const)
+        )
+      ).then((entries) => {
+        if (!cancelled) setStyleThumbs(Object.fromEntries(entries))
+      })
+      void renderSticker(source, {
+        style,
+        filter: "original",
+        outlineColor,
+        outlineThickness: thickness,
+        maxSide: 128,
+      }).then((url) => {
+        if (!cancelled) setFilterThumb(url)
+      })
+    }, 180)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [source, style, filter, outlineColor, thickness])
 
   function onFile(file: File | undefined) {
     if (!file) return
     if (!file.type.startsWith("image/")) {
-      setError("Please upload an image file.")
+      setError("Choose a PNG, JPG, or WebP image.")
       return
     }
-    if (file.size > 8 * 1024 * 1024) {
-      setError("Keep uploads under 8MB.")
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError("Images need to be under 12 MB.")
       return
     }
     const reader = new FileReader()
     reader.onload = () => {
-      setBusy(true)
+      setError(null)
       setPreview(null)
+      setStyleThumbs({})
+      setFilterThumb(null)
       setSource(String(reader.result))
+      setSourceId((n) => n + 1)
     }
     reader.readAsDataURL(file)
   }
 
   async function handleDownload() {
     if (!source) return
-    const url = await renderClassicSticker(source, {
-      outlineColor,
-      outlineThickness,
-      shadow,
-      punchLightBackground: punchBg,
-      watermark: true,
-      solidBackground: null,
-    })
-    downloadDataUrl(url, "sticker-wall.png")
+    setExporting(true)
+    try {
+      const url = await renderSticker(source, {
+        style,
+        filter,
+        outlineColor,
+        outlineThickness: thickness,
+        maxSide: 1200,
+      })
+      downloadDataUrl(url, `sticker-${style}.png`)
+    } finally {
+      setExporting(false)
+    }
   }
 
-  async function handlePutOnWall() {
-    if (!source || !preview) return
-    const clean = await renderClassicSticker(source, {
-      outlineColor,
-      outlineThickness,
-      shadow,
-      punchLightBackground: punchBg,
-      watermark: false,
-      solidBackground: null,
-    })
-    const draft: DraftSticker = {
-      imageDataUrl: clean,
-      outlineColor,
-      outlineThickness,
-      shadow,
-      background: previewBg,
-      backgroundColor: solidBg,
+  async function handlePlace() {
+    if (!source) return
+    setExporting(true)
+    try {
+      const url = await renderSticker(source, {
+        style,
+        filter,
+        outlineColor,
+        outlineThickness: thickness,
+        maxSide: 480,
+      })
+      setDraftSticker({
+        imageDataUrl: url,
+        style,
+        filter,
+        outlineColor,
+        outlineThickness: thickness,
+      })
+      setPlaceDraft(null)
+      void navigate({ to: "/place" })
+    } finally {
+      setExporting(false)
     }
-    setDraftSticker(draft)
-    setPlaceDraft(null)
-    void navigate({ to: "/place" })
   }
+
+  const ready = Boolean(source && preview)
 
   return (
-    <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-      <section className="flex flex-col gap-4">
-        <div
-          className={cn(
-            "relative flex min-h-[360px] items-center justify-center overflow-hidden rounded-3xl border border-border bg-card p-6 shadow-sm",
-            previewBg === "checker" && "bg-checker",
-            previewBg === "solid" && "bg-[var(--preview-solid)]"
-          )}
-          style={
-            previewBg === "solid"
-              ? ({ ["--preview-solid" as string]: solidBg } as CSSProperties)
-              : undefined
-          }
+    <div
+      className="font-ui relative flex h-[100dvh] flex-col overflow-hidden bg-white text-neutral-900 antialiased"
+      onDragOver={(e) => {
+        e.preventDefault()
+        setDragOver(true)
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget === e.target) setDragOver(false)
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragOver(false)
+        onFile(e.dataTransfer.files?.[0])
+      }}
+    >
+      <header className="relative z-20 flex h-14 shrink-0 items-center justify-between px-3 pt-[env(safe-area-inset-top)] sm:px-5">
+        <Link
+          to="/"
+          aria-label="Back to wall"
+          className="press grid size-10 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07]"
         >
-          {!source ? (
-            <label
-              htmlFor={inputId}
-              className="flex cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-border px-8 py-12 text-center transition-colors hover:border-primary hover:bg-muted/40"
+          <CaretLeft weight="bold" className="size-[18px]" />
+        </Link>
+
+        <h1 className="absolute left-1/2 -translate-x-1/2 text-[15px] font-semibold tracking-[-0.01em]">
+          New Sticker
+        </h1>
+
+        <div className="flex items-center gap-2">
+          {source ? (
+            <button
+              type="button"
+              aria-label="Replace image"
+              onClick={() => inputRef.current?.click()}
+              className="press grid size-10 place-items-center rounded-full bg-black/[0.045] transition-colors hover:bg-black/[0.07]"
             >
-              <UploadSimple weight="bold" className="size-8 text-sticker-teal" />
-              <span className="font-heading text-xl font-extrabold">
-                Drop your product image
-              </span>
-              <span className="max-w-xs text-sm text-muted-foreground">
-                PNG with transparency works best. Flat light backgrounds get
-                punched out automatically.
-              </span>
-            </label>
-          ) : preview ? (
-            <motion.img
-              key={preview.slice(0, 64)}
+              <ImageSquare weight="bold" className="size-[18px]" />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            aria-label="Download PNG"
+            disabled={!ready || exporting}
+            onClick={() => void handleDownload()}
+            className="press grid size-10 place-items-center rounded-full bg-black/[0.045] transition-[background-color,opacity] hover:bg-black/[0.07] disabled:opacity-35"
+          >
+            <DownloadSimple weight="bold" className="size-[18px]" />
+          </button>
+          <button
+            type="button"
+            disabled={!ready || exporting}
+            onClick={() => void handlePlace()}
+            className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity disabled:opacity-35"
+          >
+            Place
+          </button>
+        </div>
+      </header>
+
+      <main className="relative flex min-h-0 flex-1 items-center justify-center px-6 pb-[172px]">
+        {source ? (
+          preview ? (
+            <FloatingSticker
               src={preview}
-              alt="Sticker preview"
-              className="max-h-[420px] max-w-full object-contain drop-shadow-xl"
-              initial={{ scale: 0.92, rotate: -2, opacity: 0 }}
-              animate={{ scale: 1, rotate: 0, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              holo={filter === "glitter"}
+              appearKey={sourceId}
             />
           ) : (
-            <p className="font-mono text-xs tracking-widest text-muted-foreground uppercase">
-              {busy ? "Cutting sticker…" : "Waiting for preview"}
-            </p>
-          )}
-          <input
-            id={inputId}
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            onChange={(e) => onFile(e.target.files?.[0])}
-          />
-        </div>
+            <div className="size-44 animate-pulse rounded-[36px] bg-black/[0.04]" />
+          )
+        ) : (
+          <EmptyState inputId={inputId} />
+        )}
+
         {error ? (
-          <p className="font-mono text-xs text-destructive">{error}</p>
-        ) : null}
-        {source ? (
-          <button
-            type="button"
-            className="self-start font-mono text-[11px] tracking-widest text-muted-foreground uppercase underline-offset-4 hover:underline"
-            onClick={() => {
-              setSource(null)
-              setPreview(null)
-              setBusy(false)
-              setError(null)
-            }}
+          <p
+            role="alert"
+            className="absolute bottom-[184px] left-1/2 -translate-x-1/2 rounded-full bg-neutral-900 px-4 py-2 text-[13px] font-medium text-white"
           >
-            Replace image
-          </button>
-        ) : null}
-      </section>
-
-      <section className="flex flex-col gap-6 rounded-3xl border border-border bg-card/80 p-5 shadow-sm backdrop-blur-sm sm:p-6">
-        <div>
-          <p className="font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-            Classic style
+            {error}
           </p>
-          <h2 className="font-heading text-2xl font-extrabold tracking-tight">
-            Customize
-          </h2>
-        </div>
+        ) : null}
+      </main>
 
-        <div className="space-y-3">
-          <Label className="font-mono text-[11px] tracking-widest uppercase">
-            Outline color
-          </Label>
-          <div className="flex flex-wrap gap-2">
-            {OUTLINE_PRESETS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                aria-label={`Outline ${c}`}
-                onClick={() => setOutlineColor(c)}
-                className={cn(
-                  "size-8 rounded-full border-2 border-ink/20",
-                  outlineColor === c && "ring-2 ring-ring ring-offset-2"
-                )}
-                style={{ backgroundColor: c }}
-              />
-            ))}
-            <input
-              type="color"
-              value={outlineColor}
-              onChange={(e) => setOutlineColor(e.target.value)}
-              className="size-8 cursor-pointer rounded-full border border-border bg-transparent p-0"
-              aria-label="Custom outline color"
-            />
-          </div>
-        </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+        <EditorToolbar
+          tab={tab}
+          onTabChange={setTab}
+          disabled={!ready}
+          style={style}
+          onStyleChange={setStyle}
+          styleThumbs={styleThumbs}
+          filter={filter}
+          onFilterChange={setFilter}
+          filterThumb={filterThumb}
+          outlineColor={outlineColor}
+          onOutlineColorChange={setOutlineColor}
+          thickness={thickness}
+          onThicknessChange={setThickness}
+        />
+      </div>
 
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label className="font-mono text-[11px] tracking-widest uppercase">
-              Outline thickness
-            </Label>
-            <span className="font-mono text-xs text-muted-foreground">
-              {outlineThickness}px
-            </span>
-          </div>
-          <Slider
-            value={[outlineThickness]}
-            min={4}
-            max={28}
-            step={1}
-            onValueChange={(v) => {
-              const n = Array.isArray(v) ? v[0] : v
-              setOutlineThickness(Number(n))
-            }}
-          />
-        </div>
+      <input
+        id={inputId}
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="sr-only"
+        onChange={(e) => {
+          onFile(e.target.files?.[0])
+          e.target.value = ""
+        }}
+      />
 
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Label className="font-mono text-[11px] tracking-widest uppercase">
-              Shadow
-            </Label>
-            <p className="text-xs text-muted-foreground">Soft drop for depth</p>
-          </div>
-          <Switch checked={shadow} onCheckedChange={setShadow} />
-        </div>
-
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Label className="font-mono text-[11px] tracking-widest uppercase">
-              Punch light background
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              Remove near-white backdrops
-            </p>
-          </div>
-          <Switch checked={punchBg} onCheckedChange={setPunchBg} />
-        </div>
-
-        <div className="space-y-3">
-          <Label className="font-mono text-[11px] tracking-widest uppercase">
-            Preview background
-          </Label>
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                ["checker", "Checker"],
-                ["transparent", "None"],
-                ["solid", "Solid"],
-              ] as const
-            ).map(([key, label]) => (
-              <Button
-                key={key}
-                type="button"
-                size="sm"
-                variant={previewBg === key ? "default" : "outline"}
-                className="rounded-xl"
-                onClick={() => setPreviewBg(key)}
-              >
-                {label}
-              </Button>
-            ))}
-            {previewBg === "solid" ? (
-              <input
-                type="color"
-                value={solidBg}
-                onChange={(e) => setSolidBg(e.target.value)}
-                className="size-9 cursor-pointer rounded-lg border border-border"
-                aria-label="Solid preview color"
-              />
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mt-auto flex flex-col gap-3 pt-2">
-          <Button
-            type="button"
-            size="lg"
-            className="w-full rounded-2xl"
-            disabled={!preview || busy}
-            onClick={() => void handleDownload()}
-          >
-            <DownloadSimple weight="bold" data-icon="inline-start" />
-            Download free
-          </Button>
-          <button
-            type="button"
-            disabled={!preview || busy}
-            onClick={() => void handlePutOnWall()}
-            className={cn(
-              buttonVariants({ variant: "secondary", size: "lg" }),
-              "w-full rounded-2xl"
-            )}
-          >
-            <Wall weight="bold" data-icon="inline-start" />
-            Put on Wall
-          </button>
-          <p className="text-center text-xs leading-relaxed text-muted-foreground">
-            Free downloads include a light “Made on Sticker Wall” mark. Wall
-            placements stay clean.
-          </p>
-        </div>
-      </section>
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-3 z-30 rounded-[32px] border-2 border-dashed border-neutral-900/25 bg-white/60 opacity-0 backdrop-blur-sm transition-opacity duration-150",
+          dragOver && "opacity-100"
+        )}
+      />
     </div>
+  )
+}
+
+function EmptyState({ inputId }: { inputId: string }) {
+  return (
+    <motion.label
+      htmlFor={inputId}
+      className="press group flex cursor-pointer flex-col items-center text-center"
+      initial={{ opacity: 0, transform: "translateY(8px)" }}
+      animate={{ opacity: 1, transform: "translateY(0px)" }}
+      transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+    >
+      <span className="sticker-float relative mb-7 grid size-36 -rotate-6 place-items-center rounded-[34px] bg-white shadow-[0_24px_40px_-18px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.05)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:-rotate-3">
+        <span className="grid size-14 place-items-center rounded-full bg-neutral-900 text-white">
+          <Plus weight="bold" className="size-6" />
+        </span>
+      </span>
+      <span className="text-[22px] font-semibold tracking-[-0.02em]">
+        Add an image
+      </span>
+      <span className="mt-1.5 max-w-[260px] text-[15px] leading-snug text-neutral-500">
+        Logo, product, or artwork. The background is removed for you.
+      </span>
+      <span className="mt-6 inline-flex h-11 items-center rounded-full bg-neutral-900 px-6 text-[15px] font-semibold text-white">
+        Choose Photo
+      </span>
+    </motion.label>
   )
 }
