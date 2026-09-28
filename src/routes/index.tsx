@@ -1,63 +1,38 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { ArrowRight } from "@phosphor-icons/react"
-import { Button } from "@/components/ui/button"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { motion } from "motion/react"
+import { AppChrome } from "@/components/layout/app-chrome"
+import { StickerWall } from "@/components/wall/sticker-wall"
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/")({ component: Home })
 
 function Home() {
   return (
-    <div className="flex min-h-svh flex-col px-6 py-8 sm:px-10">
-      <header className="flex items-center justify-between">
-        <span className="font-mono text-xs tracking-[0.25em] uppercase">
-          xmigas FE prototype
-        </span>
-        <span className="font-mono text-xs tracking-[0.15em] text-muted-foreground">
-          2026
-        </span>
-      </header>
-
-      <main className="mb-16 flex flex-1 flex-col justify-center">
-        <div className="flex max-w-4xl flex-col gap-8">
-          <img
-            src="/icon-xmigas.png"
-            alt="xmigas"
-            width={148}
-            height={148}
-            className="size-37"
-          />
-          <p className="font-mono text-xs tracking-[0.25em] text-muted-foreground uppercase">
-            TanStack Start · React · shadcn/ui · AI Skills
+    <AppChrome variant="wall">
+      <StickerWall />
+      <motion.div
+        data-ui-chrome
+        className="pointer-events-none absolute bottom-3 left-3 z-20 hidden max-w-xs sm:block"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35, duration: 0.45 }}
+      >
+        <div className="pointer-events-auto rounded-2xl border border-border/80 bg-card/90 px-4 py-3 shadow-md backdrop-blur-md">
+          <p className="font-heading text-sm font-extrabold leading-snug">
+            Make a sticker. Put it anywhere. The wall never stops growing.
           </p>
-
-          <h1 className="font-heading text-4xl font-medium tracking-tight text-foreground sm:text-6xl">
-            A quiet place to begin building.
-          </h1>
-
-          <p className="max-w-2xl text-sm leading-loose text-muted-foreground">
-            This is the starting point for your prototype. The layout is plain
-            by design, so what you add next is the only thing worth noticing.
-          </p>
-
-          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-4">
-            <Button className="w-full sm:w-auto">
-              Start building
-              <ArrowRight weight="bold" />
-            </Button>
-            <div className="text-center font-mono text-xs text-muted-foreground sm:text-left">
-              60+ components installed
-            </div>
-          </div>
+          <Link
+            to="/make"
+            className={cn(
+              buttonVariants({ size: "xs", variant: "secondary" }),
+              "mt-2 rounded-lg"
+            )}
+          >
+            Start free
+          </Link>
         </div>
-      </main>
-
-      <footer className="flex items-center justify-between border-t border-border pt-4">
-        <span className="font-mono text-xs text-muted-foreground">
-          Boilerplate
-        </span>
-        <span className="font-mono text-xs text-muted-foreground">
-          Lora · Inter · Mono
-        </span>
-      </footer>
-    </div>
+      </motion.div>
+    </AppChrome>
   )
 }
