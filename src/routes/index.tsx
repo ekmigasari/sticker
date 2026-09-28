@@ -16,7 +16,7 @@ function Home() {
           if (heroVisible) setHeroVisible(false)
         }}
       >
-        <StickerWall />
+        <StickerWall hideControls={heroVisible} />
       </div>
 
       <AnimatePresence>

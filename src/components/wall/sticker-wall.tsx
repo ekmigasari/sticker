@@ -9,9 +9,16 @@ type Props = {
   placeMode?: boolean
   ghostSize?: number
   onPlace?: (x: number, y: number) => void
+  /** Hide search/zoom chrome (e.g. while the landing hero is up). */
+  hideControls?: boolean
 }
 
-export function StickerWall({ placeMode, ghostSize = 50, onPlace }: Props) {
+export function StickerWall({
+  placeMode,
+  ghostSize = 50,
+  onPlace,
+  hideControls,
+}: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
   const last = useRef({ x: 0, y: 0 })
@@ -184,7 +191,7 @@ export function StickerWall({ placeMode, ghostSize = 50, onPlace }: Props) {
       </div>
 
       <div data-ui-chrome className="contents">
-        {!placeMode ? <WallControls /> : null}
+        {!placeMode && !hideControls ? <WallControls /> : null}
         {!placeMode && selected && selectedProduct && selectedSticker ? (
           <ProductSheet
             product={selectedProduct}
