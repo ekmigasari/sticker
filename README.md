@@ -61,11 +61,22 @@ Follow this order when building a new page or component:
 ## Getting started
 
 ```bash
+docker compose up -d
+cp .env.example .env
 pnpm install
+pnpm db:migrate
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). Set `BETTER_AUTH_SECRET` in `.env` before signing in. The example database and S3 values match `docker-compose.yml`.
+
+## Auth, database, and uploads
+
+- **Better Auth** handles email and password accounts at `/sign-up` and `/sign-in`.
+- **Prisma** stores users, sessions, and file metadata in PostgreSQL.
+- **S3** stores the file bytes. Point `S3_ENDPOINT` at MinIO for local development, or at AWS and leave the endpoint unset.
+
+`pnpm db:migrate` applies the committed migrations. Use `pnpm db:dev` when you change `prisma/schema.prisma`.
 
 ## Scripts
 
@@ -84,6 +95,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | `pnpm format`          | Format source files with Oxfmt                        |
 | `pnpm check`           | Check formatting with Oxfmt                           |
 | `pnpm typecheck`       | Type-check with `tsc --noEmit`                        |
+| `pnpm db:migrate`      | Apply committed Prisma migrations                     |
+| `pnpm db:dev`          | Create a new Prisma migration during development      |
 
 ## Libraries
 

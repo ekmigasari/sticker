@@ -1,10 +1,15 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { TanStackDevtools } from "@tanstack/react-devtools"
+import { getSession } from "@/lib/session"
 
 import appCss from "../styles.css?url"
 
 export const Route = createRootRoute({
+  beforeLoad: async () => {
+    const session = await getSession()
+    return { session }
+  },
   head: () => ({
     meta: [
       {
