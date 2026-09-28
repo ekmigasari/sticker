@@ -1,3 +1,6 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises"
+import path from "node:path"
+import { Readable } from "node:stream"
 import {
   CreateBucketCommand,
   GetObjectCommand,
@@ -14,6 +17,10 @@ function required(name: string) {
     throw new Error(`${name} is not set`)
   }
   return value
+}
+
+function localDir() {
+  return process.env.S3_LOCAL_DIR?.trim() || ""
 }
 
 export function getBucket() {
@@ -37,6 +44,7 @@ export function getS3() {
 }
 
 export async function ensureBucket() {
+  if (localDir()) return
   if (process.env.S3_AUTO_CREATE_BUCKET !== "true") return
   const s3 = getS3()
   const Bucket = getBucket()
@@ -47,11 +55,25 @@ export async function ensureBucket() {
   }
 }
 
+async function localPath(key: string) {
+  const root = localDir()
+  const full = path.join(root, getBucket(), key)
+  await mkdir(path.dirname(full), { recursive: true })
+  return full
+}
+
 export async function putObject(
   key: string,
   body: Uint8Array,
   contentType: string
 ) {
+  if (localDir()) {
+    const filePath = await localPath(key)
+    await writeFile(filePath, body)
+    await writeFile(`${filePath}.meta.json`, JSON.stringify({ contentType }))
+    return
+  }
+
   await ensureBucket()
   await getS3().send(
     new PutObjectCommand({
@@ -63,12 +85,22 @@ export async function putObject(
   )
 }
 
-export async function getObject(key: string) {
+/** Returns a web ReadableStream of object bytes. */
+export async function getObjectStream(key: string): Promise<ReadableStream> {
+  if (localDir()) {
+    const filePath = await localPath(key)
+    const bytes = await readFile(filePath)
+    return Readable.toWeb(Readable.from(bytes)) as ReadableStream
+  }
+
   const result = await getS3().send(
     new GetObjectCommand({
       Bucket: getBucket(),
       Key: key,
     })
   )
-  return result.Body
+  if (!result.Body) {
+    throw new Error("Object body missing")
+  }
+  return result.Body.transformToWebStream()
 }

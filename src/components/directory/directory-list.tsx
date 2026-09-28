@@ -1,32 +1,21 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Link } from "@tanstack/react-router"
 import { MagnifyingGlass } from "@phosphor-icons/react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { CATEGORIES, type Category } from "@/domain/types"
+import type { ProductDTO, StickerDTO } from "@/lib/product-api"
 import { cn } from "@/lib/utils"
-import { useWallStore } from "@/store/wall-store"
 
-export function DirectoryList() {
-  const hydrate = useWallStore((s) => s.hydrate)
-  const hydrated = useWallStore((s) => s.hydrated)
-  const products = useWallStore((s) => s.products)
-  const stickers = useWallStore((s) => s.stickers)
-  const placements = useWallStore((s) => s.placements)
+type DirectoryProduct = ProductDTO & { stickers: StickerDTO[] }
+
+export function DirectoryList({ products }: { products: DirectoryProduct[] }) {
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState<Category | "All">("All")
 
-  useEffect(() => {
-    hydrate()
-  }, [hydrate])
-
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return [...products]
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
+    return products
       .filter((p) => (category === "All" ? true : p.category === category))
       .filter(
         (p) =>
@@ -34,16 +23,11 @@ export function DirectoryList() {
           p.name.toLowerCase().includes(q) ||
           p.oneLiner.toLowerCase().includes(q)
       )
-      .map((product) => {
-        const placement = [...placements]
-          .filter((pl) => pl.productId === product.id)
-          .sort((a, b) => b.zIndex - a.zIndex)[0]
-        const sticker = placement
-          ? stickers.find((s) => s.id === placement.stickerId)
-          : undefined
-        return { product, placement, sticker }
-      })
-  }, [products, placements, stickers, query, category])
+      .map((product) => ({
+        product,
+        sticker: product.stickers[0],
+      }))
+  }, [products, query, category])
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-8">
@@ -87,7 +71,7 @@ export function DirectoryList() {
       </div>
 
       <ul className="divide-y divide-border rounded-3xl border border-border bg-card/80">
-        {rows.map(({ product, sticker, placement }) => (
+        {rows.map(({ product, sticker }) => (
           <li key={product.id}>
             <Link
               to="/product/$id"
@@ -96,7 +80,7 @@ export function DirectoryList() {
             >
               {sticker ? (
                 <img
-                  src={sticker.imageDataUrl}
+                  src={sticker.imageUrl}
                   alt=""
                   className="size-14 shrink-0 object-contain sm:size-16"
                 />
@@ -110,7 +94,9 @@ export function DirectoryList() {
                   </h2>
                   <span className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground uppercase">
                     {product.category}
-                    {placement ? ` · ${placement.sizeTier}` : ""}
+                    {product.stickerCount
+                      ? ` · ${product.stickerCount} sticker${product.stickerCount === 1 ? "" : "s"}`
+                      : ""}
                   </span>
                 </div>
                 <p className="truncate text-sm text-muted-foreground">
@@ -130,7 +116,7 @@ export function DirectoryList() {
         ))}
         {rows.length === 0 ? (
           <li className="px-5 py-10 text-center text-sm text-muted-foreground">
-            {hydrated ? "No products match." : "Loading makers…"}
+            No products match.
           </li>
         ) : null}
       </ul>

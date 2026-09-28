@@ -1,6 +1,7 @@
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate, useRouteContext, useRouter } from "@tanstack/react-router"
 import { BrandMark, SiteNav } from "@/components/layout/site-nav"
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -10,7 +11,17 @@ type Props = {
 }
 
 export function AppChrome({ children, variant = "page" }: Props) {
+  const { session } = useRouteContext({ from: "__root__" })
+  const router = useRouter()
+  const navigate = useNavigate()
+
   if (variant === "bare") return <>{children}</>
+
+  async function signOut() {
+    await authClient.signOut()
+    await router.invalidate()
+    await navigate({ to: "/" })
+  }
 
   return (
     <div className="relative min-h-svh">
@@ -33,6 +44,16 @@ export function AppChrome({ children, variant = "page" }: Props) {
           )}
         >
           <SiteNav className="hidden sm:flex" />
+          {session ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden rounded-xl sm:inline-flex"
+              onClick={() => void signOut()}
+            >
+              Sign out
+            </Button>
+          ) : null}
           <Link
             to="/make"
             className={cn(

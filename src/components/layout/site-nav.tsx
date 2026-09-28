@@ -1,14 +1,22 @@
-import { Link } from "@tanstack/react-router"
-import { SquaresFour, MagicWand, ListMagnifyingGlass } from "@phosphor-icons/react"
+import { Link, useRouteContext } from "@tanstack/react-router"
+import {
+  SquaresFour,
+  MagicWand,
+  ListMagnifyingGlass,
+  House,
+  SignIn,
+} from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
 
-const links = [
+const publicLinks = [
   { to: "/", label: "Wall", icon: SquaresFour },
   { to: "/make", label: "Make", icon: MagicWand },
   { to: "/directory", label: "Directory", icon: ListMagnifyingGlass },
 ] as const
 
 export function SiteNav({ className }: { className?: string }) {
+  const { session } = useRouteContext({ from: "__root__" })
+
   return (
     <nav
       className={cn(
@@ -16,7 +24,7 @@ export function SiteNav({ className }: { className?: string }) {
         className
       )}
     >
-      {links.map(({ to, label, icon: Icon }) => (
+      {publicLinks.map(({ to, label, icon: Icon }) => (
         <Link
           key={to}
           to={to}
@@ -27,6 +35,23 @@ export function SiteNav({ className }: { className?: string }) {
           {label}
         </Link>
       ))}
+      {session ? (
+        <Link
+          to="/dashboard"
+          className="flex items-center gap-1.5 rounded-xl px-3 py-2 font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase transition-colors hover:bg-muted hover:text-foreground [&.active]:bg-primary [&.active]:text-primary-foreground"
+        >
+          <House weight="bold" className="size-3.5" />
+          Dashboard
+        </Link>
+      ) : (
+        <Link
+          to="/sign-in"
+          className="flex items-center gap-1.5 rounded-xl px-3 py-2 font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase transition-colors hover:bg-muted hover:text-foreground [&.active]:bg-primary [&.active]:text-primary-foreground"
+        >
+          <SignIn weight="bold" className="size-3.5" />
+          Sign in
+        </Link>
+      )}
     </nav>
   )
 }
