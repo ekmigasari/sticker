@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils"
 type Props = {
   src: string
   holo: boolean
+  /** Target longest-side display size in CSS pixels (1:1 with export when it fits). */
+  sizePx: number
   /** Changes only when a new image is loaded, to replay the entrance. */
   appearKey: string | number
   className?: string
@@ -29,7 +31,13 @@ function rubber(d: number, dim: number) {
   return Math.sign(d) * dim * (1 - 1 / ((Math.abs(d) / dim) * 0.55 + 1))
 }
 
-export function FloatingSticker({ src, holo, appearKey, className }: Props) {
+export function FloatingSticker({
+  src,
+  holo,
+  sizePx,
+  appearKey,
+  className,
+}: Props) {
   const hitRef = useRef<HTMLDivElement>(null)
   const reduce = useReducedMotion()
   const canHover = useRef(false)
@@ -70,6 +78,11 @@ export function FloatingSticker({ src, holo, appearKey, className }: Props) {
   const shadowScale = useTransform(lift, [0, 1], [0.95, 1.03])
   const shadowTransform = useMotionTemplate`translate3d(${shadowX}px, ${shadowY}px, 0) scale(${shadowScale})`
   const shadowOpacity = useTransform(lift, [0, 1], [0.2, 0.13])
+
+  // Backing liner stays put; opacity rises as the vinyl peels away.
+  const backingOpacity = useTransform(lift, [0, 0.15, 1], [0.12, 0.55, 1])
+  const backingScale = useTransform(lift, [0, 1], [0.985, 1])
+  const backingTransform = useMotionTemplate`scale(${backingScale})`
 
   const gloss = useMotionTemplate`radial-gradient(circle at ${glossX}% ${glossY}%, rgba(255,255,255,0.7), rgba(255,255,255,0) 55%)`
   const holoX = useTransform(ry, (v) => 50 + v * 2.4)
@@ -154,6 +167,9 @@ export function FloatingSticker({ src, holo, appearKey, className }: Props) {
     maskSize: "100% 100%",
   } as const
 
+  // 1 CSS px ≈ 1 image px when it fits; otherwise shrink to the viewport.
+  const displayWidth = `min(${sizePx}px, 82vw, calc((100dvh - 22rem) * ${aspect}))`
+
   return (
     <motion.div
       key={appearKey}
@@ -174,6 +190,42 @@ export function FloatingSticker({ src, holo, appearKey, className }: Props) {
         }}
         style={{ cursor: "grab" }}
       >
+        {/* Release liner — same silhouette as the sticker, stays while vinyl peels. */}
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+          style={{
+            opacity: backingOpacity,
+            transform: backingTransform,
+            ...mask,
+          }}
+        >
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundColor: "#f4f2ea",
+              backgroundImage:
+                "repeating-linear-gradient(135deg, rgba(0,0,0,0.045) 0 2px, transparent 2px 7px)",
+            }}
+          />
+          <div
+            className="absolute inset-[-30%] flex flex-wrap content-center justify-center gap-x-4 gap-y-5"
+            style={{
+              transform: "rotate(-28deg)",
+              opacity: 0.28,
+            }}
+          >
+            {Array.from({ length: 56 }, (_, i) => (
+              <span
+                key={i}
+                className="shrink-0 text-[10px] font-semibold tracking-[0.18em] text-neutral-500 uppercase"
+              >
+                netkraf
+              </span>
+            ))}
+          </div>
+        </motion.div>
+
         <motion.img
           src={src}
           alt=""
@@ -199,9 +251,7 @@ export function FloatingSticker({ src, holo, appearKey, className }: Props) {
               if (w && h) setAspect(w / h)
             }}
             className="pointer-events-none block h-auto drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)]"
-            style={{
-              width: `min(82vw, 560px, calc((100dvh - 21rem) * ${aspect}))`,
-            }}
+            style={{ width: displayWidth }}
           />
           {holo ? (
             <motion.div
