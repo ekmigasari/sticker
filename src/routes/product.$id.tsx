@@ -1,21 +1,24 @@
-import { useEffect } from "react"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { ArrowSquareOut, MapPin } from "@phosphor-icons/react"
 import { AppChrome } from "@/components/layout/app-chrome"
 import { Button, buttonVariants } from "@/components/ui/button"
+import { getPublicProduct } from "@/lib/products"
 import { cn } from "@/lib/utils"
 import { useWallStore } from "@/store/wall-store"
+import { useEffect } from "react"
 
 export const Route = createFileRoute("/product/$id")({
+  loader: ({ params }) => getPublicProduct({ data: params.id }),
   component: ProductPage,
 })
 
 function ProductPage() {
   const { id } = Route.useParams()
+  const dbProduct = Route.useLoaderData()
   const navigate = useNavigate()
   const hydrate = useWallStore((s) => s.hydrate)
   const hydrated = useWallStore((s) => s.hydrated)
-  const product = useWallStore((s) => s.getProduct(id))
+  const localProduct = useWallStore((s) => s.getProduct(id))
   const placements = useWallStore((s) =>
     s.placements
       .filter((p) => p.productId === id)
@@ -28,7 +31,7 @@ function ProductPage() {
     hydrate()
   }, [hydrate])
 
-  if (!hydrated) {
+  if (!dbProduct && !hydrated) {
     return (
       <AppChrome>
         <p className="px-8 py-24 font-mono text-xs tracking-widest uppercase">
@@ -37,6 +40,16 @@ function ProductPage() {
       </AppChrome>
     )
   }
+
+  const product = dbProduct
+    ? {
+        name: dbProduct.name,
+        oneLiner: dbProduct.oneLiner,
+        url: dbProduct.url,
+        category: dbProduct.category,
+        offer: dbProduct.offer,
+      }
+    : localProduct
 
   if (!product) {
     return (
@@ -57,17 +70,19 @@ function ProductPage() {
   }
 
   const latest = placements[0]
-  const sticker = latest
+  const localSticker = latest
     ? stickers.find((s) => s.id === latest.stickerId)
     : undefined
+  const dbSticker = dbProduct?.stickers[0]
+  const heroSrc = dbSticker?.imageUrl ?? localSticker?.imageDataUrl
 
   return (
     <AppChrome>
       <div className="mx-auto grid max-w-4xl gap-8 px-4 py-10 sm:px-8 lg:grid-cols-[200px_1fr]">
         <div className="flex justify-center lg:justify-start">
-          {sticker ? (
+          {heroSrc ? (
             <img
-              src={sticker.imageDataUrl}
+              src={heroSrc}
               alt={product.name}
               className="max-h-52 object-contain drop-shadow-xl"
             />
@@ -116,6 +131,32 @@ function ProductPage() {
             ) : null}
           </div>
 
+          {dbProduct && dbProduct.stickers.length > 0 ? (
+            <section className="mt-10">
+              <h2 className="font-heading text-xl font-extrabold">Stickers</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Stickers attached to this product in the maker directory.
+              </p>
+              <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {dbProduct.stickers.map((sticker) => (
+                  <li
+                    key={sticker.id}
+                    className="flex flex-col items-center rounded-2xl border border-border bg-card/80 px-3 py-4"
+                  >
+                    <img
+                      src={sticker.imageUrl}
+                      alt=""
+                      className="max-h-28 object-contain drop-shadow-md"
+                    />
+                    <span className="mt-3 font-mono text-[10px] tracking-[0.14em] text-muted-foreground uppercase">
+                      {sticker.style}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           <section className="mt-10">
             <h2 className="font-heading text-xl font-extrabold">Placements</h2>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -146,7 +187,7 @@ function ProductPage() {
               ))}
               {placements.length === 0 ? (
                 <li className="px-4 py-6 text-sm text-muted-foreground">
-                  No placements yet.
+                  No wall placements yet.
                 </li>
               ) : null}
             </ul>

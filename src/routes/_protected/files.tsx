@@ -1,9 +1,10 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
-import { AuthShell } from "@/components/auth-shell"
-import { Button } from "@/components/ui/button"
+import { AppChrome } from "@/components/layout/app-chrome"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { MAX_UPLOAD_BYTES } from "@/lib/files"
 import { listUploads } from "@/lib/session"
+import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/_protected/files")({
   loader: () => listUploads(),
@@ -57,45 +58,51 @@ function FilesPage() {
   }
 
   return (
-    <AuthShell>
-      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col py-16">
-        <p className="font-mono text-xs tracking-[0.25em] text-muted-foreground uppercase">
+    <AppChrome>
+      <main className="mx-auto flex w-full max-w-4xl flex-col px-4 py-10 sm:px-8">
+        <Link
+          to="/dashboard"
+          className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase hover:text-foreground"
+        >
+          ← Dashboard
+        </Link>
+        <p className="mt-4 font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
           {user.email}
         </p>
-        <h1 className="mt-4 font-heading text-4xl font-medium tracking-tight">
+        <h1 className="mt-2 font-heading text-4xl font-extrabold tracking-tight">
           Your files
         </h1>
-        <p className="mt-3 max-w-xl text-sm leading-loose text-muted-foreground">
-          Uploads are stored in S3. This list is the record Prisma keeps for your
-          account.
+        <p className="mt-3 max-w-xl text-muted-foreground">
+          Raw uploads stored for your account. Product stickers are managed from
+          the dashboard.
         </p>
 
         <form
-          onSubmit={onSubmit}
-          className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center"
+          onSubmit={(e) => void onSubmit(e)}
+          className="mt-10 flex flex-col items-start gap-4 rounded-3xl border border-border bg-card/90 p-5 sm:flex-row sm:items-center"
         >
           <input
             name="file"
             type="file"
             required
-            className="font-mono text-xs text-muted-foreground file:mr-4 file:border file:border-border file:bg-transparent file:px-3 file:py-2 file:font-mono file:text-xs file:tracking-widest file:text-foreground file:uppercase"
+            className="font-mono text-xs text-muted-foreground file:mr-4 file:rounded-xl file:border file:border-border file:bg-transparent file:px-3 file:py-2 file:font-mono file:text-xs file:tracking-widest file:text-foreground file:uppercase"
           />
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="rounded-2xl">
             {pending ? "Uploading" : "Upload"}
           </Button>
         </form>
         {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
-        <ul className="mt-12 divide-y divide-border border-t border-border">
+        <ul className="mt-10 divide-y divide-border rounded-3xl border border-border bg-card/80">
           {uploads.length === 0 ? (
-            <li className="py-6 font-mono text-xs text-muted-foreground">
+            <li className="px-5 py-8 font-mono text-xs text-muted-foreground">
               No files yet.
             </li>
           ) : (
             uploads.map((upload) => (
               <li
                 key={upload.id}
-                className="flex items-baseline justify-between gap-4 py-4"
+                className="flex items-baseline justify-between gap-4 px-5 py-4"
               >
                 <a
                   href={`/api/uploads/${upload.id}`}
@@ -110,7 +117,14 @@ function FilesPage() {
             ))
           )}
         </ul>
+
+        <Link
+          to="/dashboard"
+          className={cn(buttonVariants({ variant: "outline" }), "mt-8 w-fit rounded-2xl")}
+        >
+          Back to products
+        </Link>
       </main>
-    </AuthShell>
+    </AppChrome>
   )
 }

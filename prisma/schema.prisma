@@ -23,6 +23,8 @@ model User {
   sessions      Session[]
   accounts      Account[]
   uploads       Upload[]
+  products      Product[]
+  stickers      Sticker[]
 
   @@unique([email])
   @@map("user")
@@ -77,15 +79,54 @@ model Verification {
 }
 
 model Upload {
-  id          String   @id
+  id          String    @id
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  key         String   @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key         String    @unique
   fileName    String
   contentType String
   sizeBytes   Int
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
+  stickers    Sticker[]
 
   @@index([userId])
   @@map("upload")
+}
+
+model Product {
+  id        String    @id
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  oneLiner  String
+  url       String
+  category  String
+  offer     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  stickers  Sticker[]
+
+  @@index([userId])
+  @@index([category])
+  @@map("product")
+}
+
+model Sticker {
+  id               String   @id
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  uploadId         String
+  upload           Upload   @relation(fields: [uploadId], references: [id], onDelete: Restrict)
+  style            String
+  filter           String   @default("original")
+  outlineColor     String
+  outlineThickness Int
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+  @@index([productId])
+  @@index([uploadId])
+  @@map("sticker")
 }
