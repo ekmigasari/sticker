@@ -57,19 +57,35 @@ export type Placement = {
   createdAt: string
 }
 
-export const STICKER_STYLES = ["classic", "stamp", "rough"] as const
+export const STICKER_STYLES = ["none", "classic", "stamp", "rough"] as const
 export type StickerStyle = (typeof STICKER_STYLES)[number]
 
 export const STICKER_FILTERS = [
   "original",
   "glitter",
+  "glow",
   "vivid",
   "warm",
   "cool",
   "mono",
   "noir",
+  "red",
+  "blue",
+  "green",
+  "yellow",
 ] as const
 export type StickerFilter = (typeof STICKER_FILTERS)[number]
+
+/** Print DPI used when converting sticker pixels ↔ millimetres. */
+export const STICKER_PRINT_DPI = 300
+
+export function pxToMm(px: number, dpi = STICKER_PRINT_DPI): number {
+  return (px * 25.4) / dpi
+}
+
+export function mmToPx(mm: number, dpi = STICKER_PRINT_DPI): number {
+  return (mm * dpi) / 25.4
+}
 
 export type DraftSticker = {
   imageDataUrl: string
