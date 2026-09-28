@@ -526,43 +526,60 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   return [f(0) * 255, f(8) * 255, f(4) * 255]
 }
 
-/** Holographic foil: iridescent sweep + seeded sparkle flecks. */
+/**
+ * Holographic glitter foil. The surface is split into flakes; each flake
+ * catches light differently (hue + brightness), a few flash as sparkles.
+ * Light artwork takes strong iridescence, dark artwork keeps its depth.
+ */
 function glitter(c: Canvas) {
   const ctx = ctx2d(c)
   const img = ctx.getImageData(0, 0, c.width, c.height)
   const { data, width: w, height: h } = img
+  const flake = Math.max(2, Math.round(Math.max(w, h) / 190))
+  const fw = Math.ceil(w / flake)
+  const fh = Math.ceil(h / flake)
   const rand = mulberry32(2024)
+  const flakeHue = new Float32Array(fw * fh)
+  const flakeGlint = new Float32Array(fw * fh)
+  for (let i = 0; i < fw * fh; i++) {
+    flakeHue[i] = (rand() - 0.5) * 110
+    flakeGlint[i] = rand()
+  }
   const span = w + h
+
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const o = (y * w + x) * 4
       if (data[o + 3] === 0) continue
-      const noise = rand()
-      const hue = (((x * 0.7 + y) / span) * 540 + noise * 50) % 360
-      const [hr, hg, hb] = hslToRgb(hue, 0.85, 0.68)
+      const fi = Math.floor(y / flake) * fw + Math.floor(x / flake)
+      const glint = flakeGlint[fi]
+      const hue =
+        ((((x * 0.8 + y) / span) * 720 + flakeHue[fi]) % 360 + 360) % 360
+      const [hr, hg, hb] = hslToRgb(hue, 0.9, 0.64)
+
       const r = data[o]
       const g = data[o + 1]
       const b = data[o + 2]
-      // Screen blend keeps artwork readable while adding foil colour.
-      const sr = 255 - ((255 - r) * (255 - hr)) / 255
-      const sg = 255 - ((255 - g) * (255 - hg)) / 255
-      const sb = 255 - ((255 - b) * (255 - hb)) / 255
-      const m = 0.42
-      let nr = r * (1 - m) + sr * m
-      let ng = g * (1 - m) + sg * m
-      let nb = b * (1 - m) + sb * m
-      const fleck = rand()
-      if (fleck > 0.93) {
-        const boost = (fleck - 0.93) / 0.07
-        nr += (255 - nr) * boost * 0.85
-        ng += (255 - ng) * boost * 0.85
-        nb += (255 - nb) * boost * 0.85
-      } else {
-        const d = (fleck - 0.5) * 22
-        nr += d
-        ng += d
-        nb += d
+      const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+
+      // Multiply-tint keeps shapes; strength follows the artwork's lightness.
+      const m = 0.2 + lum * 0.55
+      let nr = r * (1 - m) + ((r * hr) / 255) * 0.35 * m + hr * 0.65 * m
+      let ng = g * (1 - m) + ((g * hg) / 255) * 0.35 * m + hg * 0.65 * m
+      let nb = b * (1 - m) + ((b * hb) / 255) * 0.35 * m + hb * 0.65 * m
+
+      const shimmer = 0.78 + glint * 0.44
+      nr *= shimmer
+      ng *= shimmer
+      nb *= shimmer
+
+      if (glint > 0.94) {
+        const s = ((glint - 0.94) / 0.06) * 0.9
+        nr += (255 - nr) * s
+        ng += (255 - ng) * s
+        nb += (255 - nb) * s
       }
+
       data[o] = clamp255(nr)
       data[o + 1] = clamp255(ng)
       data[o + 2] = clamp255(nb)

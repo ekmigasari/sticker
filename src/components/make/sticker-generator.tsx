@@ -185,7 +185,12 @@ export function StickerGenerator() {
           <CaretLeft weight="bold" className="size-[18px]" />
         </Link>
 
-        <h1 className="absolute left-1/2 -translate-x-1/2 text-[15px] font-semibold tracking-[-0.01em]">
+        <h1
+          className={cn(
+            "pointer-events-none absolute left-1/2 -translate-x-1/2 text-[15px] font-semibold tracking-[-0.01em]",
+            source && "hidden sm:block"
+          )}
+        >
           New Sticker
         </h1>
 

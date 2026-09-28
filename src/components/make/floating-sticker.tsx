@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useRef, useState } from "react"
 import {
   motion,
   useMotionTemplate,
@@ -33,6 +33,7 @@ export function FloatingSticker({ src, holo, appearKey, className }: Props) {
   const hitRef = useRef<HTMLDivElement>(null)
   const reduce = useReducedMotion()
   const canHover = useRef(false)
+  const [aspect, setAspect] = useState(1)
   const drag = useRef<{
     id: number
     gx: number
@@ -75,16 +76,6 @@ export function FloatingSticker({ src, holo, appearKey, className }: Props) {
   const holoY = useTransform(rx, (v) => 50 - v * 2.4)
   const holoPosition = useMotionTemplate`${holoX}% ${holoY}%`
 
-  useEffect(() => {
-    const mq = window.matchMedia("(hover: hover) and (pointer: fine)")
-    canHover.current = mq.matches
-    const onChange = (e: MediaQueryListEvent) => {
-      canHover.current = e.matches
-    }
-    mq.addEventListener("change", onChange)
-    return () => mq.removeEventListener("change", onChange)
-  }, [])
-
   function normalized(e: React.PointerEvent) {
     const el = hitRef.current
     if (!el) return { nx: 0, ny: 0 }
@@ -105,7 +96,6 @@ export function FloatingSticker({ src, holo, appearKey, className }: Props) {
   }
 
   function onPointerMove(e: React.PointerEvent) {
-    if (reduce) return
     const d = drag.current
     if (d) {
       if (e.pointerId !== d.id) return
@@ -122,6 +112,8 @@ export function FloatingSticker({ src, holo, appearKey, className }: Props) {
       rxT.set(clamp(d.gy * lifted + pullY * 26, -40, 40))
       return
     }
+    // Touch has no hover; tilting on tap would be a false hover state.
+    canHover.current = e.pointerType === "mouse"
     if (!canHover.current) return
     const { nx, ny } = normalized(e)
     ryT.set(nx * 10)
@@ -133,7 +125,7 @@ export function FloatingSticker({ src, holo, appearKey, className }: Props) {
   }
 
   function onPointerDown(e: React.PointerEvent) {
-    if (reduce || drag.current) return
+    if (drag.current) return
     e.currentTarget.setPointerCapture(e.pointerId)
     const { nx, ny } = normalized(e)
     drag.current = { id: e.pointerId, gx: nx, gy: ny, x: e.clientX, y: e.clientY }
@@ -152,7 +144,7 @@ export function FloatingSticker({ src, holo, appearKey, className }: Props) {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId)
     }
-    rest(canHover.current && e.type !== "pointercancel")
+    rest(e.pointerType === "mouse" && e.type !== "pointercancel")
   }
 
   const mask = {
@@ -202,7 +194,14 @@ export function FloatingSticker({ src, holo, appearKey, className }: Props) {
             src={src}
             alt="Sticker preview"
             draggable={false}
-            className="pointer-events-none block h-auto max-h-[calc(100dvh-22rem)] w-auto max-w-[min(80vw,440px)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)]"
+            onLoad={(e) => {
+              const { naturalWidth: w, naturalHeight: h } = e.currentTarget
+              if (w && h) setAspect(w / h)
+            }}
+            className="pointer-events-none block h-auto drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)]"
+            style={{
+              width: `min(82vw, 560px, calc((100dvh - 21rem) * ${aspect}))`,
+            }}
           />
           {holo ? (
             <motion.div
