@@ -16,10 +16,15 @@ export const Route = createRootRoute({
       },
       {
         name: "theme-color",
-        content: "#ffffff",
+        content: "#c9a96e",
       },
       {
-        title: "xmigas prototype",
+        name: "description",
+        content:
+          "Make a sticker of your indie product. Put it on a living 1000×1000 wall.",
+      },
+      {
+        title: "Sticker Wall — for indie makers",
       },
     ],
     links: [
@@ -51,9 +56,11 @@ export const Route = createRootRoute({
     ],
   }),
   notFoundComponent: () => (
-    <main className="container mx-auto p-4 pt-16">
-      <h1>404</h1>
-      <p>The requested page could not be found.</p>
+    <main className="mx-auto max-w-lg px-6 py-24 text-center">
+      <h1 className="font-heading text-3xl font-extrabold">404</h1>
+      <p className="mt-2 text-muted-foreground">
+        That sticker peeled off the wall.
+      </p>
     </main>
   ),
   shellComponent: RootDocument,
@@ -67,17 +74,19 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <TanStackDevtools
-          config={{
-            position: "bottom-right",
-          }}
-          plugins={[
-            {
-              name: "Tanstack Router",
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
+        {import.meta.env.DEV && import.meta.env.VITE_SHOW_DEVTOOLS === "1" ? (
+          <TanStackDevtools
+            config={{
+              position: "bottom-right",
+            }}
+            plugins={[
+              {
+                name: "Tanstack Router",
+                render: <TanStackRouterDevtoolsPanel />,
+              },
+            ]}
+          />
+        ) : null}
         <Scripts />
       </body>
     </html>
