@@ -11,8 +11,39 @@ type Props = {
   onPlace?: (x: number, y: number) => void
   /** Hide search/zoom chrome (e.g. while the landing hero is up). */
   hideControls?: boolean
-  /** Hide placed stickers (e.g. while the landing hero is up). */
-  hideStickers?: boolean
+  /** Keep the center hero area free of stickers. */
+  clearHeroZone?: boolean
+}
+
+/** Screen-space hero clear zone — large enough for brand + subtitle + CTAs. */
+function heroZoneScreen(viewportW: number, viewportH: number) {
+  const w = Math.min(560, viewportW * 0.72)
+  const h = Math.min(340, viewportH * 0.5)
+  return {
+    left: (viewportW - w) / 2,
+    top: (viewportH - h) / 2,
+    right: (viewportW + w) / 2,
+    bottom: (viewportH + h) / 2,
+  }
+}
+
+function placementOverlapsHeroZone(
+  p: { x: number; y: number; width: number; height: number },
+  camera: { x: number; y: number; zoom: number },
+  viewportW: number,
+  viewportH: number
+) {
+  const zone = heroZoneScreen(viewportW, viewportH)
+  const left = (p.x - camera.x) * camera.zoom + viewportW / 2
+  const top = (p.y - camera.y) * camera.zoom + viewportH / 2
+  const right = left + p.width * camera.zoom
+  const bottom = top + p.height * camera.zoom
+  return !(
+    right < zone.left ||
+    left > zone.right ||
+    bottom < zone.top ||
+    top > zone.bottom
+  )
 }
 
 export function StickerWall({
@@ -20,13 +51,14 @@ export function StickerWall({
   ghostSize = 50,
   onPlace,
   hideControls,
-  hideStickers,
+  clearHeroZone,
 }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
   const last = useRef({ x: 0, y: 0 })
   const moved = useRef(false)
   const [grabbing, setGrabbing] = useState(false)
+  const [viewportSize, setViewportSize] = useState({ w: 1440, h: 900 })
 
   const hydrate = useWallStore((s) => s.hydrate)
   const hydrated = useWallStore((s) => s.hydrated)
@@ -42,6 +74,14 @@ export function StickerWall({
   const getProduct = useWallStore((s) => s.getProduct)
   const getSticker = useWallStore((s) => s.getSticker)
 
+  const visiblePlacements = useMemo(() => {
+    if (!clearHeroZone) return placements
+    return placements.filter(
+      (p) =>
+        !placementOverlapsHeroZone(p, camera, viewportSize.w, viewportSize.h)
+    )
+  }, [placements, clearHeroZone, camera, viewportSize])
+
   useEffect(() => {
     hydrate()
   }, [hydrate])
@@ -50,7 +90,23 @@ export function StickerWall({
     const el = viewportRef.current
     if (!el) return
 
+    const measure = () => {
+      const rect = el.getBoundingClientRect()
+      setViewportSize({ w: rect.width, h: rect.height })
+    }
+    measure()
+
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const el = viewportRef.current
+    if (!el) return
+
     const onWheel = (e: WheelEvent) => {
+      if (clearHeroZone) return
       e.preventDefault()
       const cam = useWallStore.getState().camera
       const rect = el.getBoundingClientRect()
@@ -72,7 +128,7 @@ export function StickerWall({
 
     el.addEventListener("wheel", onWheel, { passive: false })
     return () => el.removeEventListener("wheel", onWheel)
-  }, [])
+  }, [clearHeroZone])
 
   const selected = placements.find((p) => p.id === selectedPlacementId)
   const selectedProduct = selected ? getProduct(selected.productId) : undefined
@@ -86,14 +142,14 @@ export function StickerWall({
         style={{
           cursor: placeMode
             ? "crosshair"
-            : hideStickers
+            : clearHeroZone
               ? "default"
               : grabbing
                 ? "grabbing"
                 : "grab",
         }}
         onPointerDown={(e) => {
-          if (e.button !== 0 || hideStickers) return
+          if (e.button !== 0 || clearHeroZone) return
           dragging.current = true
           setGrabbing(true)
           moved.current = false
@@ -101,7 +157,7 @@ export function StickerWall({
           ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
         }}
         onPointerMove={(e) => {
-          if (!dragging.current || hideStickers) return
+          if (!dragging.current || clearHeroZone) return
           const dx = e.clientX - last.current.x
           const dy = e.clientY - last.current.y
           if (Math.abs(dx) + Math.abs(dy) > 3) moved.current = true
@@ -117,7 +173,7 @@ export function StickerWall({
           const el = viewportRef.current
           dragging.current = false
           setGrabbing(false)
-          if (!el || hideStickers) return
+          if (!el || clearHeroZone) return
           const cam = useWallStore.getState().camera
 
           if (placeMode && onPlace && !moved.current) {
@@ -148,10 +204,9 @@ export function StickerWall({
             transform: `translate(-50%, -50%) translate(${(WALL_SIZE / 2 - camera.x) * camera.zoom}px, ${(WALL_SIZE / 2 - camera.y) * camera.zoom}px) scale(${camera.zoom})`,
           }}
         >
-          {/* Infinite plane that blends into the page background — no board chrome */}
           <div className="absolute inset-0">
-            {hydrated && !hideStickers
-              ? placements.map((p) => {
+            {hydrated
+              ? visiblePlacements.map((p) => {
                   const sticker = getSticker(p.stickerId)
                   if (!sticker) return null
                   const active = p.id === selectedPlacementId
@@ -199,7 +254,11 @@ export function StickerWall({
 
       <div data-ui-chrome className="contents">
         {!placeMode && !hideControls ? <WallControls /> : null}
-        {!placeMode && selected && selectedProduct && selectedSticker ? (
+        {!placeMode &&
+        !clearHeroZone &&
+        selected &&
+        selectedProduct &&
+        selectedSticker ? (
           <ProductSheet
             product={selectedProduct}
             sticker={selectedSticker}

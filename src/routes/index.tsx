@@ -13,17 +13,17 @@ function Home() {
     <AppChrome variant="wall">
       <StickerWall
         hideControls={heroVisible}
-        hideStickers={heroVisible}
+        clearHeroZone={heroVisible}
       />
 
       <AnimatePresence>
         {heroVisible ? (
           <motion.div
             data-ui-chrome
-            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-white px-6"
+            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
           >
             <motion.div
