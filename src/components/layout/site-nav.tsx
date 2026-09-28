@@ -20,7 +20,7 @@ export function SiteNav({ className }: { className?: string }) {
   return (
     <nav
       className={cn(
-        "flex items-center gap-1 rounded-2xl border border-border/80 bg-card/90 px-1.5 py-1 shadow-sm backdrop-blur-md",
+        "font-ui flex items-center gap-0.5 rounded-full border border-black/[0.06] bg-white/80 px-1 py-1 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.12)] backdrop-blur-xl backdrop-saturate-150",
         className
       )}
     >
@@ -28,7 +28,7 @@ export function SiteNav({ className }: { className?: string }) {
         <Link
           key={to}
           to={to}
-          className="flex items-center gap-1.5 rounded-xl px-3 py-2 font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase transition-colors hover:bg-muted hover:text-foreground [&.active]:bg-primary [&.active]:text-primary-foreground"
+          className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-medium tracking-[-0.01em] text-neutral-500 transition-colors hover:bg-black/[0.04] hover:text-neutral-900 [&.active]:bg-neutral-900 [&.active]:text-white"
           activeOptions={{ exact: to === "/" }}
         >
           <Icon weight="bold" className="size-3.5" />
@@ -38,7 +38,7 @@ export function SiteNav({ className }: { className?: string }) {
       {session ? (
         <Link
           to="/dashboard"
-          className="flex items-center gap-1.5 rounded-xl px-3 py-2 font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase transition-colors hover:bg-muted hover:text-foreground [&.active]:bg-primary [&.active]:text-primary-foreground"
+          className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-medium tracking-[-0.01em] text-neutral-500 transition-colors hover:bg-black/[0.04] hover:text-neutral-900 [&.active]:bg-neutral-900 [&.active]:text-white"
         >
           <House weight="bold" className="size-3.5" />
           Dashboard
@@ -46,7 +46,7 @@ export function SiteNav({ className }: { className?: string }) {
       ) : (
         <Link
           to="/sign-in"
-          className="flex items-center gap-1.5 rounded-xl px-3 py-2 font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase transition-colors hover:bg-muted hover:text-foreground [&.active]:bg-primary [&.active]:text-primary-foreground"
+          className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-medium tracking-[-0.01em] text-neutral-500 transition-colors hover:bg-black/[0.04] hover:text-neutral-900 [&.active]:bg-neutral-900 [&.active]:text-white"
         >
           <SignIn weight="bold" className="size-3.5" />
           Sign in
@@ -56,26 +56,32 @@ export function SiteNav({ className }: { className?: string }) {
   )
 }
 
-export function BrandMark({ className }: { className?: string }) {
+export function BrandMark({
+  className,
+  compact,
+}: {
+  className?: string
+  compact?: boolean
+}) {
   return (
     <Link
       to="/"
-      className={cn("group flex items-center gap-2.5", className)}
+      className={cn(
+        "font-ui group flex items-center gap-2.5 text-neutral-900",
+        className
+      )}
     >
       <span
         aria-hidden
-        className="grid size-9 place-items-center rounded-[0.85rem] border-[3px] border-ink bg-sticker-yellow shadow-[2px_2px_0_var(--ink)] transition-transform group-hover:-rotate-3"
+        className="grid size-8 place-items-center rounded-[10px] bg-neutral-900 text-[13px] font-semibold tracking-[-0.02em] text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:scale-[1.04]"
       >
-        <span className="size-3 rounded-full bg-sticker-teal" />
+        N
       </span>
-      <span className="flex flex-col leading-none">
-        <span className="font-heading text-lg font-extrabold tracking-tight text-foreground">
-          Sticker Wall
+      {!compact ? (
+        <span className="text-[17px] font-semibold tracking-[-0.02em]">
+          Netkraft
         </span>
-        <span className="font-mono text-[10px] tracking-[0.18em] text-muted-foreground uppercase">
-          for indie makers
-        </span>
-      </span>
+      ) : null}
     </Link>
   )
 }

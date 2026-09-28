@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { CheckCircle, CurrencyDollar } from "@phosphor-icons/react"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -20,9 +20,9 @@ import { useWallStore } from "@/store/wall-store"
 
 function PlaceChrome({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-svh bg-background">
-      <div className="border-b border-border/70 bg-background/90 px-3 py-3 backdrop-blur-md sm:px-5">
-        <div className="flex items-center justify-between gap-3">
+    <div className="font-ui min-h-svh bg-white text-neutral-900 antialiased">
+      <div className="sticky top-0 z-40 border-b border-black/[0.06] bg-white/80 px-3 py-3 backdrop-blur-xl backdrop-saturate-150 sm:px-5">
+        <div className="flex h-8 items-center justify-between gap-3">
           <BrandMark />
           <SiteNav className="hidden sm:flex" />
         </div>
@@ -97,30 +97,28 @@ export function PlaceFlow() {
     return (
       <PlaceChrome>
         <div className="mx-auto flex max-w-lg flex-col items-center gap-5 px-6 py-24 text-center">
-          <CheckCircle weight="fill" className="size-14 text-sticker-teal" />
-          <h1 className="font-heading text-4xl font-extrabold tracking-tight">
+          <CheckCircle weight="fill" className="size-14 text-neutral-900" />
+          <h1 className="text-[36px] font-semibold tracking-[-0.03em] text-neutral-900">
             You&apos;re on the wall
           </h1>
-          <p className="text-muted-foreground">
-            Your placement is permanent. Newer stickers can cover it — that&apos;s
+          <p className="text-[16px] leading-relaxed text-neutral-500">
+            Your placement is permanent. Newer stickers can cover it - that&apos;s
             the game. Your product stays in the directory either way.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Button
-              className="rounded-2xl"
+            <button
+              type="button"
+              className="press inline-flex h-11 items-center rounded-full bg-neutral-900 px-6 text-[15px] font-semibold text-white"
               onClick={() => {
                 setDraftSticker(null)
                 void navigate({ to: "/" })
               }}
             >
               See the wall
-            </Button>
+            </button>
             <Link
               to="/directory"
-              className={cn(
-                buttonVariants({ variant: "outline" }),
-                "rounded-2xl"
-              )}
+              className="press inline-flex h-11 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold text-neutral-900"
               onClick={() => setDraftSticker(null)}
             >
               Open directory
@@ -133,13 +131,13 @@ export function PlaceFlow() {
 
   if (step === "place" && draftSticker) {
     return (
-      <div className="relative">
+      <div className="font-ui relative">
         <div className="pointer-events-none absolute top-3 right-3 left-3 z-30 flex justify-center sm:top-4">
-          <div className="pointer-events-auto rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur-md">
-            <p className="text-center font-heading text-lg font-extrabold">
+          <div className="pointer-events-auto rounded-full border border-black/[0.06] bg-white/85 px-5 py-3 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
+            <p className="text-center text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">
               Tap the wall to place your {tier} sticker
             </p>
-            <p className="text-center font-mono text-[11px] tracking-widest text-muted-foreground uppercase">
+            <p className="text-center text-[12px] text-neutral-500">
               {dim}×{dim} · ${price} paid (prototype)
             </p>
           </div>
@@ -158,12 +156,17 @@ export function PlaceFlow() {
     return (
       <PlaceChrome>
         <div className="mx-auto flex max-w-lg flex-col items-center gap-4 px-6 py-24 text-center">
-          <h1 className="font-heading text-3xl font-extrabold">No sticker yet</h1>
-          <p className="text-muted-foreground">
-            Make a Classic sticker first, then come back to place it on the wall.
+          <h1 className="text-[32px] font-semibold tracking-[-0.03em] text-neutral-900">
+            No sticker yet
+          </h1>
+          <p className="text-[16px] text-neutral-500">
+            Make a sticker first, then come back to place it on the wall.
           </p>
-          <Link to="/make" className={cn(buttonVariants(), "rounded-2xl")}>
-            Make a sticker
+          <Link
+            to="/make"
+            className="press inline-flex h-11 items-center rounded-full bg-neutral-900 px-6 text-[15px] font-semibold text-white"
+          >
+            Create sticker
           </Link>
         </div>
       </PlaceChrome>
@@ -172,191 +175,184 @@ export function PlaceFlow() {
 
   return (
     <PlaceChrome>
-    <div className="mx-auto grid max-w-5xl gap-8 px-4 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
-      <div className="flex flex-col items-center gap-4 rounded-3xl border border-border bg-card p-6 shadow-sm">
-        <img
-          src={draftSticker.imageDataUrl}
-          alt="Your sticker"
-          className="max-h-64 object-contain drop-shadow-xl"
-        />
-        <p className="font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-          Placement size preview on a {WALL_SIZE}×{WALL_SIZE} wall
-        </p>
-        <div className="relative h-40 w-full max-w-xs overflow-hidden rounded-xl border border-border bg-cork">
-          <div className="wall-grid absolute inset-0 opacity-50" />
-          <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-ink/40 bg-card/40"
-            style={{
-              width: `${(dim / WALL_SIZE) * 100}%`,
-              height: `${(dim / WALL_SIZE) * 100}%`,
-              minWidth: 28,
-              minHeight: 28,
-            }}
-          >
-            <img
-              src={draftSticker.imageDataUrl}
-              alt=""
-              className="size-full object-contain"
-            />
+      <div className="mx-auto grid max-w-5xl gap-8 px-4 py-10 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+        <div className="flex flex-col items-center gap-4 rounded-[28px] border border-black/[0.06] bg-[#f5f5f7] p-6">
+          <img
+            src={draftSticker.imageDataUrl}
+            alt="Your sticker"
+            className="max-h-64 object-contain drop-shadow-xl"
+          />
+          <p className="text-[12px] font-medium tracking-[-0.01em] text-neutral-500">
+            Placement size preview on a {WALL_SIZE}×{WALL_SIZE} wall
+          </p>
+          <div className="relative h-40 w-full max-w-xs overflow-hidden rounded-2xl border border-black/[0.06] bg-white">
+            <div className="wall-grid absolute inset-0 opacity-50" />
+            <div
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-2 border-dashed border-neutral-900/25 bg-white/40"
+              style={{
+                width: `${(dim / WALL_SIZE) * 100}%`,
+                height: `${(dim / WALL_SIZE) * 100}%`,
+                minWidth: 28,
+                minHeight: 28,
+              }}
+            >
+              <img
+                src={draftSticker.imageDataUrl}
+                alt=""
+                className="size-full object-contain"
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="rounded-3xl border border-border bg-card/90 p-5 shadow-sm sm:p-6">
-        {step === "details" ? (
-          <div className="flex flex-col gap-5">
-            <div>
-              <p className="font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                Put on Wall
-              </p>
-              <h1 className="font-heading text-3xl font-extrabold tracking-tight">
-                Product details
-              </h1>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Size</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {(Object.keys(SIZE_TIERS) as SizeTier[]).map((key) => {
-                  const s = SIZE_TIERS[key]
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setTier(key)}
-                      className={cn(
-                        "rounded-2xl border px-3 py-3 text-left transition-colors",
-                        tier === key
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-background hover:bg-muted"
-                      )}
-                    >
-                      <div className="font-heading text-lg font-extrabold">
-                        {s.key}
-                      </div>
-                      <div className="font-mono text-[10px] tracking-wider opacity-80 uppercase">
-                        {s.units}×{s.units} · ${s.price}
-                      </div>
-                    </button>
-                  )
-                })}
+        <div className="rounded-[28px] border border-black/[0.06] bg-white p-5 sm:p-6">
+          {step === "details" ? (
+            <div className="flex flex-col gap-5">
+              <div>
+                <h1 className="text-[32px] font-semibold tracking-[-0.03em] text-neutral-900">
+                  Product details
+                </h1>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="name">Product name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="ShipKit"
-                className="rounded-xl border border-input bg-background px-3"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="blurb">One-liner</Label>
-              <Textarea
-                id="blurb"
-                value={oneLiner}
-                onChange={(e) => setOneLiner(e.target.value)}
-                placeholder="Launch checklists that actually get checked."
-                className="min-h-20 rounded-xl border border-input bg-background px-3"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="url">Website</Label>
-              <Input
-                id="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://yourproduct.dev"
-                className="rounded-xl border border-input bg-background px-3"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <select
-                id="category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
-                className="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="offer">Offer / launch line (optional)</Label>
-              <Input
-                id="offer"
-                value={offer}
-                onChange={(e) => setOffer(e.target.value)}
-                placeholder="Launch week: 30% off"
-                className="rounded-xl border border-input bg-background px-3"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label>Size</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(Object.keys(SIZE_TIERS) as SizeTier[]).map((key) => {
+                    const s = SIZE_TIERS[key]
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setTier(key)}
+                        className={cn(
+                          "rounded-2xl border px-3 py-3 text-left transition-colors",
+                          tier === key
+                            ? "border-neutral-900 bg-neutral-900 text-white"
+                            : "border-black/[0.08] bg-[#f5f5f7] hover:bg-black/[0.04]"
+                        )}
+                      >
+                        <div className="text-[17px] font-semibold tracking-[-0.02em]">
+                          {s.key}
+                        </div>
+                        <div className="text-[11px] opacity-80">
+                          {s.units}×{s.units} · ${s.price}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
-            <Button
-              className="mt-2 rounded-2xl"
-              size="lg"
-              disabled={!canContinue}
-              onClick={goPay}
-            >
-              Continue to pay · ${price}
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-start gap-5">
-            <div>
-              <p className="font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                Prototype checkout
-              </p>
-              <h1 className="font-heading text-3xl font-extrabold tracking-tight">
-                Pay ${price}
-              </h1>
-              <p className="mt-2 max-w-md text-sm text-muted-foreground">
-                You&apos;re buying a <strong>{tier}</strong> placement on the
-                wall — not a permanent plot. Mock payment for this prototype;
-                Stripe lands in Phase 5.
-              </p>
-            </div>
-            <div className="w-full rounded-2xl border border-border bg-muted/40 p-4 font-mono text-sm">
-              <div className="flex justify-between">
-                <span>{name || "Your product"}</span>
-                <span>
-                  {SIZE_TIERS[tier].units}×{SIZE_TIERS[tier].units}
-                </span>
+              <div className="space-y-2">
+                <Label htmlFor="name">Product name</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="ShipKit"
+                  className="rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-3"
+                />
               </div>
-              <div className="mt-2 flex justify-between font-heading text-2xl font-extrabold">
-                <span>Total</span>
-                <span>${price}</span>
+              <div className="space-y-2">
+                <Label htmlFor="blurb">One-liner</Label>
+                <Textarea
+                  id="blurb"
+                  value={oneLiner}
+                  onChange={(e) => setOneLiner(e.target.value)}
+                  placeholder="Launch checklists that actually get checked."
+                  className="min-h-20 rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-3"
+                />
               </div>
-            </div>
-            <div className="flex w-full flex-col gap-2 sm:flex-row">
+              <div className="space-y-2">
+                <Label htmlFor="url">Website</Label>
+                <Input
+                  id="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://yourproduct.dev"
+                  className="rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-3"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <select
+                  id="category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as Category)}
+                  className="h-10 w-full rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-3 text-sm outline-none focus-visible:border-neutral-400"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="offer">Offer / launch line (optional)</Label>
+                <Input
+                  id="offer"
+                  value={offer}
+                  onChange={(e) => setOffer(e.target.value)}
+                  placeholder="Launch week: 30% off"
+                  className="rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-3"
+                />
+              </div>
+
               <Button
-                className="flex-1 rounded-2xl"
+                className="mt-2 rounded-full"
                 size="lg"
-                disabled={paying}
-                onClick={mockPay}
+                disabled={!canContinue}
+                onClick={goPay}
               >
-                <CurrencyDollar weight="bold" data-icon="inline-start" />
-                {paying ? "Processing…" : `Pay $${price} — prototype`}
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-2xl"
-                onClick={() => setStep("details")}
-              >
-                Back
+                Continue to pay · ${price}
               </Button>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="flex flex-col items-start gap-5">
+              <div>
+                <h1 className="text-[32px] font-semibold tracking-[-0.03em] text-neutral-900">
+                  Pay ${price}
+                </h1>
+                <p className="mt-2 max-w-md text-[14px] leading-relaxed text-neutral-500">
+                  You&apos;re buying a <strong>{tier}</strong> placement on the
+                  wall, not a permanent plot. Mock payment for this prototype.
+                </p>
+              </div>
+              <div className="w-full rounded-2xl border border-black/[0.06] bg-[#f5f5f7] p-4 text-[14px]">
+                <div className="flex justify-between text-neutral-600">
+                  <span>{name || "Your product"}</span>
+                  <span>
+                    {SIZE_TIERS[tier].units}×{SIZE_TIERS[tier].units}
+                  </span>
+                </div>
+                <div className="mt-2 flex justify-between text-[22px] font-semibold tracking-[-0.02em] text-neutral-900">
+                  <span>Total</span>
+                  <span>${price}</span>
+                </div>
+              </div>
+              <div className="flex w-full flex-col gap-2 sm:flex-row">
+                <Button
+                  className="flex-1 rounded-full"
+                  size="lg"
+                  disabled={paying}
+                  onClick={mockPay}
+                >
+                  <CurrencyDollar weight="bold" data-icon="inline-start" />
+                  {paying ? "Processing…" : `Pay $${price}`}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => setStep("details")}
+                >
+                  Back
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
     </PlaceChrome>
   )
 }

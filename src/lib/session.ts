@@ -5,15 +5,20 @@ import { prisma } from "./prisma"
 
 export const getSession = createServerFn({ method: "GET" }).handler(
   async () => {
-    const request = getRequest()
-    const session = await auth.api.getSession({ headers: request.headers })
-    if (!session) return null
-    return {
-      user: {
-        id: session.user.id,
-        name: session.user.name,
-        email: session.user.email,
-      },
+    try {
+      const request = getRequest()
+      const session = await auth.api.getSession({ headers: request.headers })
+      if (!session) return null
+      return {
+        user: {
+          id: session.user.id,
+          name: session.user.name,
+          email: session.user.email,
+        },
+      }
+    } catch {
+      // Auth/DB may be unavailable in local prototype preview.
+      return null
     }
   }
 )
