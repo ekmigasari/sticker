@@ -190,43 +190,40 @@ export function FloatingSticker({
         }}
         style={{ cursor: "grab" }}
       >
-        {/* Release liner / backing paper — stays while vinyl peels away. */}
+        {/* Release liner — same silhouette as the sticker, stays while vinyl peels. */}
         <motion.div
           aria-hidden
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-[4px]"
+          className="pointer-events-none absolute inset-0 overflow-hidden"
           style={{
             opacity: backingOpacity,
             transform: backingTransform,
-            backgroundColor: "#f4f2ea",
-            boxShadow:
-              "inset 0 0 0 1px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+            ...mask,
           }}
         >
           <div
-            className="absolute inset-[-20%] flex flex-wrap content-center justify-center gap-x-5 gap-y-6"
+            className="absolute inset-0"
+            style={{
+              backgroundColor: "#f4f2ea",
+              backgroundImage:
+                "repeating-linear-gradient(135deg, rgba(0,0,0,0.045) 0 2px, transparent 2px 7px)",
+            }}
+          />
+          <div
+            className="absolute inset-[-30%] flex flex-wrap content-center justify-center gap-x-4 gap-y-5"
             style={{
               transform: "rotate(-28deg)",
-              opacity: 0.22,
+              opacity: 0.28,
             }}
           >
-            {Array.from({ length: 48 }, (_, i) => (
+            {Array.from({ length: 56 }, (_, i) => (
               <span
                 key={i}
-                className="shrink-0 text-[11px] font-semibold tracking-[0.18em] text-neutral-500 uppercase"
+                className="shrink-0 text-[10px] font-semibold tracking-[0.18em] text-neutral-500 uppercase"
               >
                 netkraf
               </span>
             ))}
           </div>
-          {/* Silhouette of where the sticker sat on the liner. */}
-          <div
-            className="absolute inset-0 opacity-30"
-            style={{
-              ...mask,
-              background:
-                "repeating-linear-gradient(135deg, rgba(0,0,0,0.07) 0 2px, transparent 2px 6px)",
-            }}
-          />
         </motion.div>
 
         <motion.img
