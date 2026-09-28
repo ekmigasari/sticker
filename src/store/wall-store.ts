@@ -234,7 +234,8 @@ export const useWallStore = create<WallState>((set, get) => ({
         placements,
         nextZ,
         placeDraft: null,
-        draftSticker: null,
+        // Keep draftSticker until the success screen navigates away so
+        // PlaceFlow can render "You're on the wall" instead of the empty state.
         selectedPlacementId: placementId,
         camera: {
           x: placement.x + placement.width / 2,

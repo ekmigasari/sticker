@@ -37,6 +37,7 @@ type Step = "details" | "pay" | "place" | "done"
 export function PlaceFlow() {
   const navigate = useNavigate()
   const draftSticker = useWallStore((s) => s.draftSticker)
+  const setDraftSticker = useWallStore((s) => s.setDraftSticker)
   const setPlaceDraft = useWallStore((s) => s.setPlaceDraft)
   const confirmPlacement = useWallStore((s) => s.confirmPlacement)
   const hydrate = useWallStore((s) => s.hydrate)
@@ -62,25 +63,10 @@ export function PlaceFlow() {
     [name, oneLiner, url]
   )
 
-  if (!draftSticker) {
-    return (
-      <PlaceChrome>
-        <div className="mx-auto flex max-w-lg flex-col items-center gap-4 px-6 py-24 text-center">
-          <h1 className="font-heading text-3xl font-extrabold">No sticker yet</h1>
-          <p className="text-muted-foreground">
-            Make a Classic sticker first, then come back to place it on the wall.
-          </p>
-          <Link to="/make" className={cn(buttonVariants(), "rounded-2xl")}>
-            Make a sticker
-          </Link>
-        </div>
-      </PlaceChrome>
-    )
-  }
-
   function goPay() {
+    if (!draftSticker) return
     setPlaceDraft({
-      sticker: draftSticker!,
+      sticker: draftSticker,
       sizeTier: tier,
       product: {
         name: name.trim(),
@@ -106,7 +92,46 @@ export function PlaceFlow() {
     if (placement) setStep("done")
   }
 
-  if (step === "place") {
+  // confirmPlacement clears draftSticker — check done before the empty state.
+  if (step === "done") {
+    return (
+      <PlaceChrome>
+        <div className="mx-auto flex max-w-lg flex-col items-center gap-5 px-6 py-24 text-center">
+          <CheckCircle weight="fill" className="size-14 text-sticker-teal" />
+          <h1 className="font-heading text-4xl font-extrabold tracking-tight">
+            You&apos;re on the wall
+          </h1>
+          <p className="text-muted-foreground">
+            Your placement is permanent. Newer stickers can cover it — that&apos;s
+            the game. Your product stays in the directory either way.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button
+              className="rounded-2xl"
+              onClick={() => {
+                setDraftSticker(null)
+                void navigate({ to: "/" })
+              }}
+            >
+              See the wall
+            </Button>
+            <Link
+              to="/directory"
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "rounded-2xl"
+              )}
+              onClick={() => setDraftSticker(null)}
+            >
+              Open directory
+            </Link>
+          </div>
+        </div>
+      </PlaceChrome>
+    )
+  }
+
+  if (step === "place" && draftSticker) {
     return (
       <div className="relative">
         <div className="pointer-events-none absolute top-3 right-3 left-3 z-30 flex justify-center sm:top-4">
@@ -129,35 +154,17 @@ export function PlaceFlow() {
     )
   }
 
-  if (step === "done") {
+  if (!draftSticker) {
     return (
       <PlaceChrome>
-        <div className="mx-auto flex max-w-lg flex-col items-center gap-5 px-6 py-24 text-center">
-          <CheckCircle weight="fill" className="size-14 text-sticker-teal" />
-          <h1 className="font-heading text-4xl font-extrabold tracking-tight">
-            You&apos;re on the wall
-          </h1>
+        <div className="mx-auto flex max-w-lg flex-col items-center gap-4 px-6 py-24 text-center">
+          <h1 className="font-heading text-3xl font-extrabold">No sticker yet</h1>
           <p className="text-muted-foreground">
-            Your placement is permanent. Newer stickers can cover it — that&apos;s
-            the game. Your product stays in the directory either way.
+            Make a Classic sticker first, then come back to place it on the wall.
           </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <Button
-              className="rounded-2xl"
-              onClick={() => void navigate({ to: "/" })}
-            >
-              See the wall
-            </Button>
-            <Link
-              to="/directory"
-              className={cn(
-                buttonVariants({ variant: "outline" }),
-                "rounded-2xl"
-              )}
-            >
-              Open directory
-            </Link>
-          </div>
+          <Link to="/make" className={cn(buttonVariants(), "rounded-2xl")}>
+            Make a sticker
+          </Link>
         </div>
       </PlaceChrome>
     )

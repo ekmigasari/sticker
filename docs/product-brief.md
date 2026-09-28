@@ -46,7 +46,7 @@ Philosophy remains **$1 per square unit**. Custom sizes come later.
 
 ## Style
 
-Classic only (cutout + outline). Stamp / Scrapbook deferred.
+Classic (cutout + outline), Stamp, and Rough Cut in the free generator, plus photo filters (Glitter, Vivid, Warm, Cool, Mono, Noir).
 
 ## Non-goals (MVP)
 
