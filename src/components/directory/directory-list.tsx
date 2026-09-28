@@ -9,6 +9,7 @@ import { useWallStore } from "@/store/wall-store"
 
 export function DirectoryList() {
   const hydrate = useWallStore((s) => s.hydrate)
+  const hydrated = useWallStore((s) => s.hydrated)
   const products = useWallStore((s) => s.products)
   const stickers = useWallStore((s) => s.stickers)
   const placements = useWallStore((s) => s.placements)
@@ -129,7 +130,7 @@ export function DirectoryList() {
         ))}
         {rows.length === 0 ? (
           <li className="px-5 py-10 text-center text-sm text-muted-foreground">
-            No products match.
+            {hydrated ? "No products match." : "Loading makers…"}
           </li>
         ) : null}
       </ul>
