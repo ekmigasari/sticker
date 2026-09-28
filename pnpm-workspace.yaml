@@ -6,3 +6,5 @@ allowBuilds:
   unrs-resolver: true
   msw: false
   workerd: true
+  prisma: true
+  "@prisma/engines": true

@@ -24,6 +24,7 @@
     ".tanstack/",
     "node_modules/",
     "public/",
-    "src/routeTree.gen.ts"
+    "src/routeTree.gen.ts",
+    "src/generated/"
   ]
 }

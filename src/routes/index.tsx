@@ -1,21 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { Link, createFileRoute } from "@tanstack/react-router"
 import { ArrowRight } from "@phosphor-icons/react"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 
 export const Route = createFileRoute("/")({ component: Home })
 
 function Home() {
   return (
-    <div className="flex min-h-svh flex-col px-6 py-8 sm:px-10">
-      <header className="flex items-center justify-between">
-        <span className="font-mono text-xs tracking-[0.25em] uppercase">
-          xmigas FE prototype
-        </span>
-        <span className="font-mono text-xs tracking-[0.15em] text-muted-foreground">
-          2026
-        </span>
-      </header>
-
+    <div className="flex flex-1 flex-col">
       <main className="mb-16 flex flex-1 flex-col justify-center">
         <div className="flex max-w-4xl flex-col gap-8">
           <img
@@ -39,12 +30,15 @@ function Home() {
           </p>
 
           <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:gap-4">
-            <Button className="w-full sm:w-auto">
+            <Link
+              to="/files"
+              className={buttonVariants({ className: "w-full sm:w-auto" })}
+            >
               Start building
               <ArrowRight weight="bold" />
-            </Button>
+            </Link>
             <div className="text-center font-mono text-xs text-muted-foreground sm:text-left">
-              60+ components installed
+              Sign in to upload files
             </div>
           </div>
         </div>

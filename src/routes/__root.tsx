@@ -1,10 +1,22 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
+import {
+  HeadContent,
+  Outlet,
+  Scripts,
+  createRootRoute,
+} from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { TanStackDevtools } from "@tanstack/react-devtools"
+import { SiteHeader } from "@/components/site-header"
+import { getSession } from "@/lib/session"
 
 import appCss from "../styles.css?url"
 
 export const Route = createRootRoute({
+  beforeLoad: async () => {
+    const session = await getSession()
+    return { session }
+  },
+  component: RootLayout,
   head: () => ({
     meta: [
       {
@@ -58,6 +70,19 @@ export const Route = createRootRoute({
   ),
   shellComponent: RootDocument,
 })
+
+function RootLayout() {
+  const { session } = Route.useRouteContext()
+
+  return (
+    <div className="flex min-h-svh flex-col px-6 py-8 sm:px-10">
+      <SiteHeader user={session?.user ?? null} />
+      <div className="flex flex-1 flex-col">
+        <Outlet />
+      </div>
+    </div>
+  )
+}
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (

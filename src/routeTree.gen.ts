@@ -10,33 +10,122 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProtectedRouteImport } from './routes/_protected'
+import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as ProtectedFilesRouteImport } from './routes/_protected/files'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiUploadsIndexRouteImport } from './routes/api/uploads/index'
+import { Route as ApiUploadsIdRouteImport } from './routes/api/uploads/$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProtectedRoute = ProtectedRouteImport.update({
+  id: '/_protected',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignUpRoute = SignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProtectedFilesRoute = ProtectedFilesRouteImport.update({
+  id: '/files',
+  path: '/files',
+  getParentRoute: () => ProtectedRoute,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiUploadsIndexRoute = ApiUploadsIndexRouteImport.update({
+  id: '/api/uploads/',
+  path: '/api/uploads/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiUploadsIdRoute = ApiUploadsIdRouteImport.update({
+  id: '/api/uploads/$id',
+  path: '/api/uploads/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
+  '/files': typeof ProtectedFilesRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/uploads/$id': typeof ApiUploadsIdRoute
+  '/api/uploads/': typeof ApiUploadsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
+  '/files': typeof ProtectedFilesRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/uploads/$id': typeof ApiUploadsIdRoute
+  '/api/uploads': typeof ApiUploadsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_protected': typeof ProtectedRouteWithChildren
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
+  '/_protected/files': typeof ProtectedFilesRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/uploads/$id': typeof ApiUploadsIdRoute
+  '/api/uploads/': typeof ApiUploadsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/sign-in'
+    | '/sign-up'
+    | '/files'
+    | '/api/auth/$'
+    | '/api/uploads/$id'
+    | '/api/uploads/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/sign-in'
+    | '/sign-up'
+    | '/files'
+    | '/api/auth/$'
+    | '/api/uploads/$id'
+    | '/api/uploads'
+  id:
+    | '__root__'
+    | '/'
+    | '/_protected'
+    | '/sign-in'
+    | '/sign-up'
+    | '/_protected/files'
+    | '/api/auth/$'
+    | '/api/uploads/$id'
+    | '/api/uploads/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ProtectedRoute: typeof ProtectedRouteWithChildren
+  SignInRoute: typeof SignInRoute
+  SignUpRoute: typeof SignUpRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiUploadsIdRoute: typeof ApiUploadsIdRoute
+  ApiUploadsIndexRoute: typeof ApiUploadsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +137,78 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_protected': {
+      id: '/_protected'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ProtectedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-up': {
+      id: '/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_protected/files': {
+      id: '/_protected/files'
+      path: '/files'
+      fullPath: '/files'
+      preLoaderRoute: typeof ProtectedFilesRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/uploads/': {
+      id: '/api/uploads/'
+      path: '/api/uploads'
+      fullPath: '/api/uploads/'
+      preLoaderRoute: typeof ApiUploadsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/uploads/$id': {
+      id: '/api/uploads/$id'
+      path: '/api/uploads/$id'
+      fullPath: '/api/uploads/$id'
+      preLoaderRoute: typeof ApiUploadsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface ProtectedRouteChildren {
+  ProtectedFilesRoute: typeof ProtectedFilesRoute
+}
+
+const ProtectedRouteChildren: ProtectedRouteChildren = {
+  ProtectedFilesRoute: ProtectedFilesRoute,
+}
+
+const ProtectedRouteWithChildren = ProtectedRoute._addFileChildren(
+  ProtectedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ProtectedRoute: ProtectedRouteWithChildren,
+  SignInRoute: SignInRoute,
+  SignUpRoute: SignUpRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiUploadsIdRoute: ApiUploadsIdRoute,
+  ApiUploadsIndexRoute: ApiUploadsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
