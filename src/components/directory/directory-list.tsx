@@ -28,14 +28,12 @@ export function DirectoryList({ products }: { products: DirectoryProduct[] }) {
   }, [products, query, category])
 
   return (
-    <div className="font-ui mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-10 sm:px-8 sm:py-14">
+    <div className="nk-page">
       <header className="flex flex-col items-start gap-3">
-        <h1 className="text-[40px] leading-none font-semibold tracking-[-0.035em] text-neutral-900 sm:text-[48px]">
-          Directory
-        </h1>
-        <p className="max-w-xl text-[17px] leading-snug text-neutral-500">
-          Every product stays here permanently, even when its sticker is buried
-          on the wall.
+        <h1 className="nk-title">Directory</h1>
+        <p className="nk-subtitle">
+          Every sticker is a product. Listings stay here permanently — even when
+          buried on the wall.
         </p>
       </header>
 
@@ -48,8 +46,8 @@ export function DirectoryList({ products }: { products: DirectoryProduct[] }) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search products"
-            className="h-12 w-full rounded-full border border-black/[0.06] bg-[#f5f5f7] pr-4 pl-11 text-[15px] tracking-[-0.01em] text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-black/15 focus:bg-white"
+            placeholder="Search stickers"
+            className="nk-field pl-11"
           />
         </div>
         <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
@@ -59,10 +57,8 @@ export function DirectoryList({ products }: { products: DirectoryProduct[] }) {
               type="button"
               onClick={() => setCategory(c)}
               className={cn(
-                "press shrink-0 rounded-full px-4 py-2 text-[13px] font-medium tracking-[-0.01em] transition-colors",
-                category === c
-                  ? "bg-neutral-900 text-white"
-                  : "bg-black/[0.045] text-neutral-600 hover:bg-black/[0.07] hover:text-neutral-900"
+                "nk-chip",
+                category === c ? "nk-chip-active" : "nk-chip-idle"
               )}
             >
               {c}
@@ -95,9 +91,6 @@ export function DirectoryList({ products }: { products: DirectoryProduct[] }) {
                   </h2>
                   <span className="text-[12px] font-medium tracking-[-0.01em] text-neutral-400">
                     {product.category}
-                    {product.stickerCount
-                      ? ` · ${product.stickerCount} sticker${product.stickerCount === 1 ? "" : "s"}`
-                      : ""}
                   </span>
                 </div>
                 <p className="mt-0.5 truncate text-[14px] text-neutral-500">
@@ -112,7 +105,7 @@ export function DirectoryList({ products }: { products: DirectoryProduct[] }) {
         ))}
         {rows.length === 0 ? (
           <li className="py-16 text-center text-[15px] text-neutral-500">
-            No products match.
+            No stickers match.
           </li>
         ) : null}
       </ul>

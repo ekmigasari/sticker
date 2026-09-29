@@ -1,16 +1,21 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 import { authClient } from "@/lib/auth-client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { safeNextPath } from "@/lib/auth-redirect"
 
-export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
+export function AuthForm({
+  mode,
+  next,
+}: {
+  mode: "sign-in" | "sign-up"
+  next?: string
+}) {
   const navigate = useNavigate()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const isSignUp = mode === "sign-up"
+  const destination = safeNextPath(next)
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -32,49 +37,78 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     }
 
     await router.invalidate()
-    await navigate({ to: "/dashboard" })
+    if (destination === "/place") {
+      await navigate({ to: "/place" })
+    } else if (destination === "/dashboard") {
+      await navigate({ to: "/dashboard" })
+    } else if (destination.startsWith("/dashboard/products/")) {
+      const id = destination.slice("/dashboard/products/".length)
+      await navigate({
+        to: "/dashboard/products/$id",
+        params: { id },
+      })
+    } else {
+      router.history.push(destination)
+    }
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex max-w-md flex-col gap-6">
+    <form onSubmit={onSubmit} className="font-ui flex flex-col gap-5">
       {isSignUp ? (
         <div className="flex flex-col gap-2">
-          <Label htmlFor="name">Name</Label>
-          <Input id="name" name="name" autoComplete="name" required />
+          <label htmlFor="name" className="nk-label">
+            Name
+          </label>
+          <input
+            id="name"
+            name="name"
+            autoComplete="name"
+            required
+            className="nk-field"
+          />
         </div>
       ) : null}
       <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Email</Label>
-        <Input
+        <label htmlFor="email" className="nk-label">
+          Email
+        </label>
+        <input
           id="email"
           name="email"
           type="email"
           autoComplete="email"
           required
+          className="nk-field"
         />
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="password">Password</Label>
-        <Input
+        <label htmlFor="password" className="nk-label">
+          Password
+        </label>
+        <input
           id="password"
           name="password"
           type="password"
           autoComplete={isSignUp ? "new-password" : "current-password"}
           minLength={8}
           required
+          className="nk-field"
         />
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-        {pending ? "Please wait" : isSignUp ? "Create account" : "Sign in"}
-      </Button>
-      <p className="font-mono text-xs text-muted-foreground">
+      {error ? (
+        <p className="text-[14px] font-medium text-red-600">{error}</p>
+      ) : null}
+      <button type="submit" disabled={pending} className="nk-btn w-full">
+        {pending ? "Please wait…" : isSignUp ? "Create account" : "Sign in"}
+      </button>
+      <p className="text-center text-[14px] text-neutral-500">
         {isSignUp ? (
           <>
             Already have an account?{" "}
             <Link
               to="/sign-in"
-              className="text-foreground underline underline-offset-4"
+              search={{ next: destination === "/dashboard" ? undefined : destination }}
+              className="font-medium text-neutral-900 underline underline-offset-4"
             >
               Sign in
             </Link>
@@ -84,7 +118,8 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             New here?{" "}
             <Link
               to="/sign-up"
-              className="text-foreground underline underline-offset-4"
+              search={{ next: destination === "/dashboard" ? undefined : destination }}
+              className="font-medium text-neutral-900 underline underline-offset-4"
             >
               Create an account
             </Link>

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate, useRouteContext } from "@tanstack/react-router"
 import {
   CaretLeft,
   DownloadSimple,
@@ -35,6 +35,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+  const { session } = useRouteContext({ from: "__root__" })
   const setDraftSticker = useWallStore((s) => s.setDraftSticker)
   const setPlaceDraft = useWallStore((s) => s.setPlaceDraft)
 
@@ -188,6 +189,11 @@ export function StickerGenerator({ productId }: { productId?: string }) {
         outlineThickness: thickness,
       })
       setPlaceDraft(null)
+      // Wall setup needs an account so sticker details can become a product.
+      if (!session) {
+        void navigate({ to: "/sign-in", search: { next: "/place" } })
+        return
+      }
       void navigate({ to: "/place" })
     } finally {
       setExporting(false)
@@ -284,7 +290,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
             source && "hidden sm:block"
           )}
         >
-          {savingToProduct ? "Save to product" : "New Sticker"}
+          {savingToProduct ? "Save artwork" : "New Sticker"}
         </h1>
 
         <div className="flex items-center gap-2">
@@ -323,7 +329,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
               onClick={() => void handlePlace()}
               className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity disabled:opacity-35"
             >
-              Place
+              {session ? "Continue" : "Sign in to place"}
             </button>
           )}
         </div>

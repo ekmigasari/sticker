@@ -1,9 +1,7 @@
 import { Link, useRouter } from "@tanstack/react-router"
-import { ArrowLeft, Plus, Trash } from "@phosphor-icons/react"
+import { ArrowLeft, Plus, Trash, ArrowSquareOut } from "@phosphor-icons/react"
 import { motion } from "motion/react"
 import type { ProductDTO, StickerDTO } from "@/lib/product-api"
-import { Button, buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { useState } from "react"
 
 export function ProductManage({
@@ -18,7 +16,7 @@ export function ProductManage({
   const [busyId, setBusyId] = useState<string | null>(null)
 
   async function deleteSticker(sticker: StickerDTO) {
-    if (!window.confirm("Remove this sticker from the product?")) return
+    if (!window.confirm("Remove this artwork from the sticker?")) return
     setBusyId(sticker.id)
     const response = await fetch(`/api/stickers/${sticker.id}`, {
       method: "DELETE",
@@ -28,7 +26,7 @@ export function ProductManage({
       const payload = (await response.json().catch(() => null)) as {
         error?: string
       } | null
-      window.alert(payload?.error ?? "Could not delete sticker.")
+      window.alert(payload?.error ?? "Could not delete artwork.")
       return
     }
     setStickers((prev) => prev.filter((s) => s.id !== sticker.id))
@@ -36,54 +34,48 @@ export function ProductManage({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-10 sm:px-8">
+    <div className="nk-page">
       <div>
         <Link
           to="/dashboard"
-          className="inline-flex items-center gap-1.5 font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase transition-colors hover:text-foreground"
+          className="press inline-flex items-center gap-1.5 text-[13px] font-medium tracking-[-0.01em] text-neutral-500 transition-colors hover:text-neutral-900"
         >
           <ArrowLeft weight="bold" className="size-3.5" />
-          Dashboard
+          Your stickers
         </Link>
-        <p className="mt-4 font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-          {product.category}
-        </p>
-        <h1 className="mt-2 font-heading text-4xl font-extrabold tracking-tight sm:text-5xl">
-          {product.name}
-        </h1>
-        <p className="mt-2 max-w-2xl text-muted-foreground">{product.oneLiner}</p>
-        <div className="mt-5 flex flex-wrap gap-3">
+        <p className="nk-label mt-5">{product.category}</p>
+        <h1 className="nk-title mt-2">{product.name}</h1>
+        <p className="nk-subtitle mt-3">{product.oneLiner}</p>
+        <div className="mt-6 flex flex-wrap gap-3">
           <Link
             to="/make"
             search={{ productId: product.id }}
-            className={cn(buttonVariants(), "rounded-2xl")}
+            className="nk-btn"
           >
-            <Plus weight="bold" data-icon="inline-start" />
-            Add sticker in Make
+            <Plus weight="bold" className="size-4" />
+            Add artwork
           </Link>
           <Link
             to="/product/$id"
             params={{ id: product.id }}
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "rounded-2xl"
-            )}
+            className="nk-btn-secondary"
           >
             View public page
+            <ArrowSquareOut weight="bold" className="size-4" />
           </Link>
         </div>
       </div>
 
       <section>
-        <h2 className="font-heading text-2xl font-extrabold tracking-tight">
-          Stickers
+        <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-neutral-900">
+          Artwork
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          One product can hold many stickers. New ones are made in the free
-          sticker editor.
+        <p className="mt-1 text-[14px] text-neutral-500">
+          Craft cutouts in Make. When you’re ready to put this on the wall,
+          you’ll finish size and placement after sign-in.
         </p>
 
-        <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-5 grid gap-3 sm:grid-cols-2">
           {stickers.map((sticker, index) => (
             <motion.li
               key={sticker.id}
@@ -94,46 +86,47 @@ export function ProductManage({
                 delay: Math.min(index * 0.05, 0.25),
                 ease: [0.23, 1, 0.32, 1],
               }}
-              className="flex flex-col overflow-hidden rounded-3xl border border-border bg-card/90"
+              className="overflow-hidden rounded-[24px] border border-black/[0.06] bg-[#f5f5f7]"
             >
-              <div className="grid place-items-center bg-muted/50 px-4 py-8">
+              <div className="grid place-items-center px-4 py-8">
                 <img
                   src={sticker.imageUrl}
                   alt=""
                   className="max-h-36 object-contain drop-shadow-lg"
                 />
               </div>
-              <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-3">
-                <span className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground uppercase">
+              <div className="flex items-center justify-between gap-2 border-t border-black/[0.06] bg-white px-4 py-3">
+                <span className="text-[12px] font-medium tracking-[-0.01em] text-neutral-500">
                   {sticker.style} · {sticker.filter}
                 </span>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  className="rounded-lg text-destructive"
+                <button
+                  type="button"
+                  className="press inline-flex h-8 items-center gap-1 rounded-full bg-black/[0.045] px-3 text-[12px] font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-35"
                   disabled={busyId === sticker.id}
                   onClick={() => void deleteSticker(sticker)}
                 >
-                  <Trash weight="bold" data-icon="inline-start" />
+                  <Trash weight="bold" className="size-3.5" />
                   Remove
-                </Button>
+                </button>
               </div>
             </motion.li>
           ))}
         </ul>
 
         {stickers.length === 0 ? (
-          <div className="mt-5 rounded-3xl border border-dashed border-border px-5 py-12 text-center">
-            <p className="font-heading text-xl font-extrabold">No stickers yet</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Open Make with this product selected to save a sticker here.
+          <div className="mt-5 rounded-[28px] border border-dashed border-black/[0.1] px-5 py-14 text-center">
+            <p className="text-[22px] font-semibold tracking-[-0.02em] text-neutral-900">
+              No artwork yet
+            </p>
+            <p className="mx-auto mt-2 max-w-sm text-[15px] text-neutral-500">
+              Open Make with this sticker selected to craft and save artwork.
             </p>
             <Link
               to="/make"
               search={{ productId: product.id }}
-              className={cn(buttonVariants(), "mt-5 inline-flex rounded-2xl")}
+              className="nk-btn mt-6"
             >
-              Make a sticker
+              Make artwork
             </Link>
           </div>
         ) : null}

@@ -1,10 +1,8 @@
 import { useState } from "react"
 import { Link, useRouter } from "@tanstack/react-router"
-import { Plus, PencilSimple, Trash, Sticker } from "@phosphor-icons/react"
+import { Plus, PencilSimple, Trash, CaretRight } from "@phosphor-icons/react"
 import { motion } from "motion/react"
 import type { ProductDTO } from "@/lib/product-api"
-import { Button, buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { ProductForm, type ProductFormValues } from "./product-form"
 
 async function readError(response: Response) {
@@ -60,7 +58,7 @@ export function DashboardHome({
   async function deleteProduct(product: ProductDTO) {
     if (
       !window.confirm(
-        `Delete “${product.name}”? Stickers on this product will be removed.`
+        `Delete “${product.name}”? This removes it from your dashboard and the directory.`
       )
     ) {
       return
@@ -79,37 +77,28 @@ export function DashboardHome({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-10 sm:px-8">
+    <div className="nk-page">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-            {userEmail}
+          <p className="nk-label">{userEmail}</p>
+          <h1 className="nk-title mt-2">Your stickers</h1>
+          <p className="nk-subtitle mt-3">
+            Each sticker is a product — title, short description, link, and
+            category. Make one free, then sign in to set it up for the wall.
           </p>
-          <h1 className="mt-2 font-heading text-4xl font-extrabold tracking-tight sm:text-5xl">
-            Your products
-          </h1>
-          <p className="mt-2 max-w-xl text-muted-foreground">
-            Create products for the public directory, then attach stickers from
-            the maker.
-          </p>
-          <Link
-            to="/files"
-            className="mt-3 inline-block font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase hover:text-foreground"
-          >
-            Manage raw uploads →
-          </Link>
         </div>
         {mode === "list" ? (
-          <Button
-            className="rounded-2xl shadow-sm"
+          <button
+            type="button"
+            className="nk-btn shrink-0"
             onClick={() => {
               setEditing(null)
               setMode("create")
             }}
           >
-            <Plus weight="bold" data-icon="inline-start" />
-            New product
-          </Button>
+            <Plus weight="bold" className="size-4" />
+            New sticker
+          </button>
         ) : null}
       </header>
 
@@ -118,18 +107,18 @@ export function DashboardHome({
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
-          className="rounded-3xl border border-border bg-card/90 p-5 sm:p-7"
+          className="rounded-[28px] border border-black/[0.06] bg-white p-5 sm:p-7"
         >
-          <h2 className="font-heading text-2xl font-extrabold tracking-tight">
-            {mode === "create" ? "Add a product" : `Edit ${editing?.name}`}
+          <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-neutral-900">
+            {mode === "create" ? "Sticker details" : `Edit ${editing?.name}`}
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            These details show on the public directory and product page.
+          <p className="mt-1 text-[14px] text-neutral-500">
+            These details show in the directory and on your public page.
           </p>
           <div className="mt-6">
             <ProductForm
               initial={editing ?? undefined}
-              submitLabel={mode === "create" ? "Create product" : "Save changes"}
+              submitLabel={mode === "create" ? "Save sticker" : "Save changes"}
               onSubmit={mode === "create" ? createProduct : updateProduct}
               onCancel={() => {
                 setMode("list")
@@ -141,7 +130,7 @@ export function DashboardHome({
       ) : null}
 
       {mode === "list" ? (
-        <ul className="divide-y divide-border rounded-3xl border border-border bg-card/80">
+        <ul className="divide-y divide-black/[0.06]">
           {products.map((product, index) => (
             <motion.li
               key={product.id}
@@ -152,76 +141,80 @@ export function DashboardHome({
                 delay: Math.min(index * 0.04, 0.2),
                 ease: [0.23, 1, 0.32, 1],
               }}
-              className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:px-5"
+              className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:gap-4"
             >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                  <Link
-                    to="/dashboard/products/$id"
-                    params={{ id: product.id }}
-                    className="font-heading text-xl font-extrabold tracking-tight hover:underline"
-                  >
+              <Link
+                to="/dashboard/products/$id"
+                params={{ id: product.id }}
+                className="group min-w-0 flex-1"
+              >
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <h2 className="text-[17px] font-semibold tracking-[-0.02em] text-neutral-900 sm:text-[19px]">
                     {product.name}
-                  </Link>
-                  <span className="font-mono text-[10px] tracking-[0.14em] text-muted-foreground uppercase">
-                    {product.category} · {product.stickerCount} sticker
-                    {product.stickerCount === 1 ? "" : "s"}
+                  </h2>
+                  <span className="text-[12px] font-medium tracking-[-0.01em] text-neutral-400">
+                    {product.category}
+                    {product.stickerCount
+                      ? ` · ${product.stickerCount} art`
+                      : " · no art yet"}
                   </span>
                 </div>
-                <p className="truncate text-sm text-muted-foreground">
+                <p className="mt-0.5 truncate text-[14px] text-neutral-500">
                   {product.oneLiner}
                 </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  to="/dashboard/products/$id"
-                  params={{ id: product.id }}
-                  className={cn(
-                    buttonVariants({ size: "sm", variant: "secondary" }),
-                    "rounded-xl"
-                  )}
-                >
-                  <Sticker weight="bold" data-icon="inline-start" />
-                  Stickers
-                </Link>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-xl"
+              </Link>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="press inline-flex h-9 items-center gap-1.5 rounded-full bg-black/[0.045] px-3.5 text-[13px] font-medium tracking-[-0.01em] text-neutral-800 transition-colors hover:bg-black/[0.07]"
                   onClick={() => {
                     setEditing(product)
                     setMode("edit")
                   }}
                 >
-                  <PencilSimple weight="bold" data-icon="inline-start" />
+                  <PencilSimple weight="bold" className="size-3.5" />
                   Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-xl text-destructive"
+                </button>
+                <button
+                  type="button"
+                  className="press inline-flex h-9 items-center gap-1.5 rounded-full bg-black/[0.045] px-3.5 text-[13px] font-medium tracking-[-0.01em] text-red-600 transition-colors hover:bg-red-50 disabled:opacity-35"
                   disabled={busyId === product.id}
                   onClick={() => void deleteProduct(product)}
                 >
-                  <Trash weight="bold" data-icon="inline-start" />
+                  <Trash weight="bold" className="size-3.5" />
                   Delete
-                </Button>
+                </button>
+                <Link
+                  to="/dashboard/products/$id"
+                  params={{ id: product.id }}
+                  aria-label={`Open ${product.name}`}
+                  className="press grid size-9 place-items-center rounded-full bg-black/[0.045] text-neutral-800 transition-colors hover:bg-black/[0.07]"
+                >
+                  <CaretRight weight="bold" className="size-4" />
+                </Link>
               </div>
             </motion.li>
           ))}
           {products.length === 0 ? (
-            <li className="px-5 py-12 text-center">
-              <p className="font-heading text-xl font-extrabold">No products yet</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Add your first product, then make stickers for it.
+            <li className="py-16 text-center">
+              <p className="text-[22px] font-semibold tracking-[-0.02em] text-neutral-900">
+                No stickers yet
               </p>
-              <Button
-                className="mt-5 rounded-2xl"
-                onClick={() => setMode("create")}
-              >
-                <Plus weight="bold" data-icon="inline-start" />
-                Create product
-              </Button>
+              <p className="mx-auto mt-2 max-w-sm text-[15px] text-neutral-500">
+                Start in Make, or add details here and attach artwork next.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <Link to="/make" className="nk-btn">
+                  Make a sticker
+                </Link>
+                <button
+                  type="button"
+                  className="nk-btn-secondary"
+                  onClick={() => setMode("create")}
+                >
+                  Add details
+                </button>
+              </div>
             </li>
           ) : null}
         </ul>

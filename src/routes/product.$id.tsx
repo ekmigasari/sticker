@@ -132,10 +132,10 @@ function ProductPage() {
           {dbProduct && dbProduct.stickers.length > 0 ? (
             <section className="mt-12">
               <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-neutral-900">
-                Stickers
+                Artwork
               </h2>
               <p className="mt-1 text-[14px] text-neutral-500">
-                Stickers attached to this product in the maker directory.
+                Cutouts crafted for this sticker in Make.
               </p>
               <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {dbProduct.stickers.map((sticker) => (

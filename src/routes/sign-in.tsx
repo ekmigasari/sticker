@@ -1,10 +1,22 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { AuthForm } from "@/components/auth-form"
 import { AppChrome } from "@/components/layout/app-chrome"
+import { safeNextPath } from "@/lib/auth-redirect"
+
+type AuthSearch = { next?: string }
 
 export const Route = createFileRoute("/sign-in")({
-  beforeLoad: ({ context }) => {
+  validateSearch: (search: Record<string, unknown>): AuthSearch => ({
+    next:
+      typeof search.next === "string" && search.next.length > 0
+        ? search.next
+        : undefined,
+  }),
+  beforeLoad: ({ context, search }) => {
     if (context.session) {
+      const next = safeNextPath(search.next)
+      if (next === "/place") throw redirect({ to: "/place" })
+      if (next === "/dashboard") throw redirect({ to: "/dashboard" })
       throw redirect({ to: "/dashboard" })
     }
   },
@@ -12,20 +24,22 @@ export const Route = createFileRoute("/sign-in")({
 })
 
 function SignInPage() {
+  const { next } = Route.useSearch()
+  const continuingPlace = next === "/place"
+
   return (
     <AppChrome>
-      <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-14 sm:px-8">
-        <p className="font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-          Account
-        </p>
-        <h1 className="mt-3 font-heading text-4xl font-extrabold tracking-tight sm:text-5xl">
-          Sign in
-        </h1>
-        <p className="mt-3 text-muted-foreground">
-          Manage your products and stickers for the maker directory.
-        </p>
-        <div className="mt-10 rounded-3xl border border-border bg-card/90 p-5 sm:p-7">
-          <AuthForm mode="sign-in" />
+      <main className="nk-page max-w-md">
+        <header>
+          <h1 className="nk-title">Sign in</h1>
+          <p className="nk-subtitle mt-3">
+            {continuingPlace
+              ? "Sign in to continue — next you’ll add title, description, link, and category for the wall."
+              : "Sign in to manage your stickers and set them up for the wall."}
+          </p>
+        </header>
+        <div className="rounded-[28px] border border-black/[0.06] bg-white p-5 sm:p-7">
+          <AuthForm mode="sign-in" next={next} />
         </div>
       </main>
     </AppChrome>
