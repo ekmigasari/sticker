@@ -8,14 +8,19 @@ export type RenderOptions = {
   outlineThickness: number
   /** Longest side of the subject in output pixels. */
   maxSide?: number
-  /** When true, flood-fill remove a solid backdrop. PNGs with alpha always keep their cutout. */
-  removeBackground?: boolean
 }
 
 const BASELINE = 640
-export const SIZE_MIN = 64
-export const SIZE_MAX = 2000
-export const SIZE_DEFAULT = 640
+/** Live preview render resolution — keeps the editor snappy while sizing. */
+export const PREVIEW_MAX_SIDE = 720
+/** Print size range in millimetres (300 DPI). */
+export const SIZE_MIN_MM = 10
+export const SIZE_MAX_MM = 500
+export const SIZE_DEFAULT_MM = 54
+/** Pixel equivalents kept for export / tests (300 DPI). */
+export const SIZE_MIN = Math.round((SIZE_MIN_MM * 300) / 25.4)
+export const SIZE_MAX = Math.round((SIZE_MAX_MM * 300) / 25.4)
+export const SIZE_DEFAULT = Math.round((SIZE_DEFAULT_MM * 300) / 25.4)
 
 type Canvas = HTMLCanvasElement
 
@@ -70,7 +75,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /* ------------------------------------------------------------------ */
-/* Subject preparation: scale, auto background removal, trim          */
+/* Subject preparation: scale + trim transparent subjects             */
 /* ------------------------------------------------------------------ */
 
 function hasTransparentBorder(data: Uint8ClampedArray, w: number, h: number) {
@@ -89,105 +94,6 @@ function hasTransparentBorder(data: Uint8ClampedArray, w: number, h: number) {
     check(w - 1, y)
   }
   return clear / total > 0.05
-}
-
-/** Flood-fills the backdrop from the image border; returns removed fraction. */
-function removeBackground(img: ImageData): number {
-  const { data, width: w, height: h } = img
-  const sample = (x0: number, y0: number) => {
-    let r = 0
-    let g = 0
-    let b = 0
-    let n = 0
-    for (let y = y0; y < Math.min(h, y0 + 4); y++) {
-      for (let x = x0; x < Math.min(w, x0 + 4); x++) {
-        const o = (y * w + x) * 4
-        r += data[o]
-        g += data[o + 1]
-        b += data[o + 2]
-        n++
-      }
-    }
-    return [r / n, g / n, b / n] as const
-  }
-  const corners = [
-    sample(0, 0),
-    sample(Math.max(0, w - 4), 0),
-    sample(0, Math.max(0, h - 4)),
-    sample(Math.max(0, w - 4), Math.max(0, h - 4)),
-  ]
-  const bg = [0, 1, 2].map(
-    (i) => corners.reduce((s, c) => s + c[i], 0) / corners.length
-  )
-
-  const tol = 42
-  const tol2 = tol * tol
-  const dist2 = (i: number) => {
-    const o = i * 4
-    const dr = data[o] - bg[0]
-    const dg = data[o + 1] - bg[1]
-    const db = data[o + 2] - bg[2]
-    return dr * dr + dg * dg + db * db
-  }
-
-  const removed = new Uint8Array(w * h)
-  const stack = new Int32Array(w * h)
-  let sp = 0
-  const seed = (i: number) => {
-    if (removed[i]) return
-    if (data[i * 4 + 3] < 20 || dist2(i) <= tol2) {
-      removed[i] = 1
-      stack[sp++] = i
-    }
-  }
-  for (let x = 0; x < w; x++) {
-    seed(x)
-    seed((h - 1) * w + x)
-  }
-  for (let y = 0; y < h; y++) {
-    seed(y * w)
-    seed(y * w + w - 1)
-  }
-  while (sp > 0) {
-    const i = stack[--sp]
-    const x = i % w
-    const y = (i - x) / w
-    if (x > 0) seed(i - 1)
-    if (x < w - 1) seed(i + 1)
-    if (y > 0) seed(i - w)
-    if (y < h - 1) seed(i + w)
-  }
-
-  let count = 0
-  for (let i = 0; i < w * h; i++) {
-    if (removed[i]) {
-      data[i * 4 + 3] = 0
-      count++
-    }
-  }
-
-  // Feather the cut so the subject edge doesn't look aliased.
-  const soft = tol * 1.9
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const i = y * w + x
-      if (removed[i]) continue
-      if (
-        removed[i - 1] ||
-        removed[i + 1] ||
-        removed[i - w] ||
-        removed[i + w]
-      ) {
-        const d = Math.sqrt(dist2(i))
-        if (d < soft) {
-          const a = Math.max(0, Math.min(1, (d - tol) / (soft - tol)))
-          data[i * 4 + 3] = Math.round(data[i * 4 + 3] * (0.35 + 0.65 * a))
-        }
-      }
-    }
-  }
-
-  return count / (w * h)
 }
 
 function trim(src: Canvas): Canvas {
@@ -218,25 +124,10 @@ function trim(src: Canvas): Canvas {
   return out
 }
 
-function roundedClip(src: Canvas): Canvas {
-  const out = makeCanvas(src.width, src.height)
-  const ctx = ctx2d(out)
-  const r = Math.min(src.width, src.height) * 0.08
-  ctx.beginPath()
-  ctx.roundRect(0, 0, src.width, src.height, r)
-  ctx.clip()
-  ctx.drawImage(src, 0, 0)
-  return out
-}
-
 const subjectCache = new Map<string, Promise<Canvas>>()
 
-function prepareSubject(
-  source: string,
-  maxSide: number,
-  cutBackground: boolean
-): Promise<Canvas> {
-  const key = `${maxSide}|${cutBackground ? 1 : 0}|${source}`
+function prepareSubject(source: string, maxSide: number): Promise<Canvas> {
+  const key = `${maxSide}|${source}`
   const hit = subjectCache.get(key)
   if (hit) return hit
 
@@ -255,13 +146,7 @@ function prepareSubject(
     if (hasTransparentBorder(data.data, c.width, c.height)) {
       return trim(c)
     }
-    if (!cutBackground) {
-      return c
-    }
-    const removed = removeBackground(data)
-    ctx.putImageData(data, 0, 0)
-    // Photos with busy backgrounds keep their frame as a rounded tile.
-    return removed < 0.02 ? roundedClip(c) : trim(c)
+    return c
   })
 
   subjectCache.set(key, job)
@@ -363,7 +248,13 @@ function grain(c: Canvas, amount: number, seed: number) {
 /* Styles                                                             */
 /* ------------------------------------------------------------------ */
 
-type Composed = { base: Canvas; subjectX: number; subjectY: number }
+type Composed = {
+  base: Canvas
+  subjectX: number
+  subjectY: number
+  /** When true, subject is already painted+clipped into `base`. */
+  baked?: boolean
+}
 
 /** No outline — subject alone, with a 1px hairline for light artwork. */
 function composeNone(subject: Canvas): Composed {
@@ -378,6 +269,85 @@ function composeClassic(subject: Canvas, t: number, color: string): Composed {
   const pad = Math.ceil(r + 4)
   const base = tint(dilate(subject, r, pad), color)
   return { base, subjectX: pad, subjectY: pad }
+}
+
+/** Solid square backing; subject is fully inset and clipped inside. */
+function composeSquare(subject: Canvas, t: number, color: string): Composed {
+  const margin = Math.max(10, t * 1.25)
+  const pad = 2
+  const inner = Math.max(subject.width, subject.height) + margin * 2
+  const base = makeCanvas(inner + pad * 2, inner + pad * 2)
+  const ctx = ctx2d(base)
+  const x0 = pad
+  const y0 = pad
+  ctx.fillStyle = color
+  ctx.fillRect(x0, y0, inner, inner)
+  grain(base, 8, 11)
+  const sx = pad + (inner - subject.width) / 2
+  const sy = pad + (inner - subject.height) / 2
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(x0, y0, inner, inner)
+  ctx.clip()
+  ctx.drawImage(subject, sx, sy)
+  ctx.restore()
+  return { base, subjectX: sx, subjectY: sy, baked: true }
+}
+
+/** Soft rounded-rect backing; subject fully inset inside the rounded frame. */
+function composeRounded(subject: Canvas, t: number, color: string): Composed {
+  const margin = Math.max(12, t * 1.35)
+  const pad = 2
+  const w = subject.width + margin * 2
+  const h = subject.height + margin * 2
+  // Keep radius modest so corners don't eat into the artwork.
+  const radius = Math.min(w, h) * 0.12
+  const base = makeCanvas(w + pad * 2, h + pad * 2)
+  const ctx = ctx2d(base)
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.roundRect(pad, pad, w, h, radius)
+  ctx.fill()
+  grain(base, 8, 13)
+  const sx = pad + margin
+  const sy = pad + margin
+  ctx.save()
+  ctx.beginPath()
+  ctx.roundRect(pad, pad, w, h, radius)
+  ctx.clip()
+  ctx.drawImage(subject, sx, sy)
+  ctx.restore()
+  return { base, subjectX: sx, subjectY: sy, baked: true }
+}
+
+/**
+ * Circular backing sized to the subject diagonal so the full image sits
+ * inside the circle (not clipped by the round edge).
+ */
+function composeCircle(subject: Canvas, t: number, color: string): Composed {
+  const margin = Math.max(14, t * 1.5)
+  const pad = 2
+  // Diameter must cover the subject diagonal + padding on both sides.
+  const inner = Math.ceil(Math.hypot(subject.width, subject.height) + margin * 2)
+  const base = makeCanvas(inner + pad * 2, inner + pad * 2)
+  const ctx = ctx2d(base)
+  const cx = pad + inner / 2
+  const cy = pad + inner / 2
+  const radius = inner / 2
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+  ctx.fill()
+  grain(base, 8, 17)
+  const sx = pad + (inner - subject.width) / 2
+  const sy = pad + (inner - subject.height) / 2
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+  ctx.clip()
+  ctx.drawImage(subject, sx, sy)
+  ctx.restore()
+  return { base, subjectX: sx, subjectY: sy, baked: true }
 }
 
 function composeStamp(subject: Canvas, t: number, color: string): Composed {
@@ -507,6 +477,10 @@ function toneFilter(c: Canvas, filter: StickerFilter) {
   if (
     filter === "original" ||
     filter === "glitter" ||
+    filter === "hologram" ||
+    filter === "aurora" ||
+    filter === "sunset" ||
+    filter === "ocean" ||
     filter === "glow"
   ) {
     return
@@ -646,6 +620,115 @@ function glitter(c: Canvas) {
 }
 
 /**
+ * Smooth holographic foil — same iridescent hue sweep as glitter, but
+ * continuous (no flake cells or sparkle pixels).
+ */
+function hologram(c: Canvas) {
+  const ctx = ctx2d(c)
+  const img = ctx.getImageData(0, 0, c.width, c.height)
+  const { data, width: w, height: h } = img
+  const span = Math.max(1, w + h)
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const o = (y * w + x) * 4
+      if (data[o + 3] === 0) continue
+      const hue = ((((x * 0.8 + y) / span) * 720) % 360 + 360) % 360
+      const [hr, hg, hb] = hslToRgb(hue, 0.9, 0.64)
+
+      const r = data[o]
+      const g = data[o + 1]
+      const b = data[o + 2]
+      const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+
+      const m = 0.22 + lum * 0.55
+      let nr = r * (1 - m) + ((r * hr) / 255) * 0.35 * m + hr * 0.65 * m
+      let ng = g * (1 - m) + ((g * hg) / 255) * 0.35 * m + hg * 0.65 * m
+      let nb = b * (1 - m) + ((b * hb) / 255) * 0.35 * m + hb * 0.65 * m
+
+      // Soft continuous sheen (no per-flake flicker).
+      const sheen = 0.92 + Math.sin((x + y) * 0.04) * 0.06
+      nr *= sheen
+      ng *= sheen
+      nb *= sheen
+
+      data[o] = clamp255(nr)
+      data[o + 1] = clamp255(ng)
+      data[o + 2] = clamp255(nb)
+    }
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
+/**
+ * Smooth colour gradation wash (no flakes). Variants sweep different hues
+ * across the sticker surface while preserving subject luminance.
+ */
+function colourGradation(
+  c: Canvas,
+  variant: "aurora" | "sunset" | "ocean"
+) {
+  const stops =
+    variant === "aurora"
+      ? [
+          [168, 0.85, 0.58],
+          [195, 0.8, 0.56],
+          [280, 0.75, 0.58],
+          [320, 0.7, 0.6],
+        ]
+      : variant === "sunset"
+        ? [
+            [18, 0.92, 0.58],
+            [38, 0.9, 0.55],
+            [330, 0.78, 0.58],
+            [280, 0.7, 0.52],
+          ]
+        : [
+            [195, 0.75, 0.42],
+            [175, 0.8, 0.5],
+            [210, 0.7, 0.55],
+            [230, 0.65, 0.48],
+          ]
+
+  const ctx = ctx2d(c)
+  const img = ctx.getImageData(0, 0, c.width, c.height)
+  const { data, width: w, height: h } = img
+  const span = Math.max(1, w + h)
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const o = (y * w + x) * 4
+      if (data[o + 3] === 0) continue
+      const t = (x * 0.65 + y * 0.35) / span
+      const pos = t * (stops.length - 1)
+      const i0 = Math.floor(pos)
+      const i1 = Math.min(stops.length - 1, i0 + 1)
+      const f = pos - i0
+      const [h0, s0, l0] = stops[i0]
+      const [h1, s1, l1] = stops[i1]
+      // Shortest-path hue lerp
+      let dh = h1 - h0
+      if (dh > 180) dh -= 360
+      if (dh < -180) dh += 360
+      const hue = (((h0 + dh * f) % 360) + 360) % 360
+      const sat = s0 + (s1 - s0) * f
+      const lit = l0 + (l1 - l0) * f
+      const [hr, hg, hb] = hslToRgb(hue, sat, lit)
+
+      const r = data[o]
+      const g = data[o + 1]
+      const b = data[o + 2]
+      const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+      const m = 0.28 + lum * 0.48
+      data[o] = clamp255(r * (1 - m) + hr * m)
+      data[o + 1] = clamp255(g * (1 - m) + hg * m)
+      data[o + 2] = clamp255(b * (1 - m) + hb * m)
+    }
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
+/**
  * Glossy vinyl sheen: soft specular highlights + slight contrast lift so the
  * sticker reads like laminated sticker stock.
  */
@@ -700,21 +783,24 @@ export async function renderSticker(
   options: RenderOptions
 ): Promise<string> {
   const maxSide = options.maxSide ?? BASELINE
-  const subject = await prepareSubject(
-    source,
-    maxSide,
-    Boolean(options.removeBackground)
-  )
+  const subject = await prepareSubject(source, maxSide)
   const t = options.outlineThickness * (maxSide / BASELINE)
+  const color = options.outlineColor
 
   const composed =
     options.style === "none"
       ? composeNone(subject)
-      : options.style === "stamp"
-        ? composeStamp(subject, t, options.outlineColor)
-        : options.style === "rough"
-          ? composeRough(subject, t, options.outlineColor)
-          : composeClassic(subject, t, options.outlineColor)
+      : options.style === "square"
+        ? composeSquare(subject, t, color)
+        : options.style === "rounded"
+          ? composeRounded(subject, t, color)
+          : options.style === "circle"
+            ? composeCircle(subject, t, color)
+            : options.style === "stamp"
+              ? composeStamp(subject, t, color)
+              : options.style === "rough"
+                ? composeRough(subject, t, color)
+                : composeClassic(subject, t, color)
 
   const { base } = composed
   const hairPad = options.style === "none" ? 0 : 2
@@ -746,15 +832,25 @@ export async function renderSticker(
       ctx.drawImage(hair, hairPad + dx, hairPad + dy)
     }
     ctx.drawImage(base, hairPad, hairPad)
-    ctx.drawImage(
-      subject,
-      hairPad + composed.subjectX,
-      hairPad + composed.subjectY
-    )
+    if (!composed.baked) {
+      ctx.drawImage(
+        subject,
+        hairPad + composed.subjectX,
+        hairPad + composed.subjectY
+      )
+    }
   }
 
   toneFilter(out, options.filter)
   if (options.filter === "glitter") glitter(out)
+  if (options.filter === "hologram") hologram(out)
+  if (
+    options.filter === "aurora" ||
+    options.filter === "sunset" ||
+    options.filter === "ocean"
+  ) {
+    colourGradation(out, options.filter)
+  }
   if (options.filter === "glow") glow(out)
 
   return out.toDataURL("image/png")

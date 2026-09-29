@@ -61,12 +61,24 @@ export type Placement = {
   createdAt: string
 }
 
-export const STICKER_STYLES = ["none", "classic", "stamp", "rough"] as const
+export const STICKER_STYLES = [
+  "none",
+  "classic",
+  "stamp",
+  "rough",
+  "square",
+  "rounded",
+  "circle",
+] as const
 export type StickerStyle = (typeof STICKER_STYLES)[number]
 
 export const STICKER_FILTERS = [
   "original",
   "glitter",
+  "hologram",
+  "aurora",
+  "sunset",
+  "ocean",
   "glow",
   "vivid",
   "warm",

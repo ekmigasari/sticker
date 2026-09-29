@@ -1,21 +1,30 @@
+import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 import {
   Check,
   CircleDashed,
-  MagicWand,
+  DownloadSimple,
   PaintBrush,
   Palette,
+  Plus,
+  PushPin,
   Ruler,
   SlidersHorizontal,
-  WarningCircle,
 } from "@phosphor-icons/react"
 import type { StickerFilter, StickerStyle } from "@/domain/types"
-import { pxToMm, STICKER_FILTERS, STICKER_STYLES } from "@/domain/types"
-import { SIZE_MAX, SIZE_MIN } from "@/lib/sticker-process"
+import { mmToPx, STICKER_FILTERS, STICKER_STYLES } from "@/domain/types"
+import {
+  SIZE_DEFAULT_MM,
+  SIZE_MAX_MM,
+  SIZE_MIN_MM,
+} from "@/lib/sticker-process"
 import { cn } from "@/lib/utils"
 
 export type EditorTab = "style" | "outline" | "filter" | "size"
+
+const EASE_OUT = [0.23, 1, 0.32, 1] as const
+const EASE_IN_OUT = [0.77, 0, 0.175, 1] as const
 
 const TABS: {
   id: EditorTab
@@ -31,6 +40,9 @@ const TABS: {
 const STYLE_LABELS: Record<StickerStyle, string> = {
   none: "None",
   classic: "Classic",
+  square: "Square",
+  rounded: "Rounded",
+  circle: "Circle",
   stamp: "Stamp",
   rough: "Rough Cut",
 }
@@ -38,6 +50,10 @@ const STYLE_LABELS: Record<StickerStyle, string> = {
 const FILTER_LABELS: Record<StickerFilter, string> = {
   original: "Original",
   glitter: "Glitter",
+  hologram: "Hologram",
+  aurora: "Aurora",
+  sunset: "Sunset",
+  ocean: "Ocean",
   glow: "Glow",
   vivid: "Vivid",
   warm: "Warm",
@@ -54,6 +70,10 @@ const FILTER_LABELS: Record<StickerFilter, string> = {
 const FILTER_PREVIEW_CSS: Record<StickerFilter, string> = {
   original: "none",
   glitter: "saturate(1.25) brightness(1.04)",
+  hologram: "saturate(1.3) brightness(1.05) contrast(1.04)",
+  aurora: "saturate(1.2) hue-rotate(40deg) brightness(1.05)",
+  sunset: "saturate(1.25) hue-rotate(-25deg) brightness(1.04)",
+  ocean: "saturate(1.15) hue-rotate(160deg) brightness(0.98)",
   glow: "contrast(1.12) brightness(1.08)",
   vivid: "saturate(1.5) contrast(1.08)",
   warm: "sepia(0.22) saturate(1.2) hue-rotate(-8deg)",
@@ -65,6 +85,19 @@ const FILTER_PREVIEW_CSS: Record<StickerFilter, string> = {
   green: "grayscale(1) sepia(1) hue-rotate(70deg) saturate(5) brightness(0.95)",
   yellow:
     "grayscale(1) sepia(1) hue-rotate(5deg) saturate(8) brightness(1.05)",
+}
+
+const GRADATION_OVERLAY: Partial<Record<StickerFilter, string>> = {
+  glitter:
+    "linear-gradient(120deg, rgba(255,110,220,0.8), rgba(110,220,255,0.8), rgba(255,245,140,0.75))",
+  hologram:
+    "linear-gradient(120deg, rgba(255,110,220,0.75), rgba(110,220,255,0.75), rgba(255,245,140,0.7))",
+  aurora:
+    "linear-gradient(125deg, rgba(120,255,210,0.75), rgba(110,180,255,0.8), rgba(200,120,255,0.75))",
+  sunset:
+    "linear-gradient(125deg, rgba(255,140,60,0.8), rgba(255,90,140,0.75), rgba(180,80,220,0.7))",
+  ocean:
+    "linear-gradient(125deg, rgba(20,90,140,0.75), rgba(40,180,190,0.8), rgba(80,140,220,0.7))",
 }
 
 export const OUTLINE_COLORS = [
@@ -93,48 +126,111 @@ type Props = {
   onOutlineColorChange: (c: string) => void
   thickness: number
   onThicknessChange: (n: number) => void
-  removeBackground: boolean
-  onRemoveBackgroundChange: (v: boolean) => void
-  sizePx: number
-  onSizePxChange: (n: number) => void
+  sizeMm: number
+  onSizeMmChange: (n: number) => void
   sourceMaxSide: number | null
+  actionsOpen: boolean
+  onActionsOpenChange: (open: boolean) => void
+  onDownload: () => void
+  onPlace: () => void
+  onNewSticker: () => void
+  placeLabel: string
+  exporting: boolean
 }
 
 export function EditorToolbar(props: Props) {
-  const { tab, onTabChange, disabled } = props
+  const {
+    tab,
+    onTabChange,
+    disabled,
+    actionsOpen,
+    onActionsOpenChange,
+    onDownload,
+    onPlace,
+    onNewSticker,
+    placeLabel,
+    exporting,
+  } = props
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (disabled) setOpen(false)
+  }, [disabled])
+
+  function selectTab(id: EditorTab) {
+    if (open && tab === id) {
+      setOpen(false)
+      return
+    }
+    onTabChange(id)
+    setOpen(true)
+  }
+
   return (
-    <div
+    <motion.div
+      layout
       className={cn(
-        "pointer-events-auto mx-auto w-full max-w-lg rounded-[30px] border border-black/[0.06] bg-white/80 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18),0_2px_6px_-2px_rgba(0,0,0,0.06)] backdrop-blur-2xl backdrop-saturate-150 transition-opacity duration-200",
+        "pointer-events-auto mx-auto w-full max-w-lg overflow-hidden rounded-[30px] border border-black/[0.06] bg-white/80 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18),0_2px_6px_-2px_rgba(0,0,0,0.06)] backdrop-blur-2xl backdrop-saturate-150",
         disabled && "pointer-events-none opacity-40"
       )}
+      style={{
+        transitionProperty: "opacity",
+        transitionDuration: "200ms",
+        transitionTimingFunction: "cubic-bezier(0.23, 1, 0.32, 1)",
+      }}
+      transition={{ layout: { duration: 0.28, ease: EASE_IN_OUT } }}
       aria-disabled={disabled}
     >
-      <div className="relative h-[132px] overflow-hidden">
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.div
-            key={tab}
-            className="absolute inset-0"
-            initial={{ opacity: 0, transform: "translateY(6px)" }}
-            animate={{ opacity: 1, transform: "translateY(0px)" }}
-            exit={{ opacity: 0, transform: "translateY(-4px)" }}
-            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-          >
-            {tab === "style" ? <StylePanel {...props} /> : null}
-            {tab === "outline" ? <OutlinePanel {...props} /> : null}
-            {tab === "filter" ? <FilterPanel {...props} /> : null}
-            {tab === "size" ? <SizePanel {...props} /> : null}
-          </motion.div>
-        </AnimatePresence>
-      </div>
+      <motion.div
+        layout
+        initial={false}
+        animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
+        transition={{
+          height: { duration: 0.28, ease: EASE_IN_OUT },
+          opacity: { duration: 0.18, ease: EASE_OUT },
+        }}
+        className="overflow-hidden"
+      >
+        <div className="relative h-[132px]">
+          <AnimatePresence mode="popLayout" initial={false}>
+            {open ? (
+              <motion.div
+                key={tab}
+                className="absolute inset-0"
+                initial={{
+                  opacity: 0,
+                  transform: "translateY(6px)",
+                  filter: "blur(2px)",
+                }}
+                animate={{
+                  opacity: 1,
+                  transform: "translateY(0px)",
+                  filter: "blur(0px)",
+                }}
+                exit={{
+                  opacity: 0,
+                  transform: "translateY(-4px)",
+                  filter: "blur(2px)",
+                }}
+                transition={{ duration: 0.18, ease: EASE_OUT }}
+              >
+                {tab === "style" ? <StylePanel {...props} /> : null}
+                {tab === "outline" ? <OutlinePanel {...props} /> : null}
+                {tab === "filter" ? <FilterPanel {...props} /> : null}
+                {tab === "size" ? <SizePanel {...props} /> : null}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
+      </motion.div>
 
-      <div className="px-2 pb-2">
+      <div className="flex items-stretch gap-1.5 px-2 py-1.5">
         <div
           role="tablist"
-          className="relative grid grid-cols-4 rounded-[22px] bg-black/[0.045] p-1"
+          className="grid min-w-0 flex-1 grid-cols-4 gap-0.5 rounded-[14px] bg-black/[0.04] p-0.5"
         >
           {TABS.map((t) => {
-            const active = t.id === tab
+            const active = open && t.id === tab
             const Icon = t.Icon
             return (
               <button
@@ -142,60 +238,122 @@ export function EditorToolbar(props: Props) {
                 role="tab"
                 type="button"
                 aria-selected={active}
-                onClick={() => onTabChange(t.id)}
+                aria-expanded={active}
+                onClick={() => selectTab(t.id)}
                 className={cn(
-                  "press relative flex h-11 flex-col items-center justify-center gap-0.5 rounded-[18px] transition-colors duration-150",
+                  "press relative flex h-11 w-full flex-col items-center justify-center gap-0.5 rounded-[11px] transition-[color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]",
                   active ? "text-neutral-900" : "text-neutral-500"
                 )}
               >
                 {active ? (
                   <motion.span
                     layoutId="editor-tab-pill"
-                    className="absolute inset-0 rounded-[18px] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.04)]"
+                    className="absolute inset-0 rounded-[11px] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.1),0_0_0_0.5px_rgba(0,0,0,0.04)]"
                     transition={{ type: "spring", duration: 0.32, bounce: 0.12 }}
                   />
                 ) : null}
                 <Icon
-                  weight={active ? "fill" : "bold"}
-                  className="relative size-[15px]"
+                  weight={active ? "fill" : "regular"}
+                  className="relative size-[17px]"
                 />
-                <span className="relative text-[10px] font-semibold tracking-[-0.01em]">
+                <span className="relative text-[9px] font-semibold tracking-[-0.01em]">
                   {t.label}
                 </span>
               </button>
             )
           })}
         </div>
+
+        <div className="relative shrink-0 self-stretch">
+          <button
+            type="button"
+            aria-label="Download menu"
+            aria-haspopup="menu"
+            aria-expanded={actionsOpen}
+            disabled={disabled || exporting}
+            onClick={() => onActionsOpenChange(!actionsOpen)}
+            className="press relative grid h-full min-w-11 place-items-center rounded-[11px] bg-neutral-900 px-3 text-white transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] disabled:opacity-35"
+          >
+            <DownloadSimple weight="bold" className="size-[18px]" />
+          </button>
+
+          <AnimatePresence>
+            {actionsOpen ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="Close menu"
+                  className="fixed inset-0 z-30 cursor-default"
+                  onClick={() => onActionsOpenChange(false)}
+                />
+                <motion.div
+                  role="menu"
+                  className="absolute bottom-[calc(100%+10px)] right-0 z-40 min-w-[200px] origin-bottom-right overflow-hidden rounded-[18px] border border-black/[0.06] bg-white/95 p-1.5 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.28),0_2px_8px_-2px_rgba(0,0,0,0.08)] backdrop-blur-xl"
+                  initial={{
+                    opacity: 0,
+                    transform: "scale(0.96) translateY(4px)",
+                  }}
+                  animate={{
+                    opacity: 1,
+                    transform: "scale(1) translateY(0px)",
+                  }}
+                  exit={{
+                    opacity: 0,
+                    transform: "scale(0.96) translateY(4px)",
+                  }}
+                  transition={{ duration: 0.16, ease: EASE_OUT }}
+                >
+                  <ToolbarAction
+                    icon={DownloadSimple}
+                    label="Download PNG"
+                    onClick={onDownload}
+                  />
+                  <ToolbarAction
+                    icon={PushPin}
+                    label={placeLabel}
+                    onClick={onPlace}
+                  />
+                  <ToolbarAction
+                    icon={Plus}
+                    label="New sticker"
+                    onClick={onNewSticker}
+                  />
+                </motion.div>
+              </>
+            ) : null}
+          </AnimatePresence>
+        </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
-function StylePanel({
-  style,
-  onStyleChange,
-  styleThumbs,
-  removeBackground,
-  onRemoveBackgroundChange,
-}: Props) {
+function ToolbarAction({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: typeof DownloadSimple
+  label: string
+  onClick: () => void
+}) {
   return (
-    <div className="flex h-full flex-col justify-center gap-2.5 px-3 pt-1">
-      <button
-        type="button"
-        aria-pressed={removeBackground}
-        onClick={() => onRemoveBackgroundChange(!removeBackground)}
-        className={cn(
-          "press mx-auto flex h-8 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold tracking-[-0.01em] transition-colors duration-150",
-          removeBackground
-            ? "bg-neutral-900 text-white"
-            : "bg-black/[0.05] text-neutral-700"
-        )}
-      >
-        <MagicWand weight="bold" className="size-3.5" />
-        Remove background
-      </button>
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="press flex w-full items-center gap-2.5 rounded-[12px] px-3 py-2.5 text-left text-[14px] font-semibold tracking-[-0.01em] text-neutral-900 transition-colors duration-150 hover:bg-black/[0.045] active:scale-[0.98]"
+    >
+      <Icon weight="bold" className="size-4 text-neutral-500" />
+      {label}
+    </button>
+  )
+}
 
-      <div className="no-scrollbar flex items-center justify-center gap-2.5 overflow-x-auto px-1">
+function StylePanel({ style, onStyleChange, styleThumbs }: Props) {
+  return (
+    <div className="flex h-full flex-col justify-center px-3 pt-1">
+      <div className="no-scrollbar flex items-center gap-2.5 overflow-x-auto px-1">
         {STICKER_STYLES.map((s) => {
           const active = s === style
           const thumb = styleThumbs[s]
@@ -205,11 +363,11 @@ function StylePanel({
               type="button"
               onClick={() => onStyleChange(s)}
               aria-pressed={active}
-              className="press group flex w-[76px] shrink-0 flex-col items-center gap-1"
+              className="press group flex w-[76px] shrink-0 flex-col items-center gap-1 active:scale-[0.97]"
             >
               <span
                 className={cn(
-                  "grid size-[58px] place-items-center rounded-[18px] transition-[background-color,box-shadow] duration-150",
+                  "grid size-[58px] place-items-center rounded-[18px] transition-[background-color,box-shadow] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)]",
                   active
                     ? "bg-black/[0.05] shadow-[inset_0_0_0_2px_#1c1c1e]"
                     : "bg-black/[0.03]"
@@ -232,7 +390,7 @@ function StylePanel({
               </span>
               <span
                 className={cn(
-                  "text-[11px] tracking-[-0.01em] transition-colors",
+                  "text-[11px] tracking-[-0.01em] transition-colors duration-150",
                   active
                     ? "font-semibold text-neutral-900"
                     : "font-medium text-neutral-500"
@@ -258,7 +416,13 @@ function OutlinePanel({
   const isPreset = OUTLINE_COLORS.some(
     (c) => c.toLowerCase() === outlineColor.toLowerCase()
   )
-  const sizeLabel = style === "stamp" ? "Margin" : "Thickness"
+  const sizeLabel =
+    style === "stamp" ||
+    style === "square" ||
+    style === "rounded" ||
+    style === "circle"
+      ? "Margin"
+      : "Thickness"
   const locked = style === "none"
 
   return (
@@ -288,7 +452,7 @@ function OutlinePanel({
             })}
             <label
               className={cn(
-                "press relative grid size-9 shrink-0 cursor-pointer place-items-center rounded-full p-[3px] transition-shadow duration-150",
+                "press relative grid size-9 shrink-0 cursor-pointer place-items-center rounded-full p-[3px] transition-shadow duration-150 active:scale-[0.97]",
                 !isPreset
                   ? "shadow-[0_0_0_2px_#1c1c1e]"
                   : "shadow-[0_0_0_0px_transparent]"
@@ -366,7 +530,7 @@ function Swatch({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "press relative grid size-9 shrink-0 place-items-center rounded-full p-[3px] transition-shadow duration-150",
+        "press relative grid size-9 shrink-0 place-items-center rounded-full p-[3px] transition-shadow duration-150 active:scale-[0.97]",
         active ? "shadow-[0_0_0_2px_#1c1c1e]" : "shadow-[0_0_0_0px_transparent]"
       )}
     >
@@ -380,13 +544,14 @@ function FilterPanel({ filter, onFilterChange, filterThumb }: Props) {
     <div className="no-scrollbar flex h-full items-center gap-3 overflow-x-auto px-5">
       {STICKER_FILTERS.map((f) => {
         const active = f === filter
+        const overlay = GRADATION_OVERLAY[f]
         return (
           <button
             key={f}
             type="button"
             onClick={() => onFilterChange(f)}
             aria-pressed={active}
-            className="press flex w-[62px] shrink-0 flex-col items-center gap-1.5"
+            className="press flex w-[62px] shrink-0 flex-col items-center gap-1.5 active:scale-[0.97]"
           >
             <span
               className={cn(
@@ -402,7 +567,7 @@ function FilterPanel({ filter, onFilterChange, filterThumb }: Props) {
                     className="max-h-[46px] max-w-[46px]"
                     style={{ filter: FILTER_PREVIEW_CSS[f] }}
                   />
-                  {f === "glitter" ? (
+                  {overlay ? (
                     <span
                       aria-hidden
                       className="absolute inset-0 mix-blend-color-dodge"
@@ -411,8 +576,7 @@ function FilterPanel({ filter, onFilterChange, filterThumb }: Props) {
                         maskImage: `url(${filterThumb})`,
                         WebkitMaskSize: "100% 100%",
                         maskSize: "100% 100%",
-                        backgroundImage:
-                          "linear-gradient(120deg, rgba(255,110,220,0.8), rgba(110,220,255,0.8), rgba(255,245,140,0.75))",
+                        backgroundImage: overlay,
                       }}
                     />
                   ) : null}
@@ -457,39 +621,43 @@ function FilterPanel({ filter, onFilterChange, filterThumb }: Props) {
   )
 }
 
-function SizePanel({ sizePx, onSizePxChange, sourceMaxSide }: Props) {
-  const mm = pxToMm(sizePx)
-  const upscaling =
-    sourceMaxSide != null && sizePx > sourceMaxSide + 0.5
+function SizePanel({ sizeMm, onSizeMmChange }: Props) {
+  const px = Math.round(mmToPx(sizeMm))
+
+  function update(next: number) {
+    onSizeMmChange(Math.min(SIZE_MAX_MM, Math.max(SIZE_MIN_MM, next)))
+  }
 
   return (
     <div className="flex h-full flex-col justify-center gap-3 px-5">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <p className="text-[12px] font-medium text-neutral-500">
-            Sticker size
-          </p>
-          <p className="mt-0.5 text-[15px] font-semibold tracking-[-0.02em] tabular-nums text-neutral-900">
-            {sizePx} px
-            <span className="mx-1.5 font-medium text-neutral-300">·</span>
-            {mm.toFixed(1)} mm
+          <p className="text-[12px] font-medium text-neutral-500">Print size</p>
+          <p className="mt-0.5 text-[22px] font-semibold tracking-[-0.03em] tabular-nums text-neutral-900">
+            {sizeMm < 100 ? sizeMm.toFixed(1) : Math.round(sizeMm)}
+            <span className="ml-1 text-[13px] font-medium text-neutral-400">
+              mm
+            </span>
           </p>
         </div>
-        <p className="pb-0.5 text-[11px] font-medium text-neutral-400">
-          Preview = download
+        <p className="pb-1 text-right text-[11px] font-medium tabular-nums text-neutral-400">
+          {px} px
+          <span className="mx-1 text-neutral-300">·</span>
+          300 DPI
         </p>
       </div>
 
       <SliderPrimitive.Root
         className="w-full"
-        value={sizePx}
-        min={SIZE_MIN}
-        max={SIZE_MAX}
-        step={8}
-        onValueChange={(v) =>
-          onSizePxChange(Array.isArray(v) ? v[0] : Number(v))
-        }
-        aria-label="Sticker size in pixels"
+        value={sizeMm}
+        min={SIZE_MIN_MM}
+        max={SIZE_MAX_MM}
+        step={1}
+        onValueChange={(v) => {
+          // Live-update preview while dragging — size is CSS-only, so it's cheap.
+          update(Array.isArray(v) ? v[0] : Number(v))
+        }}
+        aria-label="Sticker size in millimetres"
       >
         <SliderPrimitive.Control className="flex h-8 w-full touch-none items-center select-none">
           <SliderPrimitive.Track className="relative h-[5px] w-full rounded-full bg-black/[0.08]">
@@ -499,19 +667,11 @@ function SizePanel({ sizePx, onSizePxChange, sourceMaxSide }: Props) {
         </SliderPrimitive.Control>
       </SliderPrimitive.Root>
 
-      {upscaling ? (
-        <p
-          role="status"
-          className="flex items-start gap-1.5 text-[11px] font-medium leading-snug text-amber-700"
-        >
-          <WarningCircle weight="fill" className="mt-px size-3.5 shrink-0" />
-          Upscaling past the original {sourceMaxSide} px — edges may look soft.
-        </p>
-      ) : (
-        <p className="text-[11px] font-medium text-neutral-400">
-          Print size at 300 DPI. Same pixels on screen and in the PNG.
-        </p>
-      )}
+      <div className="flex items-center justify-between text-[11px] font-medium text-neutral-400">
+        <span>{SIZE_MIN_MM} mm</span>
+        <span>{SIZE_DEFAULT_MM} mm</span>
+        <span>{SIZE_MAX_MM} mm</span>
+      </div>
     </div>
   )
 }
