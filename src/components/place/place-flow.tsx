@@ -736,7 +736,7 @@ export function PlaceFlow() {
                       <ArrowsHorizontal weight="bold" className="size-3.5" />
                     }
                   >
-                    Width × Height
+                    Sticker Size Area
                   </FieldLabel>
                   <button
                     type="button"
