@@ -7,7 +7,12 @@ import {
 } from "@/domain/types"
 import { auth } from "@/lib/auth"
 import { MAX_UPLOAD_BYTES, safeFileName } from "@/lib/files"
-import { getOwnedProduct, serializeSticker } from "@/lib/product-api"
+import {
+  allocateUniqueSlug,
+  isCategory,
+  parseStickerDetails,
+  serializeSticker,
+} from "@/lib/sticker-api"
 import { prisma } from "@/lib/prisma"
 import { putObject } from "@/lib/s3"
 
@@ -19,18 +24,57 @@ function isFilter(value: string): value is StickerFilter {
   return (STICKER_FILTERS as readonly string[]).includes(value)
 }
 
-export const Route = createFileRoute("/api/products/$id/stickers")({
+export const Route = createFileRoute("/api/stickers/")({
   server: {
     handlers: {
-      POST: async ({ request, params }) => {
+      GET: async ({ request }) => {
+        const url = new URL(request.url)
+        const mine = url.searchParams.get("mine") === "1"
+        const q = url.searchParams.get("q")?.trim().toLowerCase() ?? ""
+        const category = url.searchParams.get("category")?.trim() ?? ""
+
+        if (mine) {
+          const session = await auth.api.getSession({
+            headers: request.headers,
+          })
+          if (!session) {
+            return Response.json({ error: "Unauthorized" }, { status: 401 })
+          }
+          const stickers = await prisma.sticker.findMany({
+            where: { userId: session.user.id },
+            orderBy: { createdAt: "desc" },
+          })
+          return Response.json({
+            stickers: stickers.map(serializeSticker),
+          })
+        }
+
+        const stickers = await prisma.sticker.findMany({
+          where: {
+            AND: [
+              category && category !== "All" ? { category } : {},
+              q
+                ? {
+                    OR: [
+                      { name: { contains: q, mode: "insensitive" } },
+                      { oneLiner: { contains: q, mode: "insensitive" } },
+                    ],
+                  }
+                : {},
+            ],
+          },
+          orderBy: { createdAt: "desc" },
+        })
+
+        return Response.json({
+          stickers: stickers.map(serializeSticker),
+        })
+      },
+
+      POST: async ({ request }) => {
         const session = await auth.api.getSession({ headers: request.headers })
         if (!session) {
           return Response.json({ error: "Unauthorized" }, { status: 401 })
-        }
-
-        const product = await getOwnedProduct(params.id, session.user.id)
-        if (!product) {
-          return Response.json({ error: "Product not found." }, { status: 404 })
         }
 
         const form = await request.formData()
@@ -52,6 +96,17 @@ export const Route = createFileRoute("/api/products/$id/stickers")({
             { error: "Images must be between 1 byte and 10 MB." },
             { status: 400 }
           )
+        }
+
+        const parsed = parseStickerDetails({
+          name: form.get("name"),
+          oneLiner: form.get("oneLiner"),
+          url: form.get("url"),
+          category: form.get("category"),
+          offer: form.get("offer") || null,
+        })
+        if ("error" in parsed) {
+          return Response.json({ error: parsed.error }, { status: 400 })
         }
 
         const styleRaw = String(form.get("style") ?? "classic")
@@ -78,9 +133,13 @@ export const Route = createFileRoute("/api/products/$id/stickers")({
             { status: 400 }
           )
         }
+        if (!isCategory(parsed.data.category)) {
+          return Response.json({ error: "Pick a valid category." }, { status: 400 })
+        }
 
         const uploadId = crypto.randomUUID()
         const stickerId = crypto.randomUUID()
+        const slug = await allocateUniqueSlug(parsed.data.name)
         const fileName = safeFileName(file.name || `sticker-${stickerId}.png`)
         const key = `stickers/${session.user.id}/${uploadId}-${fileName}`
         const bytes = new Uint8Array(await file.arrayBuffer())
@@ -102,7 +161,8 @@ export const Route = createFileRoute("/api/products/$id/stickers")({
             data: {
               id: stickerId,
               userId: session.user.id,
-              productId: product.id,
+              slug,
+              ...parsed.data,
               uploadId,
               style: styleRaw,
               filter: filterRaw,

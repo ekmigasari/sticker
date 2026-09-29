@@ -2,9 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { CheckCircle, CurrencyDollar } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { BrandMark, SiteNav } from "@/components/layout/site-nav"
 import { StickerWall } from "@/components/wall/sticker-wall"
 import {
@@ -16,6 +13,8 @@ import {
   sizePx,
 } from "@/domain/types"
 import { cn } from "@/lib/utils"
+import { publishPlaceListing } from "@/lib/place-publish"
+import { isValidStickerUrl } from "@/lib/sticker-meta"
 import { useWallStore } from "@/store/wall-store"
 
 function PlaceChrome({ children }: { children: ReactNode }) {
@@ -46,10 +45,13 @@ export function PlaceFlow() {
   const [tier, setTier] = useState<SizeTier>("M")
   const [name, setName] = useState("")
   const [oneLiner, setOneLiner] = useState("")
-  const [url, setUrl] = useState("https://")
-  const [category, setCategory] = useState<Category>("Tool")
+  const [url, setUrl] = useState("")
+  const [category, setCategory] = useState<Category>("Developer Tools")
   const [offer, setOffer] = useState("")
   const [paying, setPaying] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [savedSlug, setSavedSlug] = useState<string | null>(null)
 
   useEffect(() => {
     hydrate()
@@ -59,7 +61,10 @@ export function PlaceFlow() {
   const dim = sizePx(tier)
 
   const canContinue = useMemo(
-    () => name.trim().length > 1 && oneLiner.trim().length > 3 && url.startsWith("http"),
+    () =>
+      name.trim().length > 1 &&
+      oneLiner.trim().length > 3 &&
+      isValidStickerUrl(url),
     [name, oneLiner, url]
   )
 
@@ -68,7 +73,7 @@ export function PlaceFlow() {
     setPlaceDraft({
       sticker: draftSticker,
       sizeTier: tier,
-      product: {
+      details: {
         name: name.trim(),
         oneLiner: oneLiner.trim(),
         url: url.trim(),
@@ -87,9 +92,34 @@ export function PlaceFlow() {
     }, 900)
   }
 
-  function onPlace(x: number, y: number) {
-    const placement = confirmPlacement(x, y)
-    if (placement) setStep("done")
+  async function onPlace(x: number, y: number) {
+    if (!draftSticker || saving) return
+    const draft = useWallStore.getState().placeDraft
+    if (!draft) return
+
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const published = await publishPlaceListing({
+        details: draft.details,
+        sticker: draft.sticker,
+      })
+      const placement = confirmPlacement(x, y, {
+        stickerId: published.stickerId,
+        slug: published.slug,
+      })
+      if (!placement) {
+        throw new Error("Could not place sticker on the wall.")
+      }
+      setSavedSlug(published.slug)
+      setStep("done")
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Could not save sticker."
+      )
+    } finally {
+      setSaving(false)
+    }
   }
 
   // confirmPlacement clears draftSticker — check done before the empty state.
@@ -102,8 +132,8 @@ export function PlaceFlow() {
             You&apos;re on the wall
           </h1>
           <p className="text-[16px] leading-relaxed text-neutral-500">
-            Your placement is permanent. Newer stickers can cover it - that&apos;s
-            the game. Your product stays in the directory either way.
+            Your placement is permanent. Newer stickers can cover it — that&apos;s
+            the game. Your sticker is in the directory either way.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <button
@@ -116,13 +146,24 @@ export function PlaceFlow() {
             >
               See the wall
             </button>
-            <Link
-              to="/directory"
-              className="press inline-flex h-11 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold text-neutral-900"
-              onClick={() => setDraftSticker(null)}
-            >
-              Open directory
-            </Link>
+            {savedSlug ? (
+              <Link
+                to="/sticker/$slug"
+                params={{ slug: savedSlug }}
+                className="press inline-flex h-11 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold text-neutral-900"
+                onClick={() => setDraftSticker(null)}
+              >
+                View listing
+              </Link>
+            ) : (
+              <Link
+                to="/directory"
+                className="press inline-flex h-11 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold text-neutral-900"
+                onClick={() => setDraftSticker(null)}
+              >
+                Open directory
+              </Link>
+            )}
           </div>
         </div>
       </PlaceChrome>
@@ -135,14 +176,28 @@ export function PlaceFlow() {
         <div className="pointer-events-none absolute top-3 right-3 left-3 z-30 flex justify-center sm:top-4">
           <div className="pointer-events-auto rounded-full border border-black/[0.06] bg-white/85 px-5 py-3 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
             <p className="text-center text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">
-              Tap the wall to place your {tier} sticker
+              {saving
+                ? "Saving your sticker…"
+                : `Tap the wall to place your ${tier} sticker`}
             </p>
             <p className="text-center text-[12px] text-neutral-500">
               {dim}×{dim} · ${price} paid (prototype)
             </p>
+            {saveError ? (
+              <p
+                role="alert"
+                className="mt-2 text-center text-[12px] font-medium text-red-600"
+              >
+                {saveError}
+              </p>
+            ) : null}
           </div>
         </div>
-        <StickerWall placeMode ghostSize={dim} onPlace={onPlace} />
+        <StickerWall
+          placeMode={!saving}
+          ghostSize={dim}
+          onPlace={(x, y) => void onPlace(x, y)}
+        />
         <img
           src={draftSticker.imageDataUrl}
           alt=""
@@ -210,12 +265,16 @@ export function PlaceFlow() {
             <div className="flex flex-col gap-5">
               <div>
                 <h1 className="text-[32px] font-semibold tracking-[-0.03em] text-neutral-900">
-                  Product details
+                  Sticker details
                 </h1>
+                <p className="mt-2 text-[14px] leading-relaxed text-neutral-500">
+                  Your sticker is the product — title, short description, link,
+                  and category go into the directory forever.
+                </p>
               </div>
 
               <div className="space-y-2">
-                <Label>Size</Label>
+                <span className="nk-label">Size</span>
                 <div className="grid grid-cols-3 gap-2">
                   {(Object.keys(SIZE_TIERS) as SizeTier[]).map((key) => {
                     const s = SIZE_TIERS[key]
@@ -244,69 +303,86 @@ export function PlaceFlow() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="name">Product name</Label>
-                <Input
+                <label htmlFor="name" className="nk-label">
+                  Title
+                </label>
+                <input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="ShipKit"
-                  className="rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-3"
+                  className="nk-field"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="blurb">One-liner</Label>
-                <Textarea
+                <label htmlFor="blurb" className="nk-label">
+                  Short description
+                </label>
+                <textarea
                   id="blurb"
                   value={oneLiner}
                   onChange={(e) => setOneLiner(e.target.value)}
                   placeholder="Launch checklists that actually get checked."
-                  className="min-h-20 rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-3"
+                  className="nk-textarea"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="url">Website</Label>
-                <Input
+                <label htmlFor="url" className="nk-label">
+                  Link
+                </label>
+                <input
                   id="url"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://yourproduct.dev"
-                  className="rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-3"
+                  className="nk-field"
                 />
+                {url.trim() && !isValidStickerUrl(url) ? (
+                  <p className="text-[12px] font-medium text-red-600">
+                    Enter a full website link (e.g. https://yoursite.com).
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <select
-                  id="category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as Category)}
-                  className="h-10 w-full rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-3 text-sm outline-none focus-visible:border-neutral-400"
-                >
+                <span className="nk-label">Category</span>
+                <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
                   {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCategory(c)}
+                      className={cn(
+                        "nk-chip",
+                        category === c ? "nk-chip-active" : "nk-chip-idle"
+                      )}
+                    >
                       {c}
-                    </option>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="offer">Offer / launch line (optional)</Label>
-                <Input
+                <label htmlFor="offer" className="nk-label">
+                  Offer / launch line{" "}
+                  <span className="text-neutral-400">(optional)</span>
+                </label>
+                <input
                   id="offer"
                   value={offer}
                   onChange={(e) => setOffer(e.target.value)}
                   placeholder="Launch week: 30% off"
-                  className="rounded-xl border border-black/[0.08] bg-[#f5f5f7] px-3"
+                  className="nk-field"
                 />
               </div>
 
-              <Button
-                className="mt-2 rounded-full"
-                size="lg"
+              <button
+                type="button"
+                className="nk-btn mt-2 w-full"
                 disabled={!canContinue}
                 onClick={goPay}
               >
                 Continue to pay · ${price}
-              </Button>
+              </button>
             </div>
           ) : (
             <div className="flex flex-col items-start gap-5">
@@ -321,7 +397,7 @@ export function PlaceFlow() {
               </div>
               <div className="w-full rounded-2xl border border-black/[0.06] bg-[#f5f5f7] p-4 text-[14px]">
                 <div className="flex justify-between text-neutral-600">
-                  <span>{name || "Your product"}</span>
+                  <span>{name || "Your sticker"}</span>
                   <span>
                     {SIZE_TIERS[tier].units}×{SIZE_TIERS[tier].units}
                   </span>

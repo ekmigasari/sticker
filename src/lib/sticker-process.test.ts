@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 import { pxToMm, STICKER_FILTERS, STICKER_STYLES } from "@/domain/types"
-import { SIZE_DEFAULT, SIZE_MAX, SIZE_MIN } from "@/lib/sticker-process"
+import {
+  SIZE_DEFAULT_MM,
+  SIZE_MAX_MM,
+  SIZE_MIN_MM,
+} from "@/lib/sticker-process"
 
 describe("sticker editor domain", () => {
   it("converts pixels to millimetres at 300 DPI", () => {
@@ -8,16 +12,29 @@ describe("sticker editor domain", () => {
     expect(pxToMm(640)).toBeCloseTo((640 * 25.4) / 300, 5)
   })
 
-  it("exposes a usable size range", () => {
-    expect(SIZE_MIN).toBeLessThan(SIZE_DEFAULT)
-    expect(SIZE_DEFAULT).toBeLessThan(SIZE_MAX)
+  it("exposes a usable size range up to 500mm", () => {
+    expect(SIZE_MIN_MM).toBeLessThan(SIZE_DEFAULT_MM)
+    expect(SIZE_DEFAULT_MM).toBeLessThan(SIZE_MAX_MM)
+    expect(SIZE_MAX_MM).toBe(500)
   })
 
-  it("includes None style and new filters", () => {
-    expect(STICKER_STYLES).toContain("none")
+  it("includes shape styles and colour-gradation filters", () => {
+    expect(STICKER_STYLES).toEqual([
+      "none",
+      "classic",
+      "stamp",
+      "rough",
+      "square",
+      "rounded",
+      "circle",
+    ])
     expect(STICKER_FILTERS).toEqual(
       expect.arrayContaining([
         "glitter",
+        "hologram",
+        "aurora",
+        "sunset",
+        "ocean",
         "glow",
         "red",
         "blue",

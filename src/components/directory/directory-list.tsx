@@ -2,40 +2,31 @@ import { useMemo, useState } from "react"
 import { Link } from "@tanstack/react-router"
 import { MagnifyingGlass } from "@phosphor-icons/react"
 import { CATEGORIES, type Category } from "@/domain/types"
-import type { ProductDTO, StickerDTO } from "@/lib/product-api"
+import type { StickerDTO } from "@/lib/sticker-api"
 import { cn } from "@/lib/utils"
 
-type DirectoryProduct = ProductDTO & { stickers: StickerDTO[] }
-
-export function DirectoryList({ products }: { products: DirectoryProduct[] }) {
+export function DirectoryList({ stickers }: { stickers: StickerDTO[] }) {
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState<Category | "All">("All")
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return products
-      .filter((p) => (category === "All" ? true : p.category === category))
-      .filter(
-        (p) =>
-          !q ||
-          p.name.toLowerCase().includes(q) ||
-          p.oneLiner.toLowerCase().includes(q)
+    return stickers.filter((s) => {
+      if (category !== "All" && s.category !== category) return false
+      if (!q) return true
+      return (
+        s.name.toLowerCase().includes(q) || s.oneLiner.toLowerCase().includes(q)
       )
-      .map((product) => ({
-        product,
-        sticker: product.stickers[0],
-      }))
-  }, [products, query, category])
+    })
+  }, [stickers, query, category])
 
   return (
-    <div className="font-ui mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-10 sm:px-8 sm:py-14">
+    <div className="nk-page max-w-3xl">
       <header className="flex flex-col items-start gap-3">
-        <h1 className="text-[40px] leading-none font-semibold tracking-[-0.035em] text-neutral-900 sm:text-[48px]">
-          Directory
-        </h1>
-        <p className="max-w-xl text-[17px] leading-snug text-neutral-500">
-          Every product stays here permanently, even when its sticker is buried
-          on the wall.
+        <h1 className="nk-title">Directory</h1>
+        <p className="nk-subtitle">
+          Every sticker stays here permanently — even when buried on the wall.
+          Product, service, company, or personal brand.
         </p>
       </header>
 
@@ -48,8 +39,8 @@ export function DirectoryList({ products }: { products: DirectoryProduct[] }) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search products"
-            className="h-12 w-full rounded-full border border-black/[0.06] bg-[#f5f5f7] pr-4 pl-11 text-[15px] tracking-[-0.01em] text-neutral-900 outline-none transition-colors placeholder:text-neutral-400 focus:border-black/15 focus:bg-white"
+            placeholder="Search stickers"
+            className="nk-field pl-11"
           />
         </div>
         <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
@@ -59,10 +50,8 @@ export function DirectoryList({ products }: { products: DirectoryProduct[] }) {
               type="button"
               onClick={() => setCategory(c)}
               className={cn(
-                "press shrink-0 rounded-full px-4 py-2 text-[13px] font-medium tracking-[-0.01em] transition-colors",
-                category === c
-                  ? "bg-neutral-900 text-white"
-                  : "bg-black/[0.045] text-neutral-600 hover:bg-black/[0.07] hover:text-neutral-900"
+                "nk-chip",
+                category === c ? "nk-chip-active" : "nk-chip-idle"
               )}
             >
               {c}
@@ -72,36 +61,29 @@ export function DirectoryList({ products }: { products: DirectoryProduct[] }) {
       </div>
 
       <ul className="divide-y divide-black/[0.06]">
-        {rows.map(({ product, sticker }) => (
-          <li key={product.id}>
+        {rows.map((sticker) => (
+          <li key={sticker.id}>
             <Link
-              to="/product/$id"
-              params={{ id: product.id }}
+              to="/sticker/$slug"
+              params={{ slug: sticker.slug }}
               className="group flex items-center gap-4 py-4 transition-opacity hover:opacity-80 sm:gap-5"
             >
-              {sticker ? (
-                <img
-                  src={sticker.imageUrl}
-                  alt=""
-                  className="size-14 shrink-0 object-contain sm:size-16"
-                />
-              ) : (
-                <div className="size-14 shrink-0 rounded-[18px] bg-[#f5f5f7] sm:size-16" />
-              )}
+              <img
+                src={sticker.imageUrl}
+                alt=""
+                className="size-14 shrink-0 object-contain sm:size-16"
+              />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                   <h2 className="text-[17px] font-semibold tracking-[-0.02em] text-neutral-900 sm:text-[19px]">
-                    {product.name}
+                    {sticker.name}
                   </h2>
                   <span className="text-[12px] font-medium tracking-[-0.01em] text-neutral-400">
-                    {product.category}
-                    {product.stickerCount
-                      ? ` · ${product.stickerCount} sticker${product.stickerCount === 1 ? "" : "s"}`
-                      : ""}
+                    {sticker.category}
                   </span>
                 </div>
                 <p className="mt-0.5 truncate text-[14px] text-neutral-500">
-                  {product.oneLiner}
+                  {sticker.oneLiner}
                 </p>
               </div>
               <span className="hidden text-[13px] font-medium tracking-[-0.01em] text-neutral-400 transition-colors group-hover:text-neutral-900 sm:inline">
@@ -112,7 +94,7 @@ export function DirectoryList({ products }: { products: DirectoryProduct[] }) {
         ))}
         {rows.length === 0 ? (
           <li className="py-16 text-center text-[15px] text-neutral-500">
-            No products match.
+            No stickers match.
           </li>
         ) : null}
       </ul>

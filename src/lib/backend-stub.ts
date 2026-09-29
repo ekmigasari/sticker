@@ -4,7 +4,7 @@
  * Contract details: docs/backend.md
  */
 
-import type { Placement, Product, SizeTier } from "@/domain/types"
+import type { Placement, SizeTier, Sticker } from "@/domain/types"
 import { SIZE_TIERS } from "@/domain/types"
 
 export type CheckoutSession = {
@@ -16,7 +16,7 @@ export type CheckoutSession = {
 }
 
 export type WallQuery = {
-  products: Product[]
+  stickers: Sticker[]
   placements: Placement[]
 }
 
@@ -30,7 +30,15 @@ export async function fetchWall(): Promise<WallQuery> {
 /** Placeholder — replace with POST /api/checkout (Stripe) */
 export async function createCheckoutSession(
   sizeTier: SizeTier,
-  _product: Omit<Product, "id" | "createdAt">
+  _details: Omit<
+    Sticker,
+    | "id"
+    | "slug"
+    | "createdAt"
+    | "imageDataUrl"
+    | "outlineColor"
+    | "outlineThickness"
+  >
 ): Promise<CheckoutSession> {
   const amountCents = SIZE_TIERS[sizeTier].price * 100
   return {

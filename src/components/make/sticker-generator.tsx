@@ -1,26 +1,39 @@
 import { useEffect, useId, useRef, useState } from "react"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate, useRouteContext } from "@tanstack/react-router"
 import {
   CaretLeft,
-  DownloadSimple,
-  ImageSquare,
+  MagnifyingGlassMinus,
+  MagnifyingGlassPlus,
   Plus,
+  PushPin,
+  Sparkle,
+  WarningCircle,
 } from "@phosphor-icons/react"
-import { motion } from "motion/react"
+import { AnimatePresence, motion } from "motion/react"
 import type { StickerFilter, StickerStyle } from "@/domain/types"
-import { STICKER_STYLES } from "@/domain/types"
+import { mmToPx, STICKER_STYLES } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import {
   downloadDataUrl,
   getSourceMaxSide,
+  PREVIEW_MAX_SIDE,
   renderSticker,
-  SIZE_DEFAULT,
+  SIZE_DEFAULT_MM,
+  SIZE_MAX_MM,
+  SIZE_MIN_MM,
 } from "@/lib/sticker-process"
 import { useWallStore } from "@/store/wall-store"
 import { EditorToolbar, type EditorTab } from "./editor-toolbar"
 import { FloatingSticker } from "./floating-sticker"
 
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024
+const ZOOM_MIN = 0.35
+const ZOOM_MAX = 2.5
+const ZOOM_STEP = 0.15
+const EASE_OUT = [0.23, 1, 0.32, 1] as const
+
+/** Screen pixels per millimetre for the editor preview (not print DPI). */
+const PREVIEW_PX_PER_MM = 2.2
 
 function dataUrlToFile(dataUrl: string, fileName: string) {
   const [header, data] = dataUrl.split(",")
@@ -31,23 +44,28 @@ function dataUrlToFile(dataUrl: string, fileName: string) {
   return new File([bytes], fileName, { type: mime })
 }
 
-export function StickerGenerator({ productId }: { productId?: string }) {
+export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+  const { session } = useRouteContext({ from: "__root__" })
   const setDraftSticker = useWallStore((s) => s.setDraftSticker)
   const setPlaceDraft = useWallStore((s) => s.setPlaceDraft)
 
   const [source, setSource] = useState<string | null>(null)
   const [sourceId, setSourceId] = useState(0)
   const [sourceMaxSide, setSourceMaxSide] = useState<number | null>(null)
-  const [style, setStyle] = useState<StickerStyle>("none")
+  const [style, setStyle] = useState<StickerStyle>("classic")
   const [filter, setFilter] = useState<StickerFilter>("original")
   const [outlineColor, setOutlineColor] = useState("#FFFFFF")
   const [thickness, setThickness] = useState(16)
-  const [removeBackground, setRemoveBackground] = useState(false)
-  const [sizePx, setSizePx] = useState(SIZE_DEFAULT)
+  const [sizeMm, setSizeMm] = useState(SIZE_DEFAULT_MM)
+  const [zoom, setZoom] = useState(1)
   const [tab, setTab] = useState<EditorTab>("style")
+  const [actionsOpen, setActionsOpen] = useState(false)
+  const [confirmNewOpen, setConfirmNewOpen] = useState(false)
+  const [confirmPlaceOpen, setConfirmPlaceOpen] = useState(false)
+  const [peelSession, setPeelSession] = useState(0)
 
   const [preview, setPreview] = useState<string | null>(null)
   const [styleThumbs, setStyleThumbs] = useState<
@@ -57,8 +75,9 @@ export function StickerGenerator({ productId }: { productId?: string }) {
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const savingToProduct = Boolean(productId)
+  const replacingArtwork = Boolean(stickerId)
 
+  // Preview canvas stays at a fixed resolution — size only affects display/export.
   useEffect(() => {
     if (!source) return
     let cancelled = false
@@ -68,8 +87,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
         filter,
         outlineColor,
         outlineThickness: thickness,
-        removeBackground,
-        maxSide: sizePx,
+        maxSide: PREVIEW_MAX_SIDE,
       })
         .then((url) => {
           if (cancelled) return
@@ -84,7 +102,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [source, style, filter, outlineColor, thickness, removeBackground, sizePx])
+  }, [source, style, filter, outlineColor, thickness])
 
   useEffect(() => {
     if (!source) return
@@ -97,7 +115,6 @@ export function StickerGenerator({ productId }: { productId?: string }) {
             filter,
             outlineColor,
             outlineThickness: thickness,
-            removeBackground,
             maxSide: 128,
           }).then((url) => [s, url] as const)
         )
@@ -109,7 +126,6 @@ export function StickerGenerator({ productId }: { productId?: string }) {
         filter: "original",
         outlineColor,
         outlineThickness: thickness,
-        removeBackground,
         maxSide: 128,
       }).then((url) => {
         if (!cancelled) setFilterThumb(url)
@@ -119,7 +135,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [source, style, filter, outlineColor, thickness, removeBackground])
+  }, [source, style, filter, outlineColor, thickness])
 
   function onFile(file: File | undefined) {
     if (!file) return
@@ -138,29 +154,60 @@ export function StickerGenerator({ productId }: { productId?: string }) {
       setPreview(null)
       setStyleThumbs({})
       setFilterThumb(null)
-      setRemoveBackground(false)
+      setZoom(1)
       setSource(dataUrl)
       setSourceId((n) => n + 1)
       void getSourceMaxSide(dataUrl).then((max) => {
         setSourceMaxSide(max)
-        setSizePx(Math.min(SIZE_DEFAULT, Math.max(64, max)))
+        // Default print size matches the source at 300 DPI, capped to the slider range.
+        const naturalMm = (max * 25.4) / 300
+        setSizeMm(
+          Math.min(SIZE_MAX_MM, Math.max(SIZE_MIN_MM, Math.round(naturalMm)))
+        )
       })
     }
     reader.readAsDataURL(file)
   }
 
+  function resetToNew() {
+    setSource(null)
+    setSourceId((n) => n + 1)
+    setSourceMaxSide(null)
+    setStyle("classic")
+    setFilter("original")
+    setOutlineColor("#FFFFFF")
+    setThickness(16)
+    setSizeMm(SIZE_DEFAULT_MM)
+    setZoom(1)
+    setTab("style")
+    setPreview(null)
+    setStyleThumbs({})
+    setFilterThumb(null)
+    setError(null)
+    setActionsOpen(false)
+    setConfirmNewOpen(false)
+  }
+
+  function requestNewSticker() {
+    if (!source) {
+      inputRef.current?.click()
+      return
+    }
+    setActionsOpen(false)
+    setConfirmNewOpen(true)
+  }
+
   async function handleDownload() {
     if (!source) return
     setExporting(true)
+    setActionsOpen(false)
     try {
-      // Same maxSide as the on-screen preview so download matches what you see.
       const url = await renderSticker(source, {
         style,
         filter,
         outlineColor,
         outlineThickness: thickness,
-        removeBackground,
-        maxSide: sizePx,
+        maxSide: Math.round(mmToPx(sizeMm)),
       })
       downloadDataUrl(url, `sticker-${style}.png`)
     } finally {
@@ -170,15 +217,16 @@ export function StickerGenerator({ productId }: { productId?: string }) {
 
   async function handlePlace() {
     if (!source) return
+    setConfirmPlaceOpen(false)
     setExporting(true)
+    setActionsOpen(false)
     try {
       const url = await renderSticker(source, {
         style,
         filter,
         outlineColor,
         outlineThickness: thickness,
-        removeBackground,
-        maxSide: Math.min(sizePx, 480),
+        maxSide: Math.min(Math.round(mmToPx(sizeMm)), 480),
       })
       setDraftSticker({
         imageDataUrl: url,
@@ -188,14 +236,29 @@ export function StickerGenerator({ productId }: { productId?: string }) {
         outlineThickness: thickness,
       })
       setPlaceDraft(null)
+      if (!session) {
+        void navigate({ to: "/sign-in", search: { next: "/place" } })
+        return
+      }
       void navigate({ to: "/place" })
     } finally {
       setExporting(false)
     }
   }
 
-  async function handleSaveToProduct() {
-    if (!source || !productId) return
+  function requestPlace() {
+    if (!source || replacingArtwork) return
+    setConfirmPlaceOpen(true)
+  }
+
+  function cancelPlace() {
+    setConfirmPlaceOpen(false)
+    // Remount so a finished peel can be tried again.
+    setPeelSession((n) => n + 1)
+  }
+
+  async function handleSaveToSticker() {
+    if (!source || !stickerId) return
     setExporting(true)
     setError(null)
     try {
@@ -214,8 +277,8 @@ export function StickerGenerator({ productId }: { productId?: string }) {
       form.set("outlineColor", outlineColor)
       form.set("outlineThickness", String(thickness))
 
-      const response = await fetch(`/api/products/${productId}/stickers`, {
-        method: "POST",
+      const response = await fetch(`/api/stickers/${stickerId}`, {
+        method: "PATCH",
         body: form,
       })
       if (!response.ok) {
@@ -223,7 +286,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
           error?: string
         } | null
         if (response.status === 401) {
-          setError("Sign in to save stickers to a product.")
+          setError("Sign in to save stickers.")
           void navigate({ to: "/sign-in" })
           return
         }
@@ -232,8 +295,8 @@ export function StickerGenerator({ productId }: { productId?: string }) {
       }
 
       void navigate({
-        to: "/dashboard/products/$id",
-        params: { id: productId },
+        to: "/dashboard/stickers/$id",
+        params: { id: stickerId },
       })
     } finally {
       setExporting(false)
@@ -241,6 +304,9 @@ export function StickerGenerator({ productId }: { productId?: string }) {
   }
 
   const ready = Boolean(source && preview)
+  const displayPx = Math.max(48, sizeMm * PREVIEW_PX_PER_MM * zoom)
+  const sizePx = Math.round(mmToPx(sizeMm))
+  const upscaling = sourceMaxSide != null && sizePx > sourceMaxSide + 0.5
 
   return (
     <div
@@ -259,12 +325,12 @@ export function StickerGenerator({ productId }: { productId?: string }) {
       }}
     >
       <header className="relative z-20 flex h-14 shrink-0 items-center justify-between px-3 pt-[env(safe-area-inset-top)] sm:px-5">
-        {savingToProduct && productId ? (
+        {replacingArtwork && stickerId ? (
           <Link
-            to="/dashboard/products/$id"
-            params={{ id: productId }}
-            aria-label="Back to product"
-            className="press grid size-10 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07]"
+            to="/dashboard/stickers/$id"
+            params={{ id: stickerId }}
+            aria-label="Back to sticker"
+            className="press grid size-10 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07] active:scale-[0.97]"
           >
             <CaretLeft weight="bold" className="size-[18px]" />
           </Link>
@@ -272,7 +338,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
           <Link
             to="/"
             aria-label="Back to wall"
-            className="press grid size-10 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07]"
+            className="press grid size-10 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07] active:scale-[0.97]"
           >
             <CaretLeft weight="bold" className="size-[18px]" />
           </Link>
@@ -284,76 +350,122 @@ export function StickerGenerator({ productId }: { productId?: string }) {
             source && "hidden sm:block"
           )}
         >
-          {savingToProduct ? "Save to product" : "New Sticker"}
+          {replacingArtwork ? "Replace artwork" : "New Sticker"}
         </h1>
 
         <div className="flex items-center gap-2">
-          {source ? (
-            <button
-              type="button"
-              aria-label="Replace image"
-              onClick={() => inputRef.current?.click()}
-              className="press grid size-10 place-items-center rounded-full bg-black/[0.045] transition-colors hover:bg-black/[0.07]"
-            >
-              <ImageSquare weight="bold" className="size-[18px]" />
-            </button>
+          {source && !replacingArtwork ? (
+            <>
+              <button
+                type="button"
+                onClick={requestNewSticker}
+                className="press h-10 rounded-full bg-black/[0.045] px-4 text-[14px] font-semibold tracking-[-0.01em] text-neutral-900 transition-colors hover:bg-black/[0.07] active:scale-[0.97]"
+              >
+                New
+              </button>
+              <button
+                type="button"
+                disabled={!ready || exporting}
+                onClick={() => void handlePlace()}
+                className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity active:scale-[0.97] disabled:opacity-35"
+              >
+                {exporting ? "…" : session ? "Place" : "Sign in"}
+              </button>
+            </>
           ) : null}
-          <button
-            type="button"
-            aria-label="Download PNG"
-            disabled={!ready || exporting}
-            onClick={() => void handleDownload()}
-            className="press grid size-10 place-items-center rounded-full bg-black/[0.045] transition-[background-color,opacity] hover:bg-black/[0.07] disabled:opacity-35"
-          >
-            <DownloadSimple weight="bold" className="size-[18px]" />
-          </button>
-          {savingToProduct ? (
+
+          {replacingArtwork ? (
             <button
               type="button"
               disabled={!ready || exporting}
-              onClick={() => void handleSaveToProduct()}
-              className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity disabled:opacity-35"
+              onClick={() => void handleSaveToSticker()}
+              className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity active:scale-[0.97] disabled:opacity-35"
             >
               {exporting ? "Saving…" : "Save"}
             </button>
-          ) : (
-            <button
-              type="button"
-              disabled={!ready || exporting}
-              onClick={() => void handlePlace()}
-              className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity disabled:opacity-35"
-            >
-              Place
-            </button>
-          )}
+          ) : null}
         </div>
       </header>
 
-      <main className="relative flex min-h-0 flex-1 items-center justify-center px-6 pb-[188px]">
-        {source ? (
-          preview ? (
-            <FloatingSticker
-              src={preview}
-              holo={filter === "glitter"}
-              sizePx={sizePx}
-              appearKey={sourceId}
-            />
+      <main className="relative min-h-0 flex-1 overflow-auto overscroll-contain pb-[220px]">
+        <div className="flex min-h-full min-w-full items-center justify-center p-8">
+          {source ? (
+            preview ? (
+              <FloatingSticker
+                key={`${sourceId}-${peelSession}`}
+                src={preview}
+                holo={filter === "glitter" || filter === "hologram"}
+                displayPx={displayPx}
+                appearKey={`${sourceId}-${peelSession}`}
+                onFullyPeeled={() => {
+                  if (replacingArtwork) return
+                  setConfirmPlaceOpen(true)
+                }}
+              />
+            ) : (
+              <div className="size-44 animate-pulse rounded-[36px] bg-black/[0.04]" />
+            )
           ) : (
-            <div className="size-44 animate-pulse rounded-[36px] bg-black/[0.04]" />
-          )
-        ) : (
-          <EmptyState inputId={inputId} />
-        )}
+            <EmptyState inputId={inputId} />
+          )}
+        </div>
 
         {error ? (
           <p
             role="alert"
-            className="absolute bottom-[200px] left-1/2 -translate-x-1/2 rounded-full bg-neutral-900 px-4 py-2 text-[13px] font-medium text-white"
+            className="pointer-events-none fixed bottom-[140px] left-1/2 z-30 w-max max-w-[90vw] -translate-x-1/2 rounded-full bg-neutral-900 px-4 py-2 text-[13px] font-medium text-white"
           >
             {error}
           </p>
         ) : null}
       </main>
+
+      {source ? (
+        <div className="pointer-events-none absolute top-[calc(3.5rem+env(safe-area-inset-top)+8px)] right-3 z-20 flex flex-col items-end gap-1.5 sm:right-5">
+          <ZoomButton
+            label="Zoom in"
+            disabled={zoom >= ZOOM_MAX}
+            onClick={() =>
+              setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))
+            }
+          >
+            <MagnifyingGlassPlus weight="bold" className="size-[16px]" />
+          </ZoomButton>
+          <ZoomButton
+            label="Zoom out"
+            disabled={zoom <= ZOOM_MIN}
+            onClick={() =>
+              setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))
+            }
+          >
+            <MagnifyingGlassMinus weight="bold" className="size-[16px]" />
+          </ZoomButton>
+          <span className="pointer-events-none mt-0.5 text-center text-[10px] font-semibold tabular-nums text-neutral-400">
+            {Math.round(zoom * 100)}%
+          </span>
+
+          <AnimatePresence>
+            {upscaling ? (
+              <motion.div
+                role="status"
+                className="mt-2 flex max-w-[200px] items-start gap-1.5 rounded-full border border-amber-200/80 bg-amber-50/95 px-3 py-1.5 text-[11px] font-medium leading-snug text-amber-800 shadow-[0_6px_20px_-8px_rgba(180,120,0,0.35)] backdrop-blur-md"
+                initial={{ opacity: 0, transform: "translateY(-4px) scale(0.96)" }}
+                animate={{ opacity: 1, transform: "translateY(0px) scale(1)" }}
+                exit={{ opacity: 0, transform: "translateY(-4px) scale(0.96)" }}
+                transition={{ duration: 0.18, ease: EASE_OUT }}
+              >
+                <WarningCircle
+                  weight="fill"
+                  className="mt-px size-3.5 shrink-0 text-amber-600"
+                />
+                <span>
+                  Upscaling past {sourceMaxSide} px — edges may look soft.
+                </span>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
+      ) : null}
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
         <EditorToolbar
@@ -370,13 +482,201 @@ export function StickerGenerator({ productId }: { productId?: string }) {
           onOutlineColorChange={setOutlineColor}
           thickness={thickness}
           onThicknessChange={setThickness}
-          removeBackground={removeBackground}
-          onRemoveBackgroundChange={setRemoveBackground}
-          sizePx={sizePx}
-          onSizePxChange={setSizePx}
+          sizeMm={sizeMm}
+          onSizeMmChange={setSizeMm}
           sourceMaxSide={sourceMaxSide}
+          actionsOpen={actionsOpen}
+          onActionsOpenChange={setActionsOpen}
+          onDownload={() => void handleDownload()}
+          onPlace={requestPlace}
+          onNewSticker={requestNewSticker}
+          placeLabel={session ? "Put on wall" : "Sign in to place"}
+          exporting={exporting}
         />
       </div>
+
+      <AnimatePresence>
+        {confirmNewOpen ? (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16, ease: EASE_OUT }}
+          >
+            <button
+              type="button"
+              aria-label="Dismiss"
+              className="absolute inset-0 bg-black/25 backdrop-blur-[2px]"
+              onClick={() => setConfirmNewOpen(false)}
+            />
+            <motion.div
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="new-sticker-title"
+              aria-describedby="new-sticker-desc"
+              className="relative w-full max-w-[340px] rounded-[24px] border border-black/[0.06] bg-white p-5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)]"
+              initial={{ opacity: 0, transform: "scale(0.96) translateY(6px)" }}
+              animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
+              exit={{ opacity: 0, transform: "scale(0.96) translateY(6px)" }}
+              transition={{ duration: 0.18, ease: EASE_OUT }}
+            >
+              <h2
+                id="new-sticker-title"
+                className="text-[17px] font-semibold tracking-[-0.02em] text-neutral-900"
+              >
+                Start a new sticker?
+              </h2>
+              <p
+                id="new-sticker-desc"
+                className="mt-2 text-[14px] leading-snug text-neutral-500"
+              >
+                You’ll leave this unsaved sticker. Download or place it first if
+                you want to keep it.
+              </p>
+              <div className="mt-5 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmNewOpen(false)}
+                  className="press h-10 rounded-full bg-black/[0.05] px-4 text-[14px] font-semibold tracking-[-0.01em] text-neutral-800 transition-colors hover:bg-black/[0.08] active:scale-[0.97]"
+                >
+                  Keep editing
+                </button>
+                <button
+                  type="button"
+                  onClick={resetToNew}
+                  className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white active:scale-[0.97]"
+                >
+                  New sticker
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {confirmPlaceOpen ? (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: EASE_OUT }}
+          >
+            <button
+              type="button"
+              aria-label="Dismiss"
+              className="absolute inset-0 bg-black/30 backdrop-blur-md"
+              onClick={cancelPlace}
+            />
+            <motion.div
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="place-sticker-title"
+              aria-describedby="place-sticker-desc"
+              className="relative w-full max-w-[320px] overflow-hidden rounded-[28px] border border-white/60 bg-white/90 shadow-[0_28px_80px_-24px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+              initial={{ opacity: 0, transform: "scale(0.92) translateY(12px)" }}
+              animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
+              exit={{ opacity: 0, transform: "scale(0.96) translateY(8px)" }}
+              transition={{
+                type: "spring",
+                stiffness: 420,
+                damping: 28,
+                mass: 0.7,
+              }}
+            >
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-[radial-gradient(120%_80%_at_50%_0%,rgba(255,214,102,0.35),rgba(255,255,255,0)_70%)]"
+              />
+
+              <div className="relative px-6 pt-8 pb-2 text-center">
+                <div className="relative mx-auto mb-5 grid size-[72px] place-items-center">
+                  <motion.div
+                    className="absolute inset-0 rounded-full bg-amber-100/80"
+                    initial={{ transform: "scale(0.7)", opacity: 0 }}
+                    animate={{ transform: "scale(1)", opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 22 }}
+                  />
+                  <motion.div
+                    className="relative grid size-[56px] place-items-center rounded-full bg-gradient-to-b from-amber-300 to-orange-400 text-white shadow-[0_10px_24px_-8px_rgba(234,88,12,0.55)]"
+                    initial={{ transform: "scale(0.6) rotate(-12deg)", opacity: 0 }}
+                    animate={{ transform: "scale(1) rotate(0deg)", opacity: 1 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 400,
+                      damping: 18,
+                      delay: 0.04,
+                    }}
+                  >
+                    <PushPin weight="fill" className="size-7" />
+                  </motion.div>
+
+                  <motion.span
+                    aria-hidden
+                    className="absolute top-0 right-1 text-amber-400"
+                    initial={{ opacity: 0, transform: "scale(0.4) translateY(6px)" }}
+                    animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
+                    transition={{ delay: 0.12, duration: 0.28, ease: EASE_OUT }}
+                  >
+                    <Sparkle weight="fill" className="size-4" />
+                  </motion.span>
+                  <motion.span
+                    aria-hidden
+                    className="absolute bottom-1 left-0 text-orange-300"
+                    initial={{ opacity: 0, transform: "scale(0.4)" }}
+                    animate={{ opacity: 1, transform: "scale(1)" }}
+                    transition={{ delay: 0.18, duration: 0.28, ease: EASE_OUT }}
+                  >
+                    <Sparkle weight="fill" className="size-3" />
+                  </motion.span>
+                  <motion.span
+                    aria-hidden
+                    className="absolute top-2 left-1 text-[15px] leading-none"
+                    initial={{ opacity: 0, transform: "scale(0.5) rotate(-20deg)" }}
+                    animate={{ opacity: 1, transform: "scale(1) rotate(0deg)" }}
+                    transition={{ delay: 0.16, duration: 0.3, ease: EASE_OUT }}
+                  >
+                    ✨
+                  </motion.span>
+                </div>
+
+                <h2
+                  id="place-sticker-title"
+                  className="text-[20px] font-semibold tracking-[-0.03em] text-neutral-900"
+                >
+                  Ready for the wall?
+                </h2>
+                <p
+                  id="place-sticker-desc"
+                  className="mx-auto mt-2 max-w-[240px] text-[14px] leading-relaxed text-neutral-500"
+                >
+                  Peel’s done — let’s stick it somewhere great.
+                </p>
+              </div>
+
+              <div className="relative mt-5 grid grid-cols-2 gap-px border-t border-black/[0.06] bg-black/[0.06]">
+                <button
+                  type="button"
+                  onClick={cancelPlace}
+                  className="press bg-white/95 px-4 py-3.5 text-[16px] font-medium tracking-[-0.01em] text-neutral-600 transition-colors hover:bg-neutral-50 active:scale-[0.98]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={exporting}
+                  onClick={() => void handlePlace()}
+                  className="press bg-white/95 px-4 py-3.5 text-[16px] font-semibold tracking-[-0.01em] text-orange-600 transition-colors hover:bg-orange-50/80 active:scale-[0.98] disabled:opacity-50"
+                >
+                  {exporting ? "Placing…" : "Continue"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <input
         id={inputId}
@@ -401,6 +701,30 @@ export function StickerGenerator({ productId }: { productId?: string }) {
   )
 }
 
+function ZoomButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string
+  disabled?: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="pointer-events-auto press grid size-9 place-items-center rounded-full border border-black/[0.06] bg-white/80 text-neutral-900 shadow-[0_4px_16px_-6px_rgba(0,0,0,0.2)] backdrop-blur-xl transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-white active:scale-[0.97] disabled:opacity-35"
+    >
+      {children}
+    </button>
+  )
+}
+
 function EmptyState({ inputId }: { inputId: string }) {
   return (
     <motion.label
@@ -408,7 +732,7 @@ function EmptyState({ inputId }: { inputId: string }) {
       className="press group flex cursor-pointer flex-col items-center text-center"
       initial={{ opacity: 0, transform: "translateY(8px)" }}
       animate={{ opacity: 1, transform: "translateY(0px)" }}
-      transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+      transition={{ duration: 0.35, ease: EASE_OUT }}
     >
       <span className="sticker-float relative mb-7 grid size-36 -rotate-6 place-items-center rounded-[34px] bg-white shadow-[0_24px_40px_-18px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.05)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:-rotate-3">
         <span className="grid size-14 place-items-center rounded-full bg-neutral-900 text-white">
@@ -419,7 +743,7 @@ function EmptyState({ inputId }: { inputId: string }) {
         Add an image
       </span>
       <span className="mt-1.5 max-w-[260px] text-[15px] leading-snug text-neutral-500">
-        Logo, product, or artwork. Remove the background anytime from Style.
+        Logo, product, or artwork. Pick a style, filter, and print size.
       </span>
       <span className="mt-6 inline-flex h-11 items-center rounded-full bg-neutral-900 px-6 text-[15px] font-semibold text-white">
         Choose Photo
