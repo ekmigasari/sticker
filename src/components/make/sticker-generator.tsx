@@ -5,6 +5,8 @@ import {
   MagnifyingGlassMinus,
   MagnifyingGlassPlus,
   Plus,
+  PushPin,
+  Sparkle,
   WarningCircle,
 } from "@phosphor-icons/react"
 import { AnimatePresence, motion } from "motion/react"
@@ -560,12 +562,12 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.16, ease: EASE_OUT }}
+            transition={{ duration: 0.2, ease: EASE_OUT }}
           >
             <button
               type="button"
               aria-label="Dismiss"
-              className="absolute inset-0 bg-black/25 backdrop-blur-[2px]"
+              className="absolute inset-0 bg-black/30 backdrop-blur-md"
               onClick={cancelPlace}
             />
             <motion.div
@@ -573,29 +575,92 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
               aria-modal="true"
               aria-labelledby="place-sticker-title"
               aria-describedby="place-sticker-desc"
-              className="relative w-full max-w-[340px] rounded-[24px] border border-black/[0.06] bg-white p-5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)]"
-              initial={{ opacity: 0, transform: "scale(0.96) translateY(6px)" }}
+              className="relative w-full max-w-[320px] overflow-hidden rounded-[28px] border border-white/60 bg-white/90 shadow-[0_28px_80px_-24px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+              initial={{ opacity: 0, transform: "scale(0.92) translateY(12px)" }}
               animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
-              exit={{ opacity: 0, transform: "scale(0.96) translateY(6px)" }}
-              transition={{ duration: 0.18, ease: EASE_OUT }}
+              exit={{ opacity: 0, transform: "scale(0.96) translateY(8px)" }}
+              transition={{
+                type: "spring",
+                stiffness: 420,
+                damping: 28,
+                mass: 0.7,
+              }}
             >
-              <h2
-                id="place-sticker-title"
-                className="text-[17px] font-semibold tracking-[-0.02em] text-neutral-900"
-              >
-                Let’s put your sticker on the wall
-              </h2>
-              <p
-                id="place-sticker-desc"
-                className="mt-2 text-[14px] leading-snug text-neutral-500"
-              >
-                Continue to place it, or cancel and keep editing.
-              </p>
-              <div className="mt-5 flex items-center justify-end gap-2">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-[radial-gradient(120%_80%_at_50%_0%,rgba(255,214,102,0.35),rgba(255,255,255,0)_70%)]"
+              />
+
+              <div className="relative px-6 pt-8 pb-2 text-center">
+                <div className="relative mx-auto mb-5 grid size-[72px] place-items-center">
+                  <motion.div
+                    className="absolute inset-0 rounded-full bg-amber-100/80"
+                    initial={{ transform: "scale(0.7)", opacity: 0 }}
+                    animate={{ transform: "scale(1)", opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 22 }}
+                  />
+                  <motion.div
+                    className="relative grid size-[56px] place-items-center rounded-full bg-gradient-to-b from-amber-300 to-orange-400 text-white shadow-[0_10px_24px_-8px_rgba(234,88,12,0.55)]"
+                    initial={{ transform: "scale(0.6) rotate(-12deg)", opacity: 0 }}
+                    animate={{ transform: "scale(1) rotate(0deg)", opacity: 1 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 400,
+                      damping: 18,
+                      delay: 0.04,
+                    }}
+                  >
+                    <PushPin weight="fill" className="size-7" />
+                  </motion.div>
+
+                  <motion.span
+                    aria-hidden
+                    className="absolute top-0 right-1 text-amber-400"
+                    initial={{ opacity: 0, transform: "scale(0.4) translateY(6px)" }}
+                    animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
+                    transition={{ delay: 0.12, duration: 0.28, ease: EASE_OUT }}
+                  >
+                    <Sparkle weight="fill" className="size-4" />
+                  </motion.span>
+                  <motion.span
+                    aria-hidden
+                    className="absolute bottom-1 left-0 text-orange-300"
+                    initial={{ opacity: 0, transform: "scale(0.4)" }}
+                    animate={{ opacity: 1, transform: "scale(1)" }}
+                    transition={{ delay: 0.18, duration: 0.28, ease: EASE_OUT }}
+                  >
+                    <Sparkle weight="fill" className="size-3" />
+                  </motion.span>
+                  <motion.span
+                    aria-hidden
+                    className="absolute top-2 left-1 text-[15px] leading-none"
+                    initial={{ opacity: 0, transform: "scale(0.5) rotate(-20deg)" }}
+                    animate={{ opacity: 1, transform: "scale(1) rotate(0deg)" }}
+                    transition={{ delay: 0.16, duration: 0.3, ease: EASE_OUT }}
+                  >
+                    ✨
+                  </motion.span>
+                </div>
+
+                <h2
+                  id="place-sticker-title"
+                  className="text-[20px] font-semibold tracking-[-0.03em] text-neutral-900"
+                >
+                  Ready for the wall?
+                </h2>
+                <p
+                  id="place-sticker-desc"
+                  className="mx-auto mt-2 max-w-[240px] text-[14px] leading-relaxed text-neutral-500"
+                >
+                  Peel’s done — let’s stick it somewhere great.
+                </p>
+              </div>
+
+              <div className="relative mt-5 grid grid-cols-2 gap-px border-t border-black/[0.06] bg-black/[0.06]">
                 <button
                   type="button"
                   onClick={cancelPlace}
-                  className="press h-10 rounded-full bg-black/[0.05] px-4 text-[14px] font-semibold tracking-[-0.01em] text-neutral-800 transition-colors hover:bg-black/[0.08] active:scale-[0.97]"
+                  className="press bg-white/95 px-4 py-3.5 text-[16px] font-medium tracking-[-0.01em] text-neutral-600 transition-colors hover:bg-neutral-50 active:scale-[0.98]"
                 >
                   Cancel
                 </button>
@@ -603,9 +668,9 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
                   type="button"
                   disabled={exporting}
                   onClick={() => void handlePlace()}
-                  className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white active:scale-[0.97] disabled:opacity-50"
+                  className="press bg-white/95 px-4 py-3.5 text-[16px] font-semibold tracking-[-0.01em] text-orange-600 transition-colors hover:bg-orange-50/80 active:scale-[0.98] disabled:opacity-50"
                 >
-                  Continue
+                  {exporting ? "Placing…" : "Continue"}
                 </button>
               </div>
             </motion.div>
