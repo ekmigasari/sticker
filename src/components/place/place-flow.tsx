@@ -13,6 +13,7 @@ import {
   sizePx,
 } from "@/domain/types"
 import { cn } from "@/lib/utils"
+import { publishPlaceListing } from "@/lib/place-publish"
 import { useWallStore } from "@/store/wall-store"
 
 function PlaceChrome({ children }: { children: ReactNode }) {
@@ -47,6 +48,9 @@ export function PlaceFlow() {
   const [category, setCategory] = useState<Category>("Tool")
   const [offer, setOffer] = useState("")
   const [paying, setPaying] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [savedProductId, setSavedProductId] = useState<string | null>(null)
 
   useEffect(() => {
     hydrate()
@@ -84,9 +88,34 @@ export function PlaceFlow() {
     }, 900)
   }
 
-  function onPlace(x: number, y: number) {
-    const placement = confirmPlacement(x, y)
-    if (placement) setStep("done")
+  async function onPlace(x: number, y: number) {
+    if (!draftSticker || saving) return
+    const draft = useWallStore.getState().placeDraft
+    if (!draft) return
+
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const published = await publishPlaceListing({
+        product: draft.product,
+        sticker: draft.sticker,
+      })
+      const placement = confirmPlacement(x, y, {
+        productId: published.productId,
+        stickerId: published.stickerId,
+      })
+      if (!placement) {
+        throw new Error("Could not place sticker on the wall.")
+      }
+      setSavedProductId(published.productId)
+      setStep("done")
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : "Could not save sticker."
+      )
+    } finally {
+      setSaving(false)
+    }
   }
 
   // confirmPlacement clears draftSticker — check done before the empty state.
@@ -100,7 +129,7 @@ export function PlaceFlow() {
           </h1>
           <p className="text-[16px] leading-relaxed text-neutral-500">
             Your placement is permanent. Newer stickers can cover it — that&apos;s
-            the game. Your sticker stays in the directory either way.
+            the game. Your sticker is in the directory either way.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <button
@@ -113,13 +142,24 @@ export function PlaceFlow() {
             >
               See the wall
             </button>
-            <Link
-              to="/directory"
-              className="press inline-flex h-11 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold text-neutral-900"
-              onClick={() => setDraftSticker(null)}
-            >
-              Open directory
-            </Link>
+            {savedProductId ? (
+              <Link
+                to="/product/$id"
+                params={{ id: savedProductId }}
+                className="press inline-flex h-11 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold text-neutral-900"
+                onClick={() => setDraftSticker(null)}
+              >
+                View listing
+              </Link>
+            ) : (
+              <Link
+                to="/directory"
+                className="press inline-flex h-11 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold text-neutral-900"
+                onClick={() => setDraftSticker(null)}
+              >
+                Open directory
+              </Link>
+            )}
           </div>
         </div>
       </PlaceChrome>
@@ -132,14 +172,28 @@ export function PlaceFlow() {
         <div className="pointer-events-none absolute top-3 right-3 left-3 z-30 flex justify-center sm:top-4">
           <div className="pointer-events-auto rounded-full border border-black/[0.06] bg-white/85 px-5 py-3 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
             <p className="text-center text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">
-              Tap the wall to place your {tier} sticker
+              {saving
+                ? "Saving your sticker…"
+                : `Tap the wall to place your ${tier} sticker`}
             </p>
             <p className="text-center text-[12px] text-neutral-500">
               {dim}×{dim} · ${price} paid (prototype)
             </p>
+            {saveError ? (
+              <p
+                role="alert"
+                className="mt-2 text-center text-[12px] font-medium text-red-600"
+              >
+                {saveError}
+              </p>
+            ) : null}
           </div>
         </div>
-        <StickerWall placeMode ghostSize={dim} onPlace={onPlace} />
+        <StickerWall
+          placeMode={!saving}
+          ghostSize={dim}
+          onPlace={(x, y) => void onPlace(x, y)}
+        />
         <img
           src={draftSticker.imageDataUrl}
           alt=""

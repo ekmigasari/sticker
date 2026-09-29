@@ -38,7 +38,11 @@ type WallState = {
   focusNewest: () => void
   focusRandom: () => void
   searchJump: (query: string) => Placement | null
-  confirmPlacement: (x: number, y: number) => Placement | null
+  confirmPlacement: (
+    x: number,
+    y: number,
+    ids?: { productId?: string; stickerId?: string }
+  ) => Placement | null
   getProduct: (id: string) => Product | undefined
   getSticker: (id: string) => Sticker | undefined
   placementsSorted: () => Placement[]
@@ -181,15 +185,17 @@ export const useWallStore = create<WallState>((set, get) => ({
     return placement
   },
 
-  confirmPlacement: (x, y) => {
+  confirmPlacement: (x, y, ids) => {
     const draft = get().placeDraft
     if (!draft) return null
 
     const dim = sizePx(draft.sizeTier as SizeTier)
     const pos = clampPlacement(x, y, dim, dim)
     const now = new Date().toISOString()
-    const productId = `prod_${crypto.randomUUID().slice(0, 8)}`
-    const stickerId = `stk_${crypto.randomUUID().slice(0, 8)}`
+    const productId =
+      ids?.productId ?? `prod_${crypto.randomUUID().slice(0, 8)}`
+    const stickerId =
+      ids?.stickerId ?? `stk_${crypto.randomUUID().slice(0, 8)}`
     const placementId = `plc_${crypto.randomUUID().slice(0, 8)}`
     const zIndex = get().nextZ
 
