@@ -23,7 +23,6 @@ model User {
   sessions      Session[]
   accounts      Account[]
   uploads       Upload[]
-  products      Product[]
   stickers      Sticker[]
 
   @@unique([email])
@@ -93,30 +92,16 @@ model Upload {
   @@map("upload")
 }
 
-model Product {
-  id        String    @id
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String
-  oneLiner  String
-  url       String
-  category  String
-  offer     String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  stickers  Sticker[]
-
-  @@index([userId])
-  @@index([category])
-  @@map("product")
-}
-
+/** One sticker = one directory listing + primary artwork. */
 model Sticker {
   id               String   @id
   userId           String
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId        String
-  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name             String
+  oneLiner         String
+  url              String
+  category         String
+  offer            String?
   uploadId         String
   upload           Upload   @relation(fields: [uploadId], references: [id], onDelete: Restrict)
   style            String
@@ -124,9 +109,10 @@ model Sticker {
   outlineColor     String
   outlineThickness Int
   createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([userId])
-  @@index([productId])
+  @@index([category])
   @@index([uploadId])
   @@map("sticker")
 }

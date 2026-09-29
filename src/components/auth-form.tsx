@@ -41,10 +41,16 @@ export function AuthForm({
       await navigate({ to: "/place" })
     } else if (destination === "/dashboard") {
       await navigate({ to: "/dashboard" })
+    } else if (destination.startsWith("/dashboard/stickers/")) {
+      const id = destination.slice("/dashboard/stickers/".length)
+      await navigate({
+        to: "/dashboard/stickers/$id",
+        params: { id },
+      })
     } else if (destination.startsWith("/dashboard/products/")) {
       const id = destination.slice("/dashboard/products/".length)
       await navigate({
-        to: "/dashboard/products/$id",
+        to: "/dashboard/stickers/$id",
         params: { id },
       })
     } else {

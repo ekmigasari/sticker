@@ -1,4 +1,4 @@
-import type { Placement, Product, SizeTier, Sticker } from "@/domain/types"
+import type { Category, Placement, SizeTier, Sticker } from "@/domain/types"
 import { sizePx } from "@/domain/types"
 import { SEED_PALETTE, makeSeedStickerDataUrl } from "@/lib/seed-stickers"
 
@@ -7,7 +7,7 @@ type SeedDef = {
   name: string
   oneLiner: string
   url: string
-  category: Product["category"]
+  category: Category
   offer?: string
   x: number
   y: number
@@ -21,7 +21,7 @@ const SEED_DEFS: SeedDef[] = [
     name: "ShipKit",
     oneLiner: "Launch checklists that actually get checked.",
     url: "https://example.com/shipkit",
-    category: "Tool",
+    category: "Developer Tools",
     offer: "Free forever for solo makers",
     x: 460,
     y: 450,
@@ -44,7 +44,7 @@ const SEED_DEFS: SeedDef[] = [
     name: "NoteBar",
     oneLiner: "A notes app that lives in your menu bar.",
     url: "https://example.com/notebar",
-    category: "App",
+    category: "Mobile",
     x: 560,
     y: 420,
     tier: "M",
@@ -55,7 +55,7 @@ const SEED_DEFS: SeedDef[] = [
     name: "Pixel Pond",
     oneLiner: "A tiny cozy fishing game for breaks.",
     url: "https://example.com/pixelpond",
-    category: "Game",
+    category: "Games",
     x: 300,
     y: 520,
     tier: "M",
@@ -78,7 +78,7 @@ const SEED_DEFS: SeedDef[] = [
     name: "FormFox",
     oneLiner: "Pretty forms without the SaaS tax.",
     url: "https://example.com/formfox",
-    category: "Tool",
+    category: "Developer Tools",
     x: 200,
     y: 200,
     tier: "S",
@@ -100,7 +100,7 @@ const SEED_DEFS: SeedDef[] = [
     name: "StackSnap",
     oneLiner: "Screenshot your whole stack in one click.",
     url: "https://example.com/stacksnap",
-    category: "Tool",
+    category: "Developer Tools",
     x: 140,
     y: 640,
     tier: "M",
@@ -144,7 +144,7 @@ const SEED_DEFS: SeedDef[] = [
     name: "TinyTrail",
     oneLiner: "Privacy-first analytics for indie sites.",
     url: "https://example.com/tinytrail",
-    category: "Tool",
+    category: "Developer Tools",
     offer: "10k events free",
     x: 840,
     y: 400,
@@ -156,7 +156,7 @@ const SEED_DEFS: SeedDef[] = [
     name: "Quest Log",
     oneLiner: "Gamify your personal roadmap.",
     url: "https://example.com/questlog",
-    category: "App",
+    category: "Productivity",
     x: 420,
     y: 120,
     tier: "S",
@@ -167,7 +167,7 @@ const SEED_DEFS: SeedDef[] = [
     name: "BrewCLI",
     oneLiner: "Ship CLI tools with taste.",
     url: "https://example.com/brewcli",
-    category: "Tool",
+    category: "Developer Tools",
     x: 640,
     y: 280,
     tier: "S",
@@ -200,7 +200,7 @@ const SEED_DEFS: SeedDef[] = [
     name: "Orbit Chat",
     oneLiner: "Community chat without the timeline anxiety.",
     url: "https://example.com/orbitchat",
-    category: "App",
+    category: "Community",
     x: 520,
     y: 560,
     tier: "S",
@@ -211,7 +211,7 @@ const SEED_DEFS: SeedDef[] = [
     name: "Launch Lane",
     oneLiner: "A PH launch checklist with vibes.",
     url: "https://example.com/launchlane",
-    category: "Tool",
+    category: "Marketing",
     offer: "Launch week template free",
     x: 340,
     y: 300,
@@ -249,7 +249,6 @@ function isoDaysAgo(days: number): string {
 }
 
 export type SeedBundle = {
-  products: Product[]
   stickers: Sticker[]
   placements: Placement[]
 }
@@ -259,10 +258,9 @@ let cached: SeedBundle | null = null
 export function buildSeedBundle(): SeedBundle {
   if (cached) return cached
   if (typeof document === "undefined") {
-    return { products: [], stickers: [], placements: [] }
+    return { stickers: [], placements: [] }
   }
 
-  const products: Product[] = []
   const stickers: Sticker[] = []
   const placements: Placement[] = []
 
@@ -275,17 +273,13 @@ export function buildSeedBundle(): SeedBundle {
       accent: palette.accent,
     })
 
-    const product: Product = {
-      id: `prod_${def.id}`,
+    const sticker: Sticker = {
+      id: `stk_${def.id}`,
       name: def.name,
       oneLiner: def.oneLiner,
       url: def.url,
       category: def.category,
       offer: def.offer,
-      createdAt,
-    }
-    const sticker: Sticker = {
-      id: `stk_${def.id}`,
       imageDataUrl,
       outlineColor: palette.accent,
       outlineThickness: 10,
@@ -295,7 +289,6 @@ export function buildSeedBundle(): SeedBundle {
     const placement: Placement = {
       id: `plc_${def.id}`,
       stickerId: sticker.id,
-      productId: product.id,
       x: def.x,
       y: def.y,
       width: dim,
@@ -305,11 +298,10 @@ export function buildSeedBundle(): SeedBundle {
       createdAt,
     }
 
-    products.push(product)
     stickers.push(sticker)
     placements.push(placement)
   })
 
-  cached = { products, stickers, placements }
+  cached = { stickers, placements }
   return cached
 }

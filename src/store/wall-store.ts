@@ -4,16 +4,14 @@ import type {
   DraftSticker,
   PlaceDraft,
   Placement,
-  Product,
   SizeTier,
   Sticker,
 } from "@/domain/types"
 import { WALL_SIZE, sizePx } from "@/domain/types"
 
-const STORAGE_KEY = "sticker-wall-v1"
+const STORAGE_KEY = "sticker-wall-v2"
 
 type Persisted = {
-  products: Product[]
   stickers: Sticker[]
   placements: Placement[]
   nextZ: number
@@ -21,7 +19,6 @@ type Persisted = {
 
 type WallState = {
   hydrated: boolean
-  products: Product[]
   stickers: Sticker[]
   placements: Placement[]
   nextZ: number
@@ -41,9 +38,8 @@ type WallState = {
   confirmPlacement: (
     x: number,
     y: number,
-    ids?: { productId?: string; stickerId?: string }
+    ids?: { stickerId?: string }
   ) => Placement | null
-  getProduct: (id: string) => Product | undefined
   getSticker: (id: string) => Sticker | undefined
   placementsSorted: () => Placement[]
 }
@@ -73,7 +69,6 @@ function savePersisted(state: Persisted) {
 
 export const useWallStore = create<WallState>((set, get) => ({
   hydrated: false,
-  products: [],
   stickers: [],
   placements: [],
   nextZ: 1,
@@ -92,13 +87,11 @@ export const useWallStore = create<WallState>((set, get) => ({
         seed.placements.reduce((m, p) => Math.max(m, p.zIndex), 0) + 1
       set({
         hydrated: true,
-        products: seed.products,
         stickers: seed.stickers,
         placements: seed.placements,
         nextZ,
       })
       savePersisted({
-        products: seed.products,
         stickers: seed.stickers,
         placements: seed.placements,
         nextZ,
@@ -106,16 +99,10 @@ export const useWallStore = create<WallState>((set, get) => ({
       return
     }
 
-    // Merge: keep seed products/stickers that user hasn't duplicated; prefer persisted placements
-    const productMap = new Map<string, Product>()
-    for (const p of seed.products) productMap.set(p.id, p)
-    for (const p of persisted.products) productMap.set(p.id, p)
-
     const stickerMap = new Map<string, Sticker>()
     for (const s of seed.stickers) stickerMap.set(s.id, s)
     for (const s of persisted.stickers) stickerMap.set(s.id, s)
 
-    // If persisted only has user adds on top of empty, rebuild from seed + extras
     const seedIds = new Set(seed.placements.map((p) => p.id))
     const hasSeed = persisted.placements.some((p) => seedIds.has(p.id))
     const placements = hasSeed
@@ -129,7 +116,6 @@ export const useWallStore = create<WallState>((set, get) => ({
 
     set({
       hydrated: true,
-      products: [...productMap.values()],
       stickers: [...stickerMap.values()],
       placements,
       nextZ,
@@ -169,16 +155,16 @@ export const useWallStore = create<WallState>((set, get) => ({
   searchJump: (query) => {
     const q = query.trim().toLowerCase()
     if (!q) return null
-    const { products, placements } = get()
-    const product = products.find(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.oneLiner.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
+    const { stickers, placements } = get()
+    const sticker = stickers.find(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.oneLiner.toLowerCase().includes(q) ||
+        s.category.toLowerCase().includes(q)
     )
-    if (!product) return null
+    if (!sticker) return null
     const placement = [...placements]
-      .filter((p) => p.productId === product.id)
+      .filter((p) => p.stickerId === sticker.id)
       .sort((a, b) => b.zIndex - a.zIndex)[0]
     if (!placement) return null
     get().focusPlacement(placement, 2.5)
@@ -192,24 +178,18 @@ export const useWallStore = create<WallState>((set, get) => ({
     const dim = sizePx(draft.sizeTier as SizeTier)
     const pos = clampPlacement(x, y, dim, dim)
     const now = new Date().toISOString()
-    const productId =
-      ids?.productId ?? `prod_${crypto.randomUUID().slice(0, 8)}`
     const stickerId =
       ids?.stickerId ?? `stk_${crypto.randomUUID().slice(0, 8)}`
     const placementId = `plc_${crypto.randomUUID().slice(0, 8)}`
     const zIndex = get().nextZ
 
-    const product: Product = {
-      id: productId,
-      name: draft.product.name,
-      oneLiner: draft.product.oneLiner,
-      url: draft.product.url,
-      category: draft.product.category,
-      offer: draft.product.offer,
-      createdAt: now,
-    }
     const sticker: Sticker = {
       id: stickerId,
+      name: draft.details.name,
+      oneLiner: draft.details.oneLiner,
+      url: draft.details.url,
+      category: draft.details.category,
+      offer: draft.details.offer,
       imageDataUrl: draft.sticker.imageDataUrl,
       outlineColor: draft.sticker.outlineColor,
       outlineThickness: draft.sticker.outlineThickness,
@@ -218,7 +198,6 @@ export const useWallStore = create<WallState>((set, get) => ({
     const placement: Placement = {
       id: placementId,
       stickerId,
-      productId,
       x: pos.x,
       y: pos.y,
       width: dim,
@@ -229,19 +208,15 @@ export const useWallStore = create<WallState>((set, get) => ({
     }
 
     set((s) => {
-      const products = [...s.products, product]
       const stickers = [...s.stickers, sticker]
       const placements = [...s.placements, placement]
       const nextZ = zIndex + 1
-      savePersisted({ products, stickers, placements, nextZ })
+      savePersisted({ stickers, placements, nextZ })
       return {
-        products,
         stickers,
         placements,
         nextZ,
         placeDraft: null,
-        // Keep draftSticker until the success screen navigates away so
-        // PlaceFlow can render "You're on the wall" instead of the empty state.
         selectedPlacementId: placementId,
         camera: {
           x: placement.x + placement.width / 2,
@@ -254,7 +229,6 @@ export const useWallStore = create<WallState>((set, get) => ({
     return placement
   },
 
-  getProduct: (id) => get().products.find((p) => p.id === id),
   getSticker: (id) => get().stickers.find((s) => s.id === id),
   placementsSorted: () =>
     [...get().placements].sort((a, b) => a.zIndex - b.zIndex),

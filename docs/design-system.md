@@ -57,9 +57,10 @@ Default `html` uses `font-ui`. Titles: ~40–48px semibold, tracking `-0.035em`.
 
 ## Product model (copy)
 
-- **Sticker = product.** Title, short description, link, category are the listing.
-- Artwork is crafted in Make; wall placement comes after sign-in + setup.
-- Dashboard lists “Your stickers”; directory is the public sticker catalog.
+- **Everything is a sticker.** A sticker can represent a product, service, company, or personal brand.
+- One user owns many stickers. One sticker = one directory listing + one primary artwork (also the cover).
+- Dashboard is a **collection book** of stickers (no sidebar CMS).
+- Wall placement comes after sign-in + sticker details.
 
 ## Components
 

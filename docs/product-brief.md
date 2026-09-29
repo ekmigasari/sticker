@@ -2,19 +2,19 @@
 
 ## One-liner
 
-Make a sticker of your indie product. Put it on a living 1000×1000 wall. Pay for a placement — not a plot of land.
+Make a sticker of your indie thing — product, service, company, or personal brand. Put it on a living 1000×1000 wall. Pay for a placement — not a plot of land.
 
 ## Audience
 
-Indie makers: solo founders, tiny teams, newsletters, tools, games.
+Indie makers: solo founders, tiny teams, newsletters, tools, games, personal brands.
 
 ## Core loop
 
 1. Upload an image → Classic sticker (free, no account)
 2. Download & share, or **Put on Wall**
-3. Pick size (S / M / L) → add product details → mock pay → place
+3. Sign in → sticker details → pick size (S / M / L) → mock pay → place
 4. Newer stickers stack above older ones
-5. Product stays in the directory forever
+5. Sticker stays in the directory forever
 
 ## Pricing (MVP)
 
@@ -28,21 +28,33 @@ Philosophy remains **$1 per square unit**. Custom sizes come later.
 
 ## Categories
 
-- Tool
+Product Hunt–inspired, curated:
+
+- Developer Tools
 - SaaS
-- Newsletter
-- Game
-- App
+- AI
+- Productivity
 - Design
+- Marketing
+- Games
+- Mobile
+- Open Source
+- Newsletter
+- Community
+- Services
+- Personal Brand
 - Other
 
-## Product fields (MVP)
+## Sticker fields (MVP)
 
-- Name
-- One-liner
-- Website URL
+- Name / title
+- One-liner (short description)
+- Website / link URL
 - Category
 - Optional offer / launch line
+- Artwork (crafted in Make — also the directory cover)
+
+One user can own many stickers. One sticker = one directory listing + one primary artwork.
 
 ## Style
 
@@ -50,4 +62,4 @@ Classic (cutout + outline), Stamp, and Rough Cut in the free generator, plus pho
 
 ## Non-goals (MVP)
 
-Multi-product orgs, premium zones, AI generation, full occlusion engine, real auth/Stripe (see `docs/backend.md`).
+Multi-org accounts, premium zones, AI generation, full occlusion engine, Stripe (see `docs/backend.md`).

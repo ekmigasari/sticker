@@ -1,7 +1,7 @@
 import { CATEGORIES, type Category } from "@/domain/types"
 import { prisma } from "@/lib/prisma"
 
-export type ProductDTO = {
+export type StickerDTO = {
   id: string
   userId: string
   name: string
@@ -9,21 +9,13 @@ export type ProductDTO = {
   url: string
   category: Category
   offer?: string
-  createdAt: string
-  updatedAt: string
-  stickerCount: number
-}
-
-export type StickerDTO = {
-  id: string
-  productId: string
-  userId: string
   style: string
   filter: string
   outlineColor: string
   outlineThickness: number
   imageUrl: string
   createdAt: string
+  updatedAt: string
 }
 
 const categorySet = new Set<string>(CATEGORIES)
@@ -32,7 +24,7 @@ export function isCategory(value: string): value is Category {
   return categorySet.has(value)
 }
 
-type ProductRecord = {
+type StickerRecord = {
   id: string
   userId: string
   name: string
@@ -40,60 +32,34 @@ type ProductRecord = {
   url: string
   category: string
   offer: string | null
-  createdAt: Date
-  updatedAt: Date
-}
-
-export function serializeProduct(
-  product: ProductRecord & { stickerCount?: number; stickers?: unknown[] }
-): ProductDTO {
-  const stickerCount =
-    product.stickerCount ?? product.stickers?.length ?? 0
-  return {
-    id: product.id,
-    userId: product.userId,
-    name: product.name,
-    oneLiner: product.oneLiner,
-    url: product.url,
-    category: isCategory(product.category) ? product.category : "Other",
-    offer: product.offer ?? undefined,
-    createdAt: product.createdAt.toISOString(),
-    updatedAt: product.updatedAt.toISOString(),
-    stickerCount,
-  }
-}
-
-/** Prisma returns sticker totals under `_count`; normalize before serialize. */
-export function withStickerCount<T extends ProductRecord>(
-  product: T & { _count: { stickers: number } }
-) {
-  return { ...product, stickerCount: product._count.stickers }
-}
-
-export function serializeSticker(sticker: {
-  id: string
-  productId: string
-  userId: string
   style: string
   filter: string
   outlineColor: string
   outlineThickness: number
   createdAt: Date
-}): StickerDTO {
+  updatedAt: Date
+}
+
+export function serializeSticker(sticker: StickerRecord): StickerDTO {
   return {
     id: sticker.id,
-    productId: sticker.productId,
     userId: sticker.userId,
+    name: sticker.name,
+    oneLiner: sticker.oneLiner,
+    url: sticker.url,
+    category: isCategory(sticker.category) ? sticker.category : "Other",
+    offer: sticker.offer ?? undefined,
     style: sticker.style,
     filter: sticker.filter,
     outlineColor: sticker.outlineColor,
     outlineThickness: sticker.outlineThickness,
     imageUrl: `/api/stickers/${sticker.id}/image`,
     createdAt: sticker.createdAt.toISOString(),
+    updatedAt: sticker.updatedAt.toISOString(),
   }
 }
 
-export function parseProductBody(body: unknown) {
+export function parseStickerDetails(body: unknown) {
   if (!body || typeof body !== "object") {
     return { error: "Invalid JSON body." as const }
   }
@@ -108,16 +74,16 @@ export function parseProductBody(body: unknown) {
       ? null
       : String(offerRaw).trim() || null
 
-  if (!name) return { error: "Name is required." as const }
-  if (!oneLiner) return { error: "One-liner is required." as const }
-  if (!url) return { error: "Website URL is required." as const }
+  if (!name) return { error: "Title is required." as const }
+  if (!oneLiner) return { error: "Short description is required." as const }
+  if (!url) return { error: "Link is required." as const }
   if (!isCategory(category)) {
     return { error: "Pick a valid category." as const }
   }
 
   const normalizedUrl = url.startsWith("http") ? url : `https://${url}`
   if (!URL.canParse(normalizedUrl)) {
-    return { error: "Website URL looks invalid." as const }
+    return { error: "Link looks invalid." as const }
   }
 
   return {
@@ -131,8 +97,8 @@ export function parseProductBody(body: unknown) {
   }
 }
 
-export async function getOwnedProduct(productId: string, userId: string) {
-  return prisma.product.findFirst({
-    where: { id: productId, userId },
+export async function getOwnedSticker(stickerId: string, userId: string) {
+  return prisma.sticker.findFirst({
+    where: { id: stickerId, userId },
   })
 }

@@ -45,12 +45,12 @@ export function PlaceFlow() {
   const [name, setName] = useState("")
   const [oneLiner, setOneLiner] = useState("")
   const [url, setUrl] = useState("https://")
-  const [category, setCategory] = useState<Category>("Tool")
+  const [category, setCategory] = useState<Category>("Developer Tools")
   const [offer, setOffer] = useState("")
   const [paying, setPaying] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [savedProductId, setSavedProductId] = useState<string | null>(null)
+  const [savedStickerId, setSavedStickerId] = useState<string | null>(null)
 
   useEffect(() => {
     hydrate()
@@ -69,7 +69,7 @@ export function PlaceFlow() {
     setPlaceDraft({
       sticker: draftSticker,
       sizeTier: tier,
-      product: {
+      details: {
         name: name.trim(),
         oneLiner: oneLiner.trim(),
         url: url.trim(),
@@ -97,17 +97,16 @@ export function PlaceFlow() {
     setSaveError(null)
     try {
       const published = await publishPlaceListing({
-        product: draft.product,
+        details: draft.details,
         sticker: draft.sticker,
       })
       const placement = confirmPlacement(x, y, {
-        productId: published.productId,
         stickerId: published.stickerId,
       })
       if (!placement) {
         throw new Error("Could not place sticker on the wall.")
       }
-      setSavedProductId(published.productId)
+      setSavedStickerId(published.stickerId)
       setStep("done")
     } catch (err) {
       setSaveError(
@@ -142,10 +141,10 @@ export function PlaceFlow() {
             >
               See the wall
             </button>
-            {savedProductId ? (
+            {savedStickerId ? (
               <Link
-                to="/product/$id"
-                params={{ id: savedProductId }}
+                to="/sticker/$id"
+                params={{ id: savedStickerId }}
                 className="press inline-flex h-11 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold text-neutral-900"
                 onClick={() => setDraftSticker(null)}
               >

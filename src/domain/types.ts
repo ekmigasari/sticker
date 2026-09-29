@@ -3,12 +3,19 @@ export const WALL_SIZE = 1000
 export const UNIT_SCALE = 10
 
 export const CATEGORIES = [
-  "Tool",
+  "Developer Tools",
   "SaaS",
-  "Newsletter",
-  "Game",
-  "App",
+  "AI",
+  "Productivity",
   "Design",
+  "Marketing",
+  "Games",
+  "Mobile",
+  "Open Source",
+  "Newsletter",
+  "Community",
+  "Services",
+  "Personal Brand",
   "Other",
 ] as const
 
@@ -26,18 +33,14 @@ export function sizePx(tier: SizeTier): number {
   return SIZE_TIERS[tier].units * UNIT_SCALE
 }
 
-export type Product = {
+/** Directory / wall listing: one sticker = one identity + artwork. */
+export type Sticker = {
   id: string
   name: string
   oneLiner: string
   url: string
   category: Category
   offer?: string
-  createdAt: string
-}
-
-export type Sticker = {
-  id: string
   imageDataUrl: string
   outlineColor: string
   outlineThickness: number
@@ -47,7 +50,6 @@ export type Sticker = {
 export type Placement = {
   id: string
   stickerId: string
-  productId: string
   x: number
   y: number
   width: number
@@ -95,8 +97,16 @@ export type DraftSticker = {
   outlineThickness: number
 }
 
+export type StickerDetails = {
+  name: string
+  oneLiner: string
+  url: string
+  category: Category
+  offer?: string
+}
+
 export type PlaceDraft = {
   sticker: DraftSticker
   sizeTier: SizeTier
-  product: Omit<Product, "id" | "createdAt">
+  details: StickerDetails
 }

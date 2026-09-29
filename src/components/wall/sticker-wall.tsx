@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { WALL_SIZE } from "@/domain/types"
 import { useWallStore } from "@/store/wall-store"
-import { ProductSheet } from "./product-sheet"
+import { StickerSheet } from "./sticker-sheet"
 import { WallControls } from "./wall-controls"
 
 type Props = {
@@ -71,7 +71,6 @@ export function StickerWall({
     [rawPlacements]
   )
   const selectPlacement = useWallStore((s) => s.selectPlacement)
-  const getProduct = useWallStore((s) => s.getProduct)
   const getSticker = useWallStore((s) => s.getSticker)
 
   const visiblePlacements = useMemo(() => {
@@ -131,7 +130,6 @@ export function StickerWall({
   }, [clearHeroZone])
 
   const selected = placements.find((p) => p.id === selectedPlacementId)
-  const selectedProduct = selected ? getProduct(selected.productId) : undefined
   const selectedSticker = selected ? getSticker(selected.stickerId) : undefined
 
   return (
@@ -228,7 +226,7 @@ export function StickerWall({
                         e.stopPropagation()
                         if (!placeMode) selectPlacement(p.id)
                       }}
-                      aria-label={getProduct(p.productId)?.name ?? "Sticker"}
+                      aria-label={sticker.name}
                     >
                       <img
                         src={sticker.imageDataUrl}
@@ -257,10 +255,8 @@ export function StickerWall({
         {!placeMode &&
         !clearHeroZone &&
         selected &&
-        selectedProduct &&
         selectedSticker ? (
-          <ProductSheet
-            product={selectedProduct}
+          <StickerSheet
             sticker={selectedSticker}
             placement={selected}
             onClose={() => selectPlacement(null)}

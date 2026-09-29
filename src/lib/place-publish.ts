@@ -1,7 +1,7 @@
 import type { DraftSticker } from "@/domain/types"
-import type { ProductDTO, StickerDTO } from "@/lib/product-api"
+import type { StickerDTO } from "@/lib/sticker-api"
 
-export type PlaceProductInput = {
+export type PlaceStickerInput = {
   name: string
   oneLiner: string
   url: string
@@ -25,48 +25,37 @@ async function readError(response: Response) {
   return payload?.error ?? "Request failed."
 }
 
-/** Create directory Product + artwork Sticker from a Place draft. */
+/** Create a directory sticker (listing + artwork) from a Place draft. */
 export async function publishPlaceListing(input: {
-  product: PlaceProductInput
+  details: PlaceStickerInput
   sticker: DraftSticker
-}): Promise<{ productId: string; stickerId: string }> {
-  const productResponse = await fetch("/api/products", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(input.product),
-  })
-  if (!productResponse.ok) {
-    if (productResponse.status === 401) {
-      throw new Error("Sign in to save your sticker to the directory.")
-    }
-    throw new Error(await readError(productResponse))
-  }
-  const productPayload = (await productResponse.json()) as {
-    product: ProductDTO
-  }
-  const productId = productPayload.product.id
-
+}): Promise<{ stickerId: string }> {
   const file = dataUrlToFile(
     input.sticker.imageDataUrl,
     `sticker-${input.sticker.style}.png`
   )
   const form = new FormData()
   form.set("file", file)
+  form.set("name", input.details.name)
+  form.set("oneLiner", input.details.oneLiner)
+  form.set("url", input.details.url)
+  form.set("category", input.details.category)
+  if (input.details.offer) form.set("offer", input.details.offer)
   form.set("style", input.sticker.style)
   form.set("filter", input.sticker.filter)
   form.set("outlineColor", input.sticker.outlineColor)
   form.set("outlineThickness", String(input.sticker.outlineThickness))
 
-  const stickerResponse = await fetch(`/api/products/${productId}/stickers`, {
+  const response = await fetch("/api/stickers", {
     method: "POST",
     body: form,
   })
-  if (!stickerResponse.ok) {
-    throw new Error(await readError(stickerResponse))
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("Sign in to save your sticker to the directory.")
+    }
+    throw new Error(await readError(response))
   }
-  const stickerPayload = (await stickerResponse.json()) as {
-    sticker: StickerDTO
-  }
-
-  return { productId, stickerId: stickerPayload.sticker.id }
+  const payload = (await response.json()) as { sticker: StickerDTO }
+  return { stickerId: payload.sticker.id }
 }

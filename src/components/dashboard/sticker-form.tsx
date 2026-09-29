@@ -2,7 +2,7 @@ import { useState } from "react"
 import { CATEGORIES, type Category } from "@/domain/types"
 import { cn } from "@/lib/utils"
 
-export type ProductFormValues = {
+export type StickerFormValues = {
   name: string
   oneLiner: string
   url: string
@@ -11,13 +11,13 @@ export type ProductFormValues = {
 }
 
 type Props = {
-  initial?: Partial<ProductFormValues>
+  initial?: Partial<StickerFormValues>
   submitLabel: string
-  onSubmit: (values: ProductFormValues) => Promise<void>
+  onSubmit: (values: StickerFormValues) => Promise<void>
   onCancel?: () => void
 }
 
-export function ProductForm({
+export function StickerForm({
   initial,
   submitLabel,
   onSubmit,
@@ -26,7 +26,7 @@ export function ProductForm({
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [category, setCategory] = useState<Category>(
-    initial?.category ?? "Tool"
+    initial?.category ?? "Developer Tools"
   )
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -34,7 +34,7 @@ export function ProductForm({
     setError(null)
     setPending(true)
     const form = new FormData(event.currentTarget)
-    const values: ProductFormValues = {
+    const values: StickerFormValues = {
       name: String(form.get("name") ?? ""),
       oneLiner: String(form.get("oneLiner") ?? ""),
       url: String(form.get("url") ?? ""),

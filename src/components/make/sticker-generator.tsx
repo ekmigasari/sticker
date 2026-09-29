@@ -31,7 +31,7 @@ function dataUrlToFile(dataUrl: string, fileName: string) {
   return new File([bytes], fileName, { type: mime })
 }
 
-export function StickerGenerator({ productId }: { productId?: string }) {
+export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
@@ -58,7 +58,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const savingToProduct = Boolean(productId)
+  const replacingArtwork = Boolean(stickerId)
 
   useEffect(() => {
     if (!source) return
@@ -200,8 +200,8 @@ export function StickerGenerator({ productId }: { productId?: string }) {
     }
   }
 
-  async function handleSaveToProduct() {
-    if (!source || !productId) return
+  async function handleSaveToSticker() {
+    if (!source || !stickerId) return
     setExporting(true)
     setError(null)
     try {
@@ -210,6 +210,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
         filter,
         outlineColor,
         outlineThickness: thickness,
+        removeBackground,
         maxSide: 1200,
       })
       const file = dataUrlToFile(url, `sticker-${style}.png`)
@@ -220,8 +221,8 @@ export function StickerGenerator({ productId }: { productId?: string }) {
       form.set("outlineColor", outlineColor)
       form.set("outlineThickness", String(thickness))
 
-      const response = await fetch(`/api/products/${productId}/stickers`, {
-        method: "POST",
+      const response = await fetch(`/api/stickers/${stickerId}`, {
+        method: "PATCH",
         body: form,
       })
       if (!response.ok) {
@@ -229,7 +230,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
           error?: string
         } | null
         if (response.status === 401) {
-          setError("Sign in to save stickers to a product.")
+          setError("Sign in to save stickers.")
           void navigate({ to: "/sign-in" })
           return
         }
@@ -238,8 +239,8 @@ export function StickerGenerator({ productId }: { productId?: string }) {
       }
 
       void navigate({
-        to: "/dashboard/products/$id",
-        params: { id: productId },
+        to: "/dashboard/stickers/$id",
+        params: { id: stickerId },
       })
     } finally {
       setExporting(false)
@@ -265,11 +266,11 @@ export function StickerGenerator({ productId }: { productId?: string }) {
       }}
     >
       <header className="relative z-20 flex h-14 shrink-0 items-center justify-between px-3 pt-[env(safe-area-inset-top)] sm:px-5">
-        {savingToProduct && productId ? (
+        {replacingArtwork && stickerId ? (
           <Link
-            to="/dashboard/products/$id"
-            params={{ id: productId }}
-            aria-label="Back to product"
+            to="/dashboard/stickers/$id"
+            params={{ id: stickerId }}
+            aria-label="Back to sticker"
             className="press grid size-10 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07]"
           >
             <CaretLeft weight="bold" className="size-[18px]" />
@@ -290,7 +291,7 @@ export function StickerGenerator({ productId }: { productId?: string }) {
             source && "hidden sm:block"
           )}
         >
-          {savingToProduct ? "Save artwork" : "New Sticker"}
+          {replacingArtwork ? "Replace artwork" : "New Sticker"}
         </h1>
 
         <div className="flex items-center gap-2">
@@ -313,11 +314,11 @@ export function StickerGenerator({ productId }: { productId?: string }) {
           >
             <DownloadSimple weight="bold" className="size-[18px]" />
           </button>
-          {savingToProduct ? (
+          {replacingArtwork ? (
             <button
               type="button"
               disabled={!ready || exporting}
-              onClick={() => void handleSaveToProduct()}
+              onClick={() => void handleSaveToSticker()}
               className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity disabled:opacity-35"
             >
               {exporting ? "Saving…" : "Save"}
