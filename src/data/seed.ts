@@ -1,5 +1,5 @@
 import type { Category, Placement, SizeTier, Sticker } from "@/domain/types"
-import { sizePx } from "@/domain/types"
+import { SIZE_TIERS, unitsToPx } from "@/domain/types"
 import { SEED_PALETTE, makeSeedStickerDataUrl } from "@/lib/seed-stickers"
 
 type SeedDef = {
@@ -286,7 +286,8 @@ export function buildSeedBundle(): SeedBundle {
       outlineThickness: 10,
       createdAt,
     }
-    const dim = sizePx(def.tier)
+    const units = SIZE_TIERS[def.tier].units
+    const dim = unitsToPx(units)
     const placement: Placement = {
       id: `plc_${def.id}`,
       stickerId: sticker.id,
@@ -295,7 +296,8 @@ export function buildSeedBundle(): SeedBundle {
       width: dim,
       height: dim,
       zIndex: i + 1,
-      sizeTier: def.tier,
+      unitsW: units,
+      unitsH: units,
       createdAt,
     }
 

@@ -7,7 +7,10 @@ import { WallControls } from "./wall-controls"
 
 type Props = {
   placeMode?: boolean
+  /** Square ghost size (legacy). Prefer ghostW/ghostH. */
   ghostSize?: number
+  ghostW?: number
+  ghostH?: number
   onPlace?: (x: number, y: number) => void
   /** Hide search/zoom chrome (e.g. while the landing hero is up). */
   hideControls?: boolean
@@ -49,10 +52,14 @@ function placementOverlapsHeroZone(
 export function StickerWall({
   placeMode,
   ghostSize = 50,
+  ghostW,
+  ghostH,
   onPlace,
   hideControls,
   clearHeroZone,
 }: Props) {
+  const placeW = ghostW ?? ghostSize
+  const placeH = ghostH ?? ghostSize
   const viewportRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
   const last = useRef({ x: 0, y: 0 })
@@ -180,7 +187,7 @@ export function StickerWall({
             const my = e.clientY - rect.top
             const worldX = cam.x + (mx - rect.width / 2) / cam.zoom
             const worldY = cam.y + (my - rect.height / 2) / cam.zoom
-            onPlace(worldX - ghostSize / 2, worldY - ghostSize / 2)
+            onPlace(worldX - placeW / 2, worldY - placeH / 2)
             return
           }
 

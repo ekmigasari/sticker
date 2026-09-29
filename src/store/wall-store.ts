@@ -7,8 +7,29 @@ import type {
   SizeTier,
   Sticker,
 } from "@/domain/types"
-import { WALL_SIZE, sizePx } from "@/domain/types"
+import { SIZE_TIERS, WALL_SIZE, unitsToPx } from "@/domain/types"
 import { slugifyName } from "@/lib/sticker-meta"
+
+function normalizePlacement(p: Placement): Placement {
+  if (
+    typeof p.unitsW === "number" &&
+    typeof p.unitsH === "number" &&
+    p.unitsW > 0 &&
+    p.unitsH > 0
+  ) {
+    return p
+  }
+  const legacy = p.sizeTier as SizeTier | undefined
+  const units =
+    legacy && legacy in SIZE_TIERS ? SIZE_TIERS[legacy].units : 5
+  return {
+    ...p,
+    unitsW: units,
+    unitsH: units,
+    width: p.width || unitsToPx(units),
+    height: p.height || unitsToPx(units),
+  }
+}
 
 const STORAGE_KEY = "sticker-wall-v2"
 
@@ -112,9 +133,11 @@ export const useWallStore = create<WallState>((set, get) => ({
 
     const seedIds = new Set(seed.placements.map((p) => p.id))
     const hasSeed = persisted.placements.some((p) => seedIds.has(p.id))
-    const placements = hasSeed
-      ? persisted.placements
-      : [...seed.placements, ...persisted.placements]
+    const placements = (
+      hasSeed
+        ? persisted.placements
+        : [...seed.placements, ...persisted.placements]
+    ).map(normalizePlacement)
 
     const nextZ = Math.max(
       persisted.nextZ,
@@ -182,8 +205,9 @@ export const useWallStore = create<WallState>((set, get) => ({
     const draft = get().placeDraft
     if (!draft) return null
 
-    const dim = sizePx(draft.sizeTier as SizeTier)
-    const pos = clampPlacement(x, y, dim, dim)
+    const width = unitsToPx(draft.unitsW)
+    const height = unitsToPx(draft.unitsH)
+    const pos = clampPlacement(x, y, width, height)
     const now = new Date().toISOString()
     const stickerId =
       ids?.stickerId ?? `stk_${crypto.randomUUID().slice(0, 8)}`
@@ -210,10 +234,11 @@ export const useWallStore = create<WallState>((set, get) => ({
       stickerId,
       x: pos.x,
       y: pos.y,
-      width: dim,
-      height: dim,
+      width,
+      height,
       zIndex,
-      sizeTier: draft.sizeTier,
+      unitsW: draft.unitsW,
+      unitsH: draft.unitsH,
       createdAt: now,
     }
 

@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router"
 import { ArrowSquareOut, MapPin } from "@phosphor-icons/react"
 import { AppChrome } from "@/components/layout/app-chrome"
+import { formatPlot } from "@/domain/types"
 import { getPublicSticker } from "@/lib/stickers"
 import { useWallStore } from "@/store/wall-store"
 
@@ -170,8 +171,8 @@ function StickerPage() {
                   className="flex items-center justify-between gap-3 py-3.5 text-[14px]"
                 >
                   <span className="text-neutral-600">
-                    {p.sizeTier} · z{p.zIndex} · ({Math.round(p.x)},{" "}
-                    {Math.round(p.y)})
+                    {formatPlot(p.unitsW, p.unitsH)} · z{p.zIndex} · (
+                    {Math.round(p.x)}, {Math.round(p.y)})
                   </span>
                   <button
                     type="button"

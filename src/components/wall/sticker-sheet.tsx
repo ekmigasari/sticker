@@ -1,6 +1,7 @@
 import { ArrowSquareOut, X } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
 import type { Placement, Sticker } from "@/domain/types"
+import { formatPlot } from "@/domain/types"
 
 type Props = {
   sticker: Sticker
@@ -21,7 +22,8 @@ export function StickerSheet({ sticker, placement, onClose }: Props) {
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="text-[12px] font-medium tracking-[-0.01em] text-neutral-500">
-                {sticker.category} · {placement.sizeTier}
+                {sticker.category} ·{" "}
+                {formatPlot(placement.unitsW, placement.unitsH)}
               </p>
               <h2 className="mt-0.5 text-[20px] font-semibold tracking-[-0.02em] text-neutral-900">
                 {sticker.name}

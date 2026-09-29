@@ -4,12 +4,13 @@
  * Contract details: docs/backend.md
  */
 
-import type { Placement, SizeTier, Sticker } from "@/domain/types"
-import { SIZE_TIERS } from "@/domain/types"
+import type { Placement, Sticker } from "@/domain/types"
+import { plotPrice } from "@/domain/types"
 
 export type CheckoutSession = {
   id: string
-  sizeTier: SizeTier
+  unitsW: number
+  unitsH: number
   amountCents: number
   status: "mock_created" | "mock_paid"
   checkoutUrl: string
@@ -29,7 +30,8 @@ export async function fetchWall(): Promise<WallQuery> {
 
 /** Placeholder — replace with POST /api/checkout (Stripe) */
 export async function createCheckoutSession(
-  sizeTier: SizeTier,
+  unitsW: number,
+  unitsH: number,
   _details: Omit<
     Sticker,
     | "id"
@@ -40,10 +42,11 @@ export async function createCheckoutSession(
     | "outlineThickness"
   >
 ): Promise<CheckoutSession> {
-  const amountCents = SIZE_TIERS[sizeTier].price * 100
+  const amountCents = plotPrice(unitsW, unitsH) * 100
   return {
     id: `cs_mock_${crypto.randomUUID().slice(0, 8)}`,
-    sizeTier,
+    unitsW,
+    unitsH,
     amountCents,
     status: "mock_created",
     checkoutUrl: "/place",
