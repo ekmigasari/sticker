@@ -1,10 +1,8 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 import { AppChrome } from "@/components/layout/app-chrome"
-import { Button, buttonVariants } from "@/components/ui/button"
 import { MAX_UPLOAD_BYTES } from "@/lib/files"
 import { listUploads } from "@/lib/session"
-import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/_protected/files")({
   loader: () => listUploads(),
@@ -59,58 +57,58 @@ function FilesPage() {
 
   return (
     <AppChrome>
-      <main className="mx-auto flex w-full max-w-4xl flex-col px-4 py-10 sm:px-8">
-        <Link
-          to="/dashboard"
-          className="font-mono text-[11px] tracking-[0.14em] text-muted-foreground uppercase hover:text-foreground"
-        >
-          ← Dashboard
-        </Link>
-        <p className="mt-4 font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-          {user.email}
-        </p>
-        <h1 className="mt-2 font-heading text-4xl font-extrabold tracking-tight">
-          Your files
-        </h1>
-        <p className="mt-3 max-w-xl text-muted-foreground">
-          Raw uploads stored for your account. Product stickers are managed from
-          the dashboard.
-        </p>
+      <main className="nk-page">
+        <div>
+          <Link
+            to="/dashboard"
+            className="press inline-flex text-[13px] font-medium tracking-[-0.01em] text-neutral-500 transition-colors hover:text-neutral-900"
+          >
+            ← Your stickers
+          </Link>
+          <p className="nk-label mt-5">{user.email}</p>
+          <h1 className="nk-title mt-2">Your files</h1>
+          <p className="nk-subtitle mt-3">
+            Raw uploads for your account. Sticker artwork is managed from the
+            dashboard.
+          </p>
+        </div>
 
         <form
           onSubmit={(e) => void onSubmit(e)}
-          className="mt-10 flex flex-col items-start gap-4 rounded-3xl border border-border bg-card/90 p-5 sm:flex-row sm:items-center"
+          className="flex flex-col items-start gap-4 rounded-[28px] border border-black/[0.06] bg-white p-5 sm:flex-row sm:items-center"
         >
           <input
             name="file"
             type="file"
             required
-            className="font-mono text-xs text-muted-foreground file:mr-4 file:rounded-xl file:border file:border-border file:bg-transparent file:px-3 file:py-2 file:font-mono file:text-xs file:tracking-widest file:text-foreground file:uppercase"
+            className="w-full text-[13px] text-neutral-500 file:mr-4 file:rounded-full file:border-0 file:bg-black/[0.06] file:px-4 file:py-2 file:text-[13px] file:font-medium file:text-neutral-900"
           />
-          <Button type="submit" disabled={pending} className="rounded-2xl">
-            {pending ? "Uploading" : "Upload"}
-          </Button>
+          <button type="submit" disabled={pending} className="nk-btn shrink-0">
+            {pending ? "Uploading…" : "Upload"}
+          </button>
         </form>
-        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <p className="text-[14px] font-medium text-red-600">{error}</p>
+        ) : null}
 
-        <ul className="mt-10 divide-y divide-border rounded-3xl border border-border bg-card/80">
+        <ul className="divide-y divide-black/[0.06]">
           {uploads.length === 0 ? (
-            <li className="px-5 py-8 font-mono text-xs text-muted-foreground">
+            <li className="py-10 text-center text-[15px] text-neutral-500">
               No files yet.
             </li>
           ) : (
             uploads.map((upload) => (
               <li
                 key={upload.id}
-                className="flex items-baseline justify-between gap-4 px-5 py-4"
+                className="flex items-baseline justify-between gap-4 py-4"
               >
                 <a
                   href={`/api/uploads/${upload.id}`}
-                  className="text-sm underline underline-offset-4"
+                  className="text-[15px] font-medium tracking-[-0.01em] text-neutral-900 underline underline-offset-4"
                 >
                   {upload.fileName}
                 </a>
-                <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                <span className="shrink-0 text-[13px] text-neutral-400">
                   {formatBytes(upload.sizeBytes)}
                 </span>
               </li>
@@ -118,11 +116,8 @@ function FilesPage() {
           )}
         </ul>
 
-        <Link
-          to="/dashboard"
-          className={cn(buttonVariants({ variant: "outline" }), "mt-8 w-fit rounded-2xl")}
-        >
-          Back to products
+        <Link to="/dashboard" className="nk-btn-secondary w-fit">
+          Back to stickers
         </Link>
       </main>
     </AppChrome>

@@ -263,15 +263,28 @@
 }
 
 .nk-btn {
-  @apply press inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-neutral-900 px-5 text-[15px] font-semibold tracking-[-0.01em] text-white transition-opacity hover:opacity-90 disabled:opacity-35;
+  @apply inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-neutral-900 px-5 text-[15px] font-semibold tracking-[-0.01em] text-white transition-opacity hover:opacity-90 disabled:opacity-35;
 }
 
 .nk-btn-secondary {
-  @apply press inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-black/[0.06] px-5 text-[15px] font-semibold tracking-[-0.01em] text-neutral-900 transition-colors hover:bg-black/[0.09] disabled:opacity-35;
+  @apply inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-black/[0.06] px-5 text-[15px] font-semibold tracking-[-0.01em] text-neutral-900 transition-colors hover:bg-black/[0.09] disabled:opacity-35;
 }
 
 .nk-chip {
-  @apply press shrink-0 rounded-full px-4 py-2 text-[13px] font-medium tracking-[-0.01em] transition-colors;
+  @apply shrink-0 rounded-full px-4 py-2 text-[13px] font-medium tracking-[-0.01em] transition-colors;
+}
+
+.nk-btn,
+.nk-btn-secondary,
+.nk-chip {
+  transition-property: scale, background-color, box-shadow, color, opacity;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-out);
+}
+.nk-btn:active:not(:disabled),
+.nk-btn-secondary:active:not(:disabled),
+.nk-chip:active:not(:disabled) {
+  scale: 0.97;
 }
 
 .nk-chip-active {
