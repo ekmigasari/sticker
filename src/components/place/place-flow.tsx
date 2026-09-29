@@ -14,6 +14,7 @@ import {
 } from "@/domain/types"
 import { cn } from "@/lib/utils"
 import { publishPlaceListing } from "@/lib/place-publish"
+import { isValidStickerUrl } from "@/lib/sticker-meta"
 import { useWallStore } from "@/store/wall-store"
 
 function PlaceChrome({ children }: { children: ReactNode }) {
@@ -44,13 +45,13 @@ export function PlaceFlow() {
   const [tier, setTier] = useState<SizeTier>("M")
   const [name, setName] = useState("")
   const [oneLiner, setOneLiner] = useState("")
-  const [url, setUrl] = useState("https://")
+  const [url, setUrl] = useState("")
   const [category, setCategory] = useState<Category>("Developer Tools")
   const [offer, setOffer] = useState("")
   const [paying, setPaying] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [savedStickerId, setSavedStickerId] = useState<string | null>(null)
+  const [savedSlug, setSavedSlug] = useState<string | null>(null)
 
   useEffect(() => {
     hydrate()
@@ -60,7 +61,10 @@ export function PlaceFlow() {
   const dim = sizePx(tier)
 
   const canContinue = useMemo(
-    () => name.trim().length > 1 && oneLiner.trim().length > 3 && url.startsWith("http"),
+    () =>
+      name.trim().length > 1 &&
+      oneLiner.trim().length > 3 &&
+      isValidStickerUrl(url),
     [name, oneLiner, url]
   )
 
@@ -102,11 +106,12 @@ export function PlaceFlow() {
       })
       const placement = confirmPlacement(x, y, {
         stickerId: published.stickerId,
+        slug: published.slug,
       })
       if (!placement) {
         throw new Error("Could not place sticker on the wall.")
       }
-      setSavedStickerId(published.stickerId)
+      setSavedSlug(published.slug)
       setStep("done")
     } catch (err) {
       setSaveError(
@@ -141,10 +146,10 @@ export function PlaceFlow() {
             >
               See the wall
             </button>
-            {savedStickerId ? (
+            {savedSlug ? (
               <Link
-                to="/sticker/$id"
-                params={{ id: savedStickerId }}
+                to="/sticker/$slug"
+                params={{ slug: savedSlug }}
                 className="press inline-flex h-11 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold text-neutral-900"
                 onClick={() => setDraftSticker(null)}
               >
@@ -332,6 +337,11 @@ export function PlaceFlow() {
                   placeholder="https://yourproduct.dev"
                   className="nk-field"
                 />
+                {url.trim() && !isValidStickerUrl(url) ? (
+                  <p className="text-[12px] font-medium text-red-600">
+                    Enter a full website link (e.g. https://yoursite.com).
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <span className="nk-label">Category</span>

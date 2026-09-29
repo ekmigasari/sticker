@@ -64,8 +64,8 @@ export function DirectoryList({ stickers }: { stickers: StickerDTO[] }) {
         {rows.map((sticker) => (
           <li key={sticker.id}>
             <Link
-              to="/sticker/$id"
-              params={{ id: sticker.id }}
+              to="/sticker/$slug"
+              params={{ slug: sticker.slug }}
               className="group flex items-center gap-4 py-4 transition-opacity hover:opacity-80 sm:gap-5"
             >
               <img

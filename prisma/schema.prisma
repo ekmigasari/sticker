@@ -97,6 +97,7 @@ model Sticker {
   id               String   @id
   userId           String
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug             String   @unique
   name             String
   oneLiner         String
   url              String

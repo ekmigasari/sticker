@@ -7,7 +7,12 @@ import {
 } from "@/domain/types"
 import { auth } from "@/lib/auth"
 import { MAX_UPLOAD_BYTES, safeFileName } from "@/lib/files"
-import { isCategory, parseStickerDetails, serializeSticker } from "@/lib/sticker-api"
+import {
+  allocateUniqueSlug,
+  isCategory,
+  parseStickerDetails,
+  serializeSticker,
+} from "@/lib/sticker-api"
 import { prisma } from "@/lib/prisma"
 import { putObject } from "@/lib/s3"
 
@@ -134,6 +139,7 @@ export const Route = createFileRoute("/api/stickers/")({
 
         const uploadId = crypto.randomUUID()
         const stickerId = crypto.randomUUID()
+        const slug = await allocateUniqueSlug(parsed.data.name)
         const fileName = safeFileName(file.name || `sticker-${stickerId}.png`)
         const key = `stickers/${session.user.id}/${uploadId}-${fileName}`
         const bytes = new Uint8Array(await file.arrayBuffer())
@@ -155,6 +161,7 @@ export const Route = createFileRoute("/api/stickers/")({
             data: {
               id: stickerId,
               userId: session.user.id,
+              slug,
               ...parsed.data,
               uploadId,
               style: styleRaw,

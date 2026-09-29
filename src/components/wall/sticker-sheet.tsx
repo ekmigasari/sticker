@@ -57,8 +57,8 @@ export function StickerSheet({ sticker, placement, onClose }: Props) {
           <ArrowSquareOut weight="bold" className="size-3.5" />
         </a>
         <Link
-          to="/sticker/$id"
-          params={{ id: sticker.id }}
+          to="/sticker/$slug"
+          params={{ slug: sticker.slug }}
           className="press inline-flex h-10 items-center rounded-full bg-black/[0.06] px-4 text-[14px] font-semibold tracking-[-0.01em] text-neutral-900 transition-colors hover:bg-black/[0.09]"
         >
           Sticker page

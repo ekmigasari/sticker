@@ -29,7 +29,7 @@ async function readError(response: Response) {
 export async function publishPlaceListing(input: {
   details: PlaceStickerInput
   sticker: DraftSticker
-}): Promise<{ stickerId: string }> {
+}): Promise<{ stickerId: string; slug: string }> {
   const file = dataUrlToFile(
     input.sticker.imageDataUrl,
     `sticker-${input.sticker.style}.png`
@@ -57,5 +57,5 @@ export async function publishPlaceListing(input: {
     throw new Error(await readError(response))
   }
   const payload = (await response.json()) as { sticker: StickerDTO }
-  return { stickerId: payload.sticker.id }
+  return { stickerId: payload.sticker.id, slug: payload.sticker.slug }
 }

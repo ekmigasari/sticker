@@ -32,7 +32,12 @@ export async function createCheckoutSession(
   sizeTier: SizeTier,
   _details: Omit<
     Sticker,
-    "id" | "createdAt" | "imageDataUrl" | "outlineColor" | "outlineThickness"
+    | "id"
+    | "slug"
+    | "createdAt"
+    | "imageDataUrl"
+    | "outlineColor"
+    | "outlineThickness"
   >
 ): Promise<CheckoutSession> {
   const amountCents = SIZE_TIERS[sizeTier].price * 100

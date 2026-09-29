@@ -1,9 +1,14 @@
 import { CATEGORIES, type Category } from "@/domain/types"
 import { prisma } from "@/lib/prisma"
+import {
+  normalizeStickerUrl,
+  slugifyName,
+} from "@/lib/sticker-meta"
 
 export type StickerDTO = {
   id: string
   userId: string
+  slug: string
   name: string
   oneLiner: string
   url: string
@@ -27,6 +32,7 @@ export function isCategory(value: string): value is Category {
 type StickerRecord = {
   id: string
   userId: string
+  slug: string
   name: string
   oneLiner: string
   url: string
@@ -44,6 +50,7 @@ export function serializeSticker(sticker: StickerRecord): StickerDTO {
   return {
     id: sticker.id,
     userId: sticker.userId,
+    slug: sticker.slug,
     name: sticker.name,
     oneLiner: sticker.oneLiner,
     url: sticker.url,
@@ -57,6 +64,22 @@ export function serializeSticker(sticker: StickerRecord): StickerDTO {
     createdAt: sticker.createdAt.toISOString(),
     updatedAt: sticker.updatedAt.toISOString(),
   }
+}
+
+export async function allocateUniqueSlug(
+  name: string,
+  excludeId?: string
+): Promise<string> {
+  const base = slugifyName(name)
+  for (let i = 0; i < 50; i += 1) {
+    const candidate = i === 0 ? base : `${base}-${i + 1}`
+    const existing = await prisma.sticker.findUnique({
+      where: { slug: candidate },
+      select: { id: true },
+    })
+    if (!existing || existing.id === excludeId) return candidate
+  }
+  return `${base}-${crypto.randomUUID().slice(0, 8)}`
 }
 
 export function parseStickerDetails(body: unknown) {
@@ -81,9 +104,11 @@ export function parseStickerDetails(body: unknown) {
     return { error: "Pick a valid category." as const }
   }
 
-  const normalizedUrl = url.startsWith("http") ? url : `https://${url}`
-  if (!URL.canParse(normalizedUrl)) {
-    return { error: "Link looks invalid." as const }
+  const normalizedUrl = normalizeStickerUrl(url)
+  if (!normalizedUrl) {
+    return {
+      error: "Enter a full website link (e.g. https://yoursite.com)." as const,
+    }
   }
 
   return {
@@ -101,4 +126,10 @@ export async function getOwnedSticker(stickerId: string, userId: string) {
   return prisma.sticker.findFirst({
     where: { id: stickerId, userId },
   })
+}
+
+export async function findStickerBySlugOrId(slugOrId: string) {
+  const bySlug = await prisma.sticker.findUnique({ where: { slug: slugOrId } })
+  if (bySlug) return bySlug
+  return prisma.sticker.findUnique({ where: { id: slugOrId } })
 }

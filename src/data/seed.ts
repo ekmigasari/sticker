@@ -275,6 +275,7 @@ export function buildSeedBundle(): SeedBundle {
 
     const sticker: Sticker = {
       id: `stk_${def.id}`,
+      slug: def.id,
       name: def.name,
       oneLiner: def.oneLiner,
       url: def.url,

@@ -81,8 +81,8 @@ export function StickerManage({ sticker: initial }: { sticker: StickerDTO }) {
               Replace artwork
             </Link>
             <Link
-              to="/sticker/$id"
-              params={{ id: sticker.id }}
+              to="/sticker/$slug"
+              params={{ slug: sticker.slug }}
               className="nk-btn-secondary"
             >
               Public page

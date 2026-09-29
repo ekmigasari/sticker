@@ -36,6 +36,8 @@ export function sizePx(tier: SizeTier): number {
 /** Directory / wall listing: one sticker = one identity + artwork. */
 export type Sticker = {
   id: string
+  /** Public URL segment; falls back to id for older local placements. */
+  slug: string
   name: string
   oneLiner: string
   url: string

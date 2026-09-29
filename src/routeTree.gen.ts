@@ -19,7 +19,7 @@ import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dashboard'
 import { Route as ProtectedFilesRouteImport } from './routes/_protected/files'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
-import { Route as StickerIdRouteImport } from './routes/sticker.$id'
+import { Route as StickerSlugRouteImport } from './routes/sticker.$slug'
 import { Route as ProtectedDashboardIndexRouteImport } from './routes/_protected/dashboard/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiStickersIndexRouteImport } from './routes/api/stickers/index'
@@ -79,9 +79,9 @@ const ProductIdRoute = ProductIdRouteImport.update({
   path: '/product/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StickerIdRoute = StickerIdRouteImport.update({
-  id: '/sticker/$id',
-  path: '/sticker/$id',
+const StickerSlugRoute = StickerSlugRouteImport.update({
+  id: '/sticker/$slug',
+  path: '/sticker/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProtectedDashboardIndexRoute = ProtectedDashboardIndexRouteImport.update({
@@ -142,7 +142,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof ProtectedDashboardRouteWithChildren
   '/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
-  '/sticker/$id': typeof StickerIdRoute
+  '/sticker/$slug': typeof StickerSlugRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
@@ -162,7 +162,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
-  '/sticker/$id': typeof StickerIdRoute
+  '/sticker/$slug': typeof StickerSlugRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
@@ -185,7 +185,7 @@ export interface FileRoutesById {
   '/_protected/dashboard': typeof ProtectedDashboardRouteWithChildren
   '/_protected/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
-  '/sticker/$id': typeof StickerIdRoute
+  '/sticker/$slug': typeof StickerSlugRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
@@ -208,7 +208,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/files'
     | '/product/$id'
-    | '/sticker/$id'
+    | '/sticker/$slug'
     | '/api/auth/$'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
@@ -228,7 +228,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/files'
     | '/product/$id'
-    | '/sticker/$id'
+    | '/sticker/$slug'
     | '/api/auth/$'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
@@ -250,7 +250,7 @@ export interface FileRouteTypes {
     | '/_protected/dashboard'
     | '/_protected/files'
     | '/product/$id'
-    | '/sticker/$id'
+    | '/sticker/$slug'
     | '/api/auth/$'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
@@ -271,7 +271,7 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   ProductIdRoute: typeof ProductIdRoute
-  StickerIdRoute: typeof StickerIdRoute
+  StickerSlugRoute: typeof StickerSlugRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiStickersIdRoute: typeof ApiStickersIdRouteWithChildren
   ApiUploadsIdRoute: typeof ApiUploadsIdRoute
@@ -351,11 +351,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProductIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sticker/$id': {
-      id: '/sticker/$id'
-      path: '/sticker/$id'
-      fullPath: '/sticker/$id'
-      preLoaderRoute: typeof StickerIdRouteImport
+    '/sticker/$slug': {
+      id: '/sticker/$slug'
+      path: '/sticker/$slug'
+      fullPath: '/sticker/$slug'
+      preLoaderRoute: typeof StickerSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_protected/dashboard/': {
@@ -474,7 +474,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   ProductIdRoute: ProductIdRoute,
-  StickerIdRoute: StickerIdRoute,
+  StickerSlugRoute: StickerSlugRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiStickersIdRoute: ApiStickersIdRouteWithChildren,
   ApiUploadsIdRoute: ApiUploadsIdRoute,

@@ -1,11 +1,13 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
+import { getPublicSticker } from "@/lib/stickers"
 
-/** Legacy product URL → sticker page. */
+/** Legacy product URL → sticker page (slug when known). */
 export const Route = createFileRoute("/product/$id")({
-  beforeLoad: ({ params }) => {
+  beforeLoad: async ({ params }) => {
+    const sticker = await getPublicSticker({ data: params.id })
     throw redirect({
-      to: "/sticker/$id",
-      params: { id: params.id },
+      to: "/sticker/$slug",
+      params: { slug: sticker?.slug ?? params.id },
     })
   },
 })

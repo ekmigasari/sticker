@@ -8,6 +8,7 @@ import type {
   Sticker,
 } from "@/domain/types"
 import { WALL_SIZE, sizePx } from "@/domain/types"
+import { slugifyName } from "@/lib/sticker-meta"
 
 const STORAGE_KEY = "sticker-wall-v2"
 
@@ -38,9 +39,10 @@ type WallState = {
   confirmPlacement: (
     x: number,
     y: number,
-    ids?: { stickerId?: string }
+    ids?: { stickerId?: string; slug?: string }
   ) => Placement | null
   getSticker: (id: string) => Sticker | undefined
+  getStickerBySlugOrId: (slugOrId: string) => Sticker | undefined
   placementsSorted: () => Placement[]
 }
 
@@ -101,7 +103,12 @@ export const useWallStore = create<WallState>((set, get) => ({
 
     const stickerMap = new Map<string, Sticker>()
     for (const s of seed.stickers) stickerMap.set(s.id, s)
-    for (const s of persisted.stickers) stickerMap.set(s.id, s)
+    for (const s of persisted.stickers) {
+      stickerMap.set(s.id, {
+        ...s,
+        slug: s.slug || slugifyName(s.name) || s.id,
+      })
+    }
 
     const seedIds = new Set(seed.placements.map((p) => p.id))
     const hasSeed = persisted.placements.some((p) => seedIds.has(p.id))
@@ -180,11 +187,14 @@ export const useWallStore = create<WallState>((set, get) => ({
     const now = new Date().toISOString()
     const stickerId =
       ids?.stickerId ?? `stk_${crypto.randomUUID().slice(0, 8)}`
+    const slug =
+      ids?.slug ?? slugifyName(draft.details.name) ?? stickerId
     const placementId = `plc_${crypto.randomUUID().slice(0, 8)}`
     const zIndex = get().nextZ
 
     const sticker: Sticker = {
       id: stickerId,
+      slug,
       name: draft.details.name,
       oneLiner: draft.details.oneLiner,
       url: draft.details.url,
@@ -230,6 +240,10 @@ export const useWallStore = create<WallState>((set, get) => ({
   },
 
   getSticker: (id) => get().stickers.find((s) => s.id === id),
+  getStickerBySlugOrId: (slugOrId) =>
+    get().stickers.find(
+      (s) => s.slug === slugOrId || s.id === slugOrId
+    ),
   placementsSorted: () =>
     [...get().placements].sort((a, b) => a.zIndex - b.zIndex),
 }))

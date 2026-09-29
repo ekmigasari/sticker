@@ -2,7 +2,11 @@ import { createServerFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { serializeSticker, type StickerDTO } from "@/lib/sticker-api"
+import {
+  findStickerBySlugOrId,
+  serializeSticker,
+  type StickerDTO,
+} from "@/lib/sticker-api"
 
 async function requireUser() {
   const request = getRequest()
@@ -47,9 +51,9 @@ export const listPublicStickers = createServerFn({ method: "GET" }).handler(
 )
 
 export const getPublicSticker = createServerFn({ method: "GET" })
-  .validator((id: string) => id)
-  .handler(async ({ data: id }) => {
-    const sticker = await prisma.sticker.findUnique({ where: { id } })
+  .validator((slugOrId: string) => slugOrId)
+  .handler(async ({ data: slugOrId }) => {
+    const sticker = await findStickerBySlugOrId(slugOrId)
     if (!sticker) return null
     return serializeSticker(sticker)
   })

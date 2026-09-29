@@ -1,28 +1,51 @@
-import { useEffect } from "react"
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { useEffect, useMemo } from "react"
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router"
 import { ArrowSquareOut, MapPin } from "@phosphor-icons/react"
 import { AppChrome } from "@/components/layout/app-chrome"
 import { getPublicSticker } from "@/lib/stickers"
 import { useWallStore } from "@/store/wall-store"
 
-export const Route = createFileRoute("/sticker/$id")({
-  loader: ({ params }) => getPublicSticker({ data: params.id }),
+export const Route = createFileRoute("/sticker/$slug")({
+  loader: async ({ params }) => {
+    const sticker = await getPublicSticker({ data: params.slug })
+    if (sticker && sticker.slug !== params.slug) {
+      throw redirect({
+        to: "/sticker/$slug",
+        params: { slug: sticker.slug },
+      })
+    }
+    return sticker
+  },
   component: StickerPage,
 })
 
 function StickerPage() {
-  const { id } = Route.useParams()
+  const { slug } = Route.useParams()
   const dbSticker = Route.useLoaderData()
   const navigate = useNavigate()
   const hydrate = useWallStore((s) => s.hydrate)
   const hydrated = useWallStore((s) => s.hydrated)
-  const localSticker = useWallStore((s) => s.getSticker(id))
-  const placements = useWallStore((s) =>
-    s.placements
-      .filter((p) => p.stickerId === id)
-      .sort((a, b) => b.zIndex - a.zIndex)
-  )
+  const stickers = useWallStore((s) => s.stickers)
+  const allPlacements = useWallStore((s) => s.placements)
   const focusPlacement = useWallStore((s) => s.focusPlacement)
+
+  const localSticker = useMemo(
+    () => stickers.find((s) => s.slug === slug || s.id === slug),
+    [stickers, slug]
+  )
+  const stickerKey = dbSticker?.id ?? localSticker?.id ?? slug
+  const placements = useMemo(
+    () =>
+      allPlacements
+        .filter((p) => p.stickerId === stickerKey)
+        .sort((a, b) => b.zIndex - a.zIndex),
+    [allPlacements, stickerKey]
+  )
 
   useEffect(() => {
     hydrate()
