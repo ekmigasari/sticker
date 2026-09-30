@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   animate,
   motion,
@@ -37,8 +37,8 @@ const SETTLE_SPRING = {
   mass: 0.85,
 };
 
-/** How much the crease advances per pixel of drag. Lower = tip stays nearer the cursor. */
-const PEEL_GAIN = 0.6;
+/** How much the crease advances per pixel of drag. Lower = slower, more deliberate peel. */
+const PEEL_GAIN = 0.28;
 
 /** Release below this → snap shut; at/above → finish the peel. */
 const PEEL_THRESHOLD = 0.5;
@@ -58,8 +58,8 @@ const FOLD_MAX = 158;
  * back paper lying over the image.
  */
 const FOLD_RAMP = 0.05;
-/** Drag response curve: <1 makes the first pixels of a drag count for more. */
-const DRAG_CURVE = 0.7;
+/** Drag response curve: >1 softens early drag so the peel feels heavier. */
+const DRAG_CURVE = 1.15;
 /** Perspective distance as a multiple of sticker size. Higher = flatter, less warp. */
 const PERSPECTIVE_FACTOR = 8;
 
@@ -96,6 +96,35 @@ function peelFromGrab(gx: number, gy: number): PeelOrigin {
   }
   return { kind: "edge", edge: gy >= 0 ? "bottom" : "top" };
 }
+
+/**
+ * Free-direction peel: crease starts at the grab and advances along the
+ * pointer vector, so the flap follows finger/mouse instead of locking to
+ * one axis after the first pixel of drag.
+ */
+function freeGeometry(
+  cx: number,
+  cy: number,
+  nx: number,
+  ny: number,
+  w: number,
+  h: number,
+): Geo {
+  let maxD = 0;
+  for (const [x, y] of [
+    [0, 0],
+    [w, 0],
+    [w, h],
+    [0, h],
+  ] as const) {
+    const d = (x - cx) * nx + (y - cy) * ny;
+    if (d > maxD) maxD = d;
+  }
+  return { cx, cy, nx, ny, len: Math.max(maxD, 1) };
+}
+
+/** Min drag distance before the free direction locks onto the pointer vector. */
+const DIR_ARM = 6;
 
 /* ------------------------------------------------------------------ */
 /* Unified peel geometry (edges and corners share the same model).     */
@@ -239,23 +268,40 @@ export function FloatingSticker({
   /** Guards place-on-wall so it only fires once per peel. */
   const placedRef = useRef(false);
   const onFullyPeeledRef = useRef(onFullyPeeled);
-  onFullyPeeledRef.current = onFullyPeeled;
   const settleAnim = useRef<AnimationPlaybackControls | null>(null);
   const drag = useRef<{
     id: number;
-    origin: PeelOrigin;
+    /** Grab in sticker px — crease origin follows this point. */
+    cx: number;
+    cy: number;
+    /** Seed normal until the pointer has moved enough to set a free direction. */
+    seedNx: number;
+    seedNy: number;
     x: number;
     y: number;
     w: number;
     h: number;
+    /** Last pointer sample for velocity on release. */
+    lastX: number;
+    lastY: number;
+    lastT: number;
   } | null>(null);
+  /** Live free-peel geometry while dragging (overrides discrete edge/corner). */
+  const freeGeoRef = useRef<Geo | null>(null);
 
   const width = aspect >= 1 ? displayPx : displayPx * aspect;
   const height = aspect >= 1 ? displayPx / aspect : displayPx;
 
   // Latest size, read lazily by the transforms below.
   const sizeRef = useRef({ w: width, h: height });
-  sizeRef.current = { w: width, h: height };
+
+  useEffect(() => {
+    onFullyPeeledRef.current = onFullyPeeled;
+  });
+
+  useEffect(() => {
+    sizeRef.current = { w: width, h: height };
+  });
 
   /** Peel progress 0..1 — set live while dragging, animated on release. */
   const peel = useMotionValue(0);
@@ -273,7 +319,8 @@ export function FloatingSticker({
 
   function frame(p: number) {
     const { w, h } = sizeRef.current;
-    const g = geometry(originRef.current, w, h);
+    const g =
+      freeGeoRef.current ?? geometry(originRef.current, w, h);
     const t = p * g.len;
     const gp = grabRef.current;
     const pv = foldPivot(g, gp.x * w, gp.y * h, t);
@@ -400,31 +447,37 @@ export function FloatingSticker({
     return true;
   }
 
-  function peelAmount(
-    dx: number,
-    dy: number,
-    o: PeelOrigin,
-    w: number,
-    h: number,
+  function applyFreePeel(
+    d: NonNullable<typeof drag.current>,
+    clientX: number,
+    clientY: number,
   ) {
-    const g = geometry(o, w, h);
-    const proj = dx * g.nx + dy * g.ny;
-    const raw = clamp((Math.max(proj, -proj * 0.55) * PEEL_GAIN) / g.len, 0, 1);
-    return Math.pow(raw, DRAG_CURVE);
+    const dx = clientX - d.x;
+    const dy = clientY - d.y;
+    const dist = Math.hypot(dx, dy);
+
+    let nx = d.seedNx;
+    let ny = d.seedNy;
+    if (dist >= DIR_ARM) {
+      nx = dx / dist;
+      ny = dy / dist;
+    }
+
+    const g = freeGeometry(d.cx, d.cy, nx, ny, d.w, d.h);
+    freeGeoRef.current = g;
+
+    const raw = clamp((dist * PEEL_GAIN) / g.len, 0, 1);
+    peel.set(Math.pow(raw, DRAG_CURVE));
+    d.lastX = clientX;
+    d.lastY = clientY;
+    d.lastT = performance.now();
   }
 
   function onPointerMove(e: React.PointerEvent) {
     const d = drag.current;
     if (d) {
       if (e.pointerId !== d.id) return;
-      const p = peelAmount(
-        e.clientX - d.x,
-        e.clientY - d.y,
-        d.origin,
-        d.w,
-        d.h,
-      );
-      peel.set(p);
+      applyFreePeel(d, e.clientX, e.clientY);
       return;
     }
     if (e.pointerType !== "mouse") return;
@@ -438,12 +491,14 @@ export function FloatingSticker({
 
   function onPointerDown(e: React.PointerEvent) {
     if (drag.current || placedRef.current) return;
-    if (e.pointerType !== "mouse") return;
+    // Only the first pointer peels — a second thumb must not steal the drag.
+    if (e.pointerType !== "mouse" && !e.isPrimary) return;
     const el = hitRef.current;
     if (!el) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     stopSettle();
+    freeGeoRef.current = null;
     // Drop the hover tilt on grab so the pointer and the crease line up 1:1.
     hoverXT.set(0);
     hoverYT.set(0);
@@ -452,14 +507,30 @@ export function FloatingSticker({
     originRef.current = next;
     grabRef.current = { x: (nx + 1) / 2, y: (ny + 1) / 2 };
     const r = el.getBoundingClientRect();
+    const seed = geometry(next, r.width, r.height);
+    const now = performance.now();
     drag.current = {
       id: e.pointerId,
-      origin: next,
+      cx: grabRef.current.x * r.width,
+      cy: grabRef.current.y * r.height,
+      seedNx: seed.nx,
+      seedNy: seed.ny,
       x: e.clientX,
       y: e.clientY,
       w: r.width,
       h: r.height,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      lastT: now,
     };
+    freeGeoRef.current = freeGeometry(
+      drag.current.cx,
+      drag.current.cy,
+      seed.nx,
+      seed.ny,
+      r.width,
+      r.height,
+    );
     peel.set(0.035);
     glossOT.set(0.55);
   }
@@ -469,17 +540,26 @@ export function FloatingSticker({
     if (!d) return;
     // lostpointercapture / mismatched ids still must release the drag.
     if (e.type !== "lostpointercapture" && e.pointerId !== d.id) return;
+
+    // Momentum: a quick flick finishes the peel even below the distance threshold.
+    const elapsed = Math.max(1, performance.now() - d.lastT);
+    const recentDist = Math.hypot(e.clientX - d.lastX, e.clientY - d.lastY);
+    const recentVel = recentDist / elapsed;
+
     clearDrag(e);
     if (placedRef.current) return;
     const p = peel.get();
     const hovering = e.pointerType === "mouse" && e.type === "pointerup";
-    if (p >= PEEL_THRESHOLD) {
+    if (p >= PEEL_THRESHOLD || (recentVel > 0.11 && p > 0.18)) {
       placedRef.current = true;
       restHover(false);
+      // Keep freeGeoRef after settle so the fold axis doesn’t jump at rest.
       settleTo(1, () => onFullyPeeledRef.current?.());
     } else {
       restHover(hovering);
-      settleTo(0);
+      settleTo(0, () => {
+        freeGeoRef.current = null;
+      });
     }
   }
 
@@ -500,7 +580,7 @@ export function FloatingSticker({
     >
       <div
         ref={hitRef}
-        className="relative size-full select-none [@media(pointer:fine)]:touch-none"
+        className="relative size-full touch-none select-none"
         onPointerMove={onPointerMove}
         onPointerDown={onPointerDown}
         onPointerUp={endDrag}

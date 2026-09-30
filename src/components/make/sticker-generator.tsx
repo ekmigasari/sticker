@@ -9,7 +9,7 @@ import {
   Sparkle,
   WarningCircle,
 } from "@phosphor-icons/react"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import type { StickerFilter, StickerStyle } from "@/domain/types"
 import { mmToPx, STICKER_STYLES } from "@/domain/types"
 import { cn } from "@/lib/utils"
@@ -23,8 +23,13 @@ import {
   SIZE_MIN_MM,
 } from "@/lib/sticker-process"
 import { useWallStore } from "@/store/wall-store"
+import { firePeelConfetti } from "./confetti"
 import { EditorToolbar, type EditorTab } from "./editor-toolbar"
 import { FloatingSticker } from "./floating-sticker"
+import {
+  PrintLoadingCanvas,
+  PRINT_LOOP_S,
+} from "./print-loading-canvas"
 
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 const ZOOM_MIN = 0.35
@@ -65,6 +70,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   const [actionsOpen, setActionsOpen] = useState(false)
   const [confirmNewOpen, setConfirmNewOpen] = useState(false)
   const [confirmPlaceOpen, setConfirmPlaceOpen] = useState(false)
+  const [peelDone, setPeelDone] = useState(false)
   const [peelSession, setPeelSession] = useState(0)
 
   const [preview, setPreview] = useState<string | null>(null)
@@ -75,7 +81,33 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const uploadingRef = useRef(false)
+  const uploadStartedAt = useRef(0)
+  const finishTimer = useRef<number | null>(null)
   const replacingArtwork = Boolean(stickerId)
+
+  useEffect(() => {
+    uploadingRef.current = uploading
+  })
+
+  // Full-screen confetti when the peel celebration opens.
+  useEffect(() => {
+    if (!peelDone) return
+    const t = window.setTimeout(() => firePeelConfetti(), 120)
+    return () => window.clearTimeout(t)
+  }, [peelDone])
+
+  // Progress follows the 8s print loop clock.
+  useEffect(() => {
+    if (!uploading) return
+    const tick = window.setInterval(() => {
+      const elapsed = (performance.now() - uploadStartedAt.current) / 1000
+      setUploadProgress(Math.min(99, (elapsed / PRINT_LOOP_S) * 100))
+    }, 80)
+    return () => window.clearInterval(tick)
+  }, [uploading])
 
   // Preview canvas stays at a fixed resolution — size only affects display/export.
   useEffect(() => {
@@ -93,9 +125,24 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
           if (cancelled) return
           setPreview(url)
           setError(null)
+          if (uploadingRef.current) {
+            // Hold until one full print cycle (~8s) so the scene can finish.
+            const elapsed = performance.now() - uploadStartedAt.current
+            const remain = Math.max(0, PRINT_LOOP_S * 1000 - elapsed)
+            if (finishTimer.current) window.clearTimeout(finishTimer.current)
+            finishTimer.current = window.setTimeout(() => {
+              if (cancelled) return
+              setUploadProgress(100)
+              setUploading(false)
+            }, remain)
+          }
         })
         .catch(() => {
-          if (!cancelled) setError("That image couldn't be processed.")
+          if (!cancelled) {
+            setUploading(false)
+            setUploadProgress(0)
+            setError("That image couldn't be processed.")
+          }
         })
     }, 40)
     return () => {
@@ -147,14 +194,28 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
       setError("Images need to be under 12 MB.")
       return
     }
+    setUploading(true)
+    setUploadProgress(0)
+    uploadStartedAt.current = performance.now()
+    if (finishTimer.current) {
+      window.clearTimeout(finishTimer.current)
+      finishTimer.current = null
+    }
+    setError(null)
+    setPreview(null)
+    setStyleThumbs({})
+    setFilterThumb(null)
+    setZoom(1)
+    setPeelDone(false)
     const reader = new FileReader()
+    reader.onprogress = (e) => {
+      if (!e.lengthComputable) return
+      // File read covers the first half of the progress meter.
+      setUploadProgress(Math.round((e.loaded / e.total) * 50))
+    }
     reader.onload = () => {
       const dataUrl = String(reader.result)
-      setError(null)
-      setPreview(null)
-      setStyleThumbs({})
-      setFilterThumb(null)
-      setZoom(1)
+      setUploadProgress((p) => Math.max(p, 52))
       setSource(dataUrl)
       setSourceId((n) => n + 1)
       void getSourceMaxSide(dataUrl).then((max) => {
@@ -165,6 +226,11 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
           Math.min(SIZE_MAX_MM, Math.max(SIZE_MIN_MM, Math.round(naturalMm)))
         )
       })
+    }
+    reader.onerror = () => {
+      setUploading(false)
+      setUploadProgress(0)
+      setError("That image couldn't be read.")
     }
     reader.readAsDataURL(file)
   }
@@ -186,6 +252,13 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
     setError(null)
     setActionsOpen(false)
     setConfirmNewOpen(false)
+    setPeelDone(false)
+    setUploading(false)
+    setUploadProgress(0)
+    if (finishTimer.current) {
+      window.clearTimeout(finishTimer.current)
+      finishTimer.current = null
+    }
   }
 
   function requestNewSticker() {
@@ -255,6 +328,19 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
     setConfirmPlaceOpen(false)
     // Remount so a finished peel can be tried again.
     setPeelSession((n) => n + 1)
+  }
+
+  function dismissPeelDone() {
+    setActionsOpen(false)
+    setPeelDone(false)
+    // Put the sticker back so the peel can be replayed.
+    setPeelSession((n) => n + 1)
+  }
+
+  function placeFromPeel() {
+    setActionsOpen(false)
+    setPeelDone(false)
+    void handlePlace()
   }
 
   async function handleSaveToSticker() {
@@ -389,25 +475,34 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
 
       <main className="relative min-h-0 flex-1 overflow-auto overscroll-contain pb-[220px]">
         <div className="flex min-h-full min-w-full items-center justify-center p-8">
-          {source ? (
-            preview ? (
-              <FloatingSticker
-                key={`${sourceId}-${peelSession}`}
-                src={preview}
-                holo={filter === "glitter" || filter === "hologram"}
-                displayPx={displayPx}
-                appearKey={`${sourceId}-${peelSession}`}
-                onFullyPeeled={() => {
-                  if (replacingArtwork) return
-                  setConfirmPlaceOpen(true)
-                }}
-              />
+          <AnimatePresence mode="wait">
+            {source ? (
+              preview && !uploading ? (
+                <FloatingSticker
+                  key={`${sourceId}-${peelSession}`}
+                  src={preview}
+                  holo={filter === "glitter" || filter === "hologram"}
+                  displayPx={displayPx}
+                  appearKey={`${sourceId}-${peelSession}`}
+                  onFullyPeeled={() => {
+                    if (replacingArtwork) return
+                    setActionsOpen(false)
+                    setPeelDone(true)
+                  }}
+                />
+              ) : (
+                <UploadLoading
+                  key="processing"
+                  progress={uploadProgress}
+                  previewHint={source}
+                />
+              )
+            ) : uploading ? (
+              <UploadLoading key="uploading" progress={uploadProgress} />
             ) : (
-              <div className="size-44 animate-pulse rounded-[36px] bg-black/[0.04]" />
-            )
-          ) : (
-            <EmptyState inputId={inputId} />
-          )}
+              <EmptyState key="empty" inputId={inputId} />
+            )}
+          </AnimatePresence>
         </div>
 
         {error ? (
@@ -467,7 +562,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         </div>
       ) : null}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-2 px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
         <EditorToolbar
           tab={tab}
           onTabChange={setTab}
@@ -494,6 +589,89 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
           exporting={exporting}
         />
       </div>
+
+      <AnimatePresence>
+        {peelDone ? (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: EASE_OUT }}
+          >
+            <button
+              type="button"
+              aria-label="Dismiss"
+              className="absolute inset-0 bg-black/25 backdrop-blur-[2px]"
+              onClick={dismissPeelDone}
+            />
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="peel-done-title"
+              aria-describedby="peel-done-desc"
+              className="relative w-full max-w-[300px] overflow-hidden rounded-[14px] bg-white/92 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.4)] backdrop-blur-xl"
+              initial={{ opacity: 0, transform: "scale(0.96) translateY(8px)" }}
+              animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
+              exit={{ opacity: 0, transform: "scale(0.97) translateY(6px)" }}
+              transition={{ duration: 0.22, ease: EASE_OUT }}
+            >
+              <div className="px-5 pt-7 pb-5 text-center">
+                {preview ? (
+                  <motion.img
+                    src={preview}
+                    alt=""
+                    className="mx-auto mb-5 max-h-[120px] max-w-[160px] drop-shadow-[0_12px_24px_-10px_rgba(0,0,0,0.28)]"
+                    initial={{
+                      opacity: 0,
+                      transform: "scale(0.96)",
+                    }}
+                    animate={{
+                      opacity: 1,
+                      transform: "scale(1)",
+                    }}
+                    transition={{ duration: 0.28, ease: EASE_OUT }}
+                  />
+                ) : null}
+                <h2
+                  id="peel-done-title"
+                  className="text-[17px] font-semibold tracking-[-0.02em] text-neutral-900"
+                >
+                  Ready to place
+                </h2>
+                <p
+                  id="peel-done-desc"
+                  className="mx-auto mt-1.5 max-w-[240px] text-[13px] leading-snug text-neutral-500"
+                >
+                  Your sticker is peeled. Put it on the wall when you’re ready.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-px border-t border-black/[0.08] bg-black/[0.08]">
+                <button
+                  type="button"
+                  onClick={dismissPeelDone}
+                  className="press bg-white/95 py-3 text-[17px] font-normal tracking-[-0.01em] text-neutral-600 transition-colors hover:bg-neutral-50 active:scale-[0.98]"
+                >
+                  Not Now
+                </button>
+                <button
+                  type="button"
+                  disabled={exporting}
+                  onClick={placeFromPeel}
+                  className="press bg-white/95 py-3 text-[17px] font-semibold tracking-[-0.01em] text-[#007AFF] transition-colors hover:bg-blue-50/50 active:scale-[0.98] disabled:opacity-50"
+                >
+                  {exporting
+                    ? "…"
+                    : session
+                      ? "Put on Wall"
+                      : "Sign In"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <AnimatePresence>
         {confirmNewOpen ? (
@@ -730,11 +908,16 @@ function EmptyState({ inputId }: { inputId: string }) {
     <motion.label
       htmlFor={inputId}
       className="press group flex cursor-pointer flex-col items-center text-center"
-      initial={{ opacity: 0, transform: "translateY(8px)" }}
-      animate={{ opacity: 1, transform: "translateY(0px)" }}
-      transition={{ duration: 0.35, ease: EASE_OUT }}
+      initial={{ opacity: 0, transform: "translateY(8px) scale(0.98)" }}
+      animate={{ opacity: 1, transform: "translateY(0px) scale(1)" }}
+      exit={{
+        opacity: 0,
+        transform: "translateY(-8px) scale(0.96)",
+        filter: "blur(2px)",
+      }}
+      transition={{ duration: 0.28, ease: EASE_OUT }}
     >
-      <span className="sticker-float relative mb-7 grid size-36 -rotate-6 place-items-center rounded-[34px] bg-white shadow-[0_24px_40px_-18px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.05)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:-rotate-3">
+      <span className="sticker-float relative mb-7 grid size-36 -rotate-6 place-items-center rounded-[34px] bg-white shadow-[0_24px_40px_-18px_rgba(0,0,0,0.28),0_0_0_1px_rgba(0,0,0,0.05)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:-rotate-3 group-active:scale-[0.97]">
         <span className="grid size-14 place-items-center rounded-full bg-neutral-900 text-white">
           <Plus weight="bold" className="size-6" />
         </span>
@@ -745,9 +928,72 @@ function EmptyState({ inputId }: { inputId: string }) {
       <span className="mt-1.5 max-w-[260px] text-[15px] leading-snug text-neutral-500">
         Logo, product, or artwork. Pick a style, filter, and print size.
       </span>
-      <span className="mt-6 inline-flex h-11 items-center rounded-full bg-neutral-900 px-6 text-[15px] font-semibold text-white">
+      <span className="mt-6 inline-flex h-11 items-center rounded-full bg-neutral-900 px-6 text-[15px] font-semibold text-white transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] group-active:scale-[0.97]">
         Choose Photo
       </span>
     </motion.label>
+  )
+}
+
+function UploadLoading({
+  progress,
+  previewHint,
+}: {
+  progress: number
+  previewHint?: string | null
+}) {
+  const reduce = useReducedMotion()
+  const pct = Math.max(0, Math.min(100, Math.round(progress)))
+
+  return (
+    <motion.div
+      role="status"
+      aria-live="polite"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      aria-label={`Printing sticker ${pct} percent`}
+      className="flex w-full max-w-[min(420px,86vw)] flex-col items-center text-center"
+      initial={{ opacity: 0, transform: "scale(0.97) translateY(6px)" }}
+      animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
+      exit={{
+        opacity: 0,
+        transform: "scale(0.98) translateY(-4px)",
+        filter: "blur(2px)",
+      }}
+      transition={{ duration: 0.28, ease: EASE_OUT }}
+    >
+      <div className="relative w-full overflow-hidden rounded-[24px]">
+        {reduce ? (
+          <div className="flex aspect-[1080/1350] w-full flex-col items-center justify-center px-8">
+            {previewHint ? (
+              <img
+                src={previewHint}
+                alt=""
+                className="max-h-[46%] max-w-[70%] object-contain drop-shadow-[0_12px_28px_-14px_rgba(0,0,0,0.35)]"
+              />
+            ) : null}
+            <p className="mt-6 text-[15px] font-medium text-neutral-600">
+              Printing sticker…
+            </p>
+          </div>
+        ) : (
+          <PrintLoadingCanvas
+            imageSrc={previewHint ?? null}
+            className="aspect-[1080/1350] w-full bg-transparent"
+          />
+        )}
+      </div>
+
+      <p className="mt-5 text-[28px] font-semibold tracking-[-0.04em] tabular-nums text-neutral-900">
+        {pct}
+        <span className="ml-0.5 text-[18px] font-semibold text-neutral-400">
+          %
+        </span>
+      </p>
+      <p className="mt-1 text-[14px] font-medium tracking-[-0.01em] text-neutral-500">
+        {pct >= 100 ? "Done" : "Printing your sticker…"}
+      </p>
+    </motion.div>
   )
 }
