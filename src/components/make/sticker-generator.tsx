@@ -95,8 +95,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   // Full-screen confetti when the peel celebration opens.
   useEffect(() => {
     if (!peelDone) return
-    const t = window.setTimeout(() => firePeelConfetti(), 120)
-    return () => window.clearTimeout(t)
+    firePeelConfetti()
   }, [peelDone])
 
   // Progress follows the 8s print loop clock.
@@ -597,7 +596,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: EASE_OUT }}
+            transition={{ duration: 0.12, ease: EASE_OUT }}
           >
             <button
               type="button"
@@ -610,62 +609,50 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
               aria-modal="true"
               aria-labelledby="peel-done-title"
               aria-describedby="peel-done-desc"
-              className="relative w-full max-w-[300px] overflow-hidden rounded-[14px] bg-white/92 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.4)] backdrop-blur-xl"
-              initial={{ opacity: 0, transform: "scale(0.96) translateY(8px)" }}
+              className="relative w-full max-w-[340px] rounded-[24px] border border-black/[0.06] bg-white p-5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)]"
+              initial={{ opacity: 0, transform: "scale(0.96) translateY(6px)" }}
               animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
-              exit={{ opacity: 0, transform: "scale(0.97) translateY(6px)" }}
-              transition={{ duration: 0.22, ease: EASE_OUT }}
+              exit={{ opacity: 0, transform: "scale(0.97) translateY(4px)" }}
+              transition={{ duration: 0.14, ease: EASE_OUT }}
             >
-              <div className="px-5 pt-7 pb-5 text-center">
-                {preview ? (
-                  <motion.img
-                    src={preview}
-                    alt=""
-                    className="mx-auto mb-5 max-h-[120px] max-w-[160px] drop-shadow-[0_12px_24px_-10px_rgba(0,0,0,0.28)]"
-                    initial={{
-                      opacity: 0,
-                      transform: "scale(0.96)",
-                    }}
-                    animate={{
-                      opacity: 1,
-                      transform: "scale(1)",
-                    }}
-                    transition={{ duration: 0.28, ease: EASE_OUT }}
-                  />
-                ) : null}
-                <h2
-                  id="peel-done-title"
-                  className="text-[17px] font-semibold tracking-[-0.02em] text-neutral-900"
-                >
-                  Ready to place
-                </h2>
-                <p
-                  id="peel-done-desc"
-                  className="mx-auto mt-1.5 max-w-[240px] text-[13px] leading-snug text-neutral-500"
-                >
-                  Your sticker is peeled. Put it on the wall when you’re ready.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-px border-t border-black/[0.08] bg-black/[0.08]">
+              {preview ? (
+                <img
+                  src={preview}
+                  alt=""
+                  className="mx-auto mb-4 max-h-[112px] max-w-[168px] drop-shadow-[0_10px_20px_-12px_rgba(0,0,0,0.3)]"
+                />
+              ) : null}
+              <h2
+                id="peel-done-title"
+                className="text-center text-[17px] font-semibold tracking-[-0.02em] text-neutral-900"
+              >
+                Ready to place
+              </h2>
+              <p
+                id="peel-done-desc"
+                className="mx-auto mt-2 max-w-[280px] text-center text-[14px] leading-snug text-neutral-500"
+              >
+                Your sticker is peeled. Put it on the wall when you’re ready.
+              </p>
+              <div className="mt-5 flex items-center justify-center gap-2">
                 <button
                   type="button"
                   onClick={dismissPeelDone}
-                  className="press bg-white/95 py-3 text-[17px] font-normal tracking-[-0.01em] text-neutral-600 transition-colors hover:bg-neutral-50 active:scale-[0.98]"
+                  className="press h-10 rounded-full bg-black/[0.05] px-4 text-[14px] font-semibold tracking-[-0.01em] text-neutral-800 transition-colors hover:bg-black/[0.08] active:scale-[0.97]"
                 >
-                  Not Now
+                  Not now
                 </button>
                 <button
                   type="button"
                   disabled={exporting}
                   onClick={placeFromPeel}
-                  className="press bg-white/95 py-3 text-[17px] font-semibold tracking-[-0.01em] text-[#007AFF] transition-colors hover:bg-blue-50/50 active:scale-[0.98] disabled:opacity-50"
+                  className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white active:scale-[0.97] disabled:opacity-50"
                 >
                   {exporting
                     ? "…"
                     : session
-                      ? "Put on Wall"
-                      : "Sign In"}
+                      ? "Put on wall"
+                      : "Sign in"}
                 </button>
               </div>
             </motion.div>

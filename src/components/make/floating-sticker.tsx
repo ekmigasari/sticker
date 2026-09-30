@@ -29,16 +29,13 @@ type PeelOrigin =
   | { kind: "corner"; corner: PeelCorner };
 
 const TILT_SPRING = { stiffness: 240, damping: 20, mass: 0.6 };
-/** Settle when snapping shut or opening fully — quick but still springy. */
+/** Settle when snapping shut or opening fully — snappy release. */
 const SETTLE_SPRING = {
   type: "spring" as const,
-  stiffness: 140,
-  damping: 24,
-  mass: 0.85,
+  stiffness: 320,
+  damping: 30,
+  mass: 0.55,
 };
-
-/** How much the crease advances per pixel of drag. Lower = slower, more deliberate peel. */
-const PEEL_GAIN = 0.28;
 
 /** Release below this → snap shut; at/above → finish the peel. */
 const PEEL_THRESHOLD = 0.5;
@@ -54,14 +51,20 @@ const FLAP_OVERLAP = 3;
 const FOLD_MAX = 158;
 /**
  * Peel progress at which the flap is fully folded over. Small = the paper
- * flips over almost immediately, so even the first short drag shows the
- * back paper lying over the image.
+ * flips over almost immediately on the first drag.
  */
 const FOLD_RAMP = 0.05;
 /** Drag response curve: >1 softens early drag so the peel feels heavier. */
-const DRAG_CURVE = 1.15;
+const DRAG_CURVE = 1.05;
 /** Perspective distance as a multiple of sticker size. Higher = flatter, less warp. */
 const PERSPECTIVE_FACTOR = 8;
+/** Extra CSS px around the sticker so the die-cut edge is easy to grab. */
+const HIT_PAD = 44;
+/**
+ * Crease travel vs pointer travel. ~1 keeps the fold under the finger;
+ * lower values leave a visible gap between cursor and peel tip.
+ */
+const PEEL_GAIN = 0.95;
 
 /** Matte paper back: flat colour plus a fine fibre grain, no gradient. */
 const PAPER = "#e2ddd0";
@@ -260,6 +263,7 @@ export function FloatingSticker({
   onFullyPeeled,
 }: Props) {
   const hitRef = useRef<HTMLDivElement>(null);
+  const visualRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
   const [aspect, setAspect] = useState(1);
   const originRef = useRef<PeelOrigin>({ kind: "edge", edge: "right" });
@@ -281,7 +285,6 @@ export function FloatingSticker({
     y: number;
     w: number;
     h: number;
-    /** Last pointer sample for velocity on release. */
     lastX: number;
     lastY: number;
     lastT: number;
@@ -348,13 +351,12 @@ export function FloatingSticker({
     return `${pv.x.toFixed(2)}px ${pv.y.toFixed(2)}px`;
   });
 
-  // Rotate around the actual fold line: align the line with the Y axis,
-  // rotateY, then rotate back. Cap under 180° so a paper face stays toward camera.
+  // Rotate around the crease — ramp by absolute peel distance so edges and
+  // corners flip after similar finger travel regardless of peel length.
   const flapTransform = useTransform(peel, (p) => {
     const { w, h, g } = frame(p);
-    // Ease-out ramp: the flap flips to nearly full angle within the first
-    // few percent of the peel, so the back paper shows from the first drag.
-    const r = Math.min(1, p / FOLD_RAMP);
+    const rampPx = Math.min(w, h) * FOLD_RAMP;
+    const r = Math.min(1, (p * g.len) / Math.max(rampPx, 1));
     const a = FOLD_MAX * (1 - (1 - r) * (1 - r));
     const phi = (Math.atan2(g.ny, g.nx) * 180) / Math.PI;
     const persp = Math.round(Math.max(w, h) * PERSPECTIVE_FACTOR);
@@ -398,13 +400,39 @@ export function FloatingSticker({
     maskPosition: "center",
   } as const;
 
-  function normalized(e: React.PointerEvent) {
-    const el = hitRef.current;
-    if (!el) return { nx: 0, ny: 0 };
+  function visualRect() {
+    // Prefer the real visual box so pad/DPR/transform never desync grab → crease.
+    const el = visualRef.current ?? hitRef.current;
+    if (!el) return null;
     const r = el.getBoundingClientRect();
     return {
-      nx: clamp(((e.clientX - r.left) / r.width) * 2 - 1, -1, 1),
-      ny: clamp(((e.clientY - r.top) / r.height) * 2 - 1, -1, 1),
+      left: r.left,
+      top: r.top,
+      width: Math.max(1, r.width),
+      height: Math.max(1, r.height),
+    };
+  }
+
+  function pointerInSticker(clientX: number, clientY: number) {
+    const r = visualRect();
+    if (!r) return { x: 0.5, y: 0.5, px: 0, py: 0, w: 1, h: 1 };
+    const px = clamp(clientX - r.left, 0, r.width);
+    const py = clamp(clientY - r.top, 0, r.height);
+    return {
+      x: px / r.width,
+      y: py / r.height,
+      px,
+      py,
+      w: r.width,
+      h: r.height,
+    };
+  }
+
+  function normalized(e: React.PointerEvent) {
+    const p = pointerInSticker(e.clientX, e.clientY);
+    return {
+      nx: clamp(p.x * 2 - 1, -1, 1),
+      ny: clamp(p.y * 2 - 1, -1, 1),
     };
   }
 
@@ -456,11 +484,17 @@ export function FloatingSticker({
     const dy = clientY - d.y;
     const dist = Math.hypot(dx, dy);
 
+    // Follow the pointer once it has moved enough; seed is only the start.
     let nx = d.seedNx;
     let ny = d.seedNy;
     if (dist >= DIR_ARM) {
       nx = dx / dist;
       ny = dy / dist;
+      // Keep peeling into the sticker — outward drags would invert the flap.
+      if (nx * d.seedNx + ny * d.seedNy < 0) {
+        nx = d.seedNx;
+        ny = d.seedNy;
+      }
     }
 
     const g = freeGeometry(d.cx, d.cy, nx, ny, d.w, d.h);
@@ -493,8 +527,7 @@ export function FloatingSticker({
     if (drag.current || placedRef.current) return;
     // Only the first pointer peels — a second thumb must not steal the drag.
     if (e.pointerType !== "mouse" && !e.isPrimary) return;
-    const el = hitRef.current;
-    if (!el) return;
+    const live = pointerInSticker(e.clientX, e.clientY);
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     stopSettle();
@@ -502,36 +535,37 @@ export function FloatingSticker({
     // Drop the hover tilt on grab so the pointer and the crease line up 1:1.
     hoverXT.set(0);
     hoverYT.set(0);
-    const { nx, ny } = normalized(e);
+    const nx = clamp(live.x * 2 - 1, -1, 1);
+    const ny = clamp(live.y * 2 - 1, -1, 1);
     const next = peelFromGrab(nx, ny);
     originRef.current = next;
-    grabRef.current = { x: (nx + 1) / 2, y: (ny + 1) / 2 };
-    const r = el.getBoundingClientRect();
-    const seed = geometry(next, r.width, r.height);
+    grabRef.current = { x: live.x, y: live.y };
+    const seed = geometry(next, live.w, live.h);
     const now = performance.now();
     drag.current = {
       id: e.pointerId,
-      cx: grabRef.current.x * r.width,
-      cy: grabRef.current.y * r.height,
+      // Crease origin = grab; peel direction follows the pointer after DIR_ARM.
+      cx: live.px,
+      cy: live.py,
       seedNx: seed.nx,
       seedNy: seed.ny,
       x: e.clientX,
       y: e.clientY,
-      w: r.width,
-      h: r.height,
+      w: live.w,
+      h: live.h,
       lastX: e.clientX,
       lastY: e.clientY,
       lastT: now,
     };
     freeGeoRef.current = freeGeometry(
-      drag.current.cx,
-      drag.current.cy,
+      live.px,
+      live.py,
       seed.nx,
       seed.ny,
-      r.width,
-      r.height,
+      live.w,
+      live.h,
     );
-    peel.set(0.035);
+    peel.set(0.02);
     glossOT.set(0.55);
   }
 
@@ -580,7 +614,7 @@ export function FloatingSticker({
     >
       <div
         ref={hitRef}
-        className="relative size-full touch-none select-none"
+        className="absolute touch-none select-none"
         onPointerMove={onPointerMove}
         onPointerDown={onPointerDown}
         onPointerUp={endDrag}
@@ -589,119 +623,141 @@ export function FloatingSticker({
         onPointerLeave={() => {
           if (!drag.current) restHover(false);
         }}
-        style={{ cursor: "grab" }}
+        style={{
+          cursor: "grab",
+          top: -HIT_PAD,
+          right: -HIT_PAD,
+          bottom: -HIT_PAD,
+          left: -HIT_PAD,
+        }}
       >
-        {/* One shared tilt wrapper: liner, shadow, front and flap all tilt
-            together, so the peel stays aligned with the sticker. */}
-        <motion.div
-          className="absolute inset-0 will-change-transform"
-          style={{ transform: hoverTilt }}
+        {/* Visual sticker sits in the unpadded core; hit pad is only for grab. */}
+        <div
+          ref={visualRef}
+          className="absolute"
+          style={{
+            top: HIT_PAD,
+            right: HIT_PAD,
+            bottom: HIT_PAD,
+            left: HIT_PAD,
+          }}
         >
-          {/* Release liner — full-size, masked to silhouette. */}
+          {/* One shared tilt wrapper: liner, shadow, front and flap all tilt
+              together, so the peel stays aligned with the sticker. */}
           <motion.div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 overflow-hidden"
-            style={{ opacity: linerOpacity, ...mask }}
+            className="absolute inset-0 will-change-transform"
+            style={{ transform: hoverTilt }}
           >
-            <ReleaseLiner />
-          </motion.div>
-
-          <motion.img
-            src={src}
-            alt=""
-            aria-hidden
-            draggable={false}
-            className="pointer-events-none absolute inset-0 size-full"
-            style={{
-              transform: shadowShift,
-              opacity: shadowOpacity,
-              filter: shadowFilter,
-            }}
-          />
-
-          {/* Vinyl front — clipped to the region still stuck. */}
-          <motion.div
-            className="relative size-full will-change-transform"
-            style={{
-              clipPath: frontClip,
-              WebkitClipPath: frontClip,
-            }}
-          >
-            <img
-              src={src}
-              alt="Sticker preview"
-              draggable={false}
-              onLoad={(e) => {
-                const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
-                if (w && h) setAspect(w / h);
-              }}
-              className="pointer-events-none block size-full object-contain drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)]"
-            />
-            {holo ? (
-              <motion.div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 opacity-60 mix-blend-color-dodge"
-                style={{
-                  ...mask,
-                  backgroundImage:
-                    "linear-gradient(115deg, transparent 22%, rgba(255,110,220,0.6) 36%, rgba(110,220,255,0.6) 47%, rgba(255,245,140,0.55) 58%, transparent 74%)",
-                  backgroundSize: "300% 300%",
-                  backgroundPosition: holoPosition,
-                }}
-              />
-            ) : null}
+            {/* Release liner — full-size, masked to silhouette. */}
             <motion.div
               aria-hidden
-              className="pointer-events-none absolute inset-0 mix-blend-overlay"
-              style={{ ...mask, backgroundImage: gloss, opacity: glossOpacity }}
-            />
-          </motion.div>
+              className="pointer-events-none absolute inset-0 overflow-hidden"
+              style={{ opacity: linerOpacity, ...mask }}
+            >
+              <ReleaseLiner />
+            </motion.div>
 
-          {/*
-          Peeled flap — double-sided paper. The clip is applied on this
-          wrapper (in un-rotated space); the silhouette mask is applied per
-          face, at exactly 100% size with no scaling, so the paper edge
-          matches the artwork edge and never pokes out or leaves a gap.
-        */}
-          <motion.div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              transformOrigin: flapOrigin,
-              transform: flapTransform,
-              opacity: flapOpacity,
-              transformStyle: "preserve-3d",
-              clipPath: flapClip,
-              WebkitClipPath: flapClip,
-            }}
-          >
-            {/* Outward face (early peel) */}
-            <div
-              className="absolute inset-0"
+            <motion.img
+              src={src}
+              alt=""
+              aria-hidden
+              draggable={false}
+              className="pointer-events-none absolute inset-0 size-full"
               style={{
-                ...mask,
-                backgroundColor: PAPER,
-                backgroundImage: PAPER_GRAIN,
-                backgroundSize: "160px 160px",
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
+                transform: shadowShift,
+                opacity: shadowOpacity,
+                filter: shadowFilter,
               }}
             />
-            {/* Inward face (late peel, toward camera past 90°) */}
-            <div
-              className="absolute inset-0"
+
+            {/* Vinyl front — clipped to the region still stuck. */}
+            <motion.div
+              className="relative size-full will-change-transform"
               style={{
-                ...mask,
-                backgroundColor: PAPER,
-                backgroundImage: PAPER_GRAIN,
-                backgroundSize: "160px 160px",
-                transform: "rotateY(180deg)",
-                backfaceVisibility: "hidden",
-                WebkitBackfaceVisibility: "hidden",
+                clipPath: frontClip,
+                WebkitClipPath: frontClip,
               }}
-            />
+            >
+              <img
+                src={src}
+                alt="Sticker preview"
+                draggable={false}
+                onLoad={(e) => {
+                  const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                  if (w && h) setAspect(w / h);
+                }}
+                className="pointer-events-none block size-full object-contain drop-shadow-[0_1px_1px_rgba(0,0,0,0.08)]"
+              />
+              {holo ? (
+                <motion.div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 opacity-60 mix-blend-color-dodge"
+                  style={{
+                    ...mask,
+                    backgroundImage:
+                      "linear-gradient(115deg, transparent 22%, rgba(255,110,220,0.6) 36%, rgba(110,220,255,0.6) 47%, rgba(255,245,140,0.55) 58%, transparent 74%)",
+                    backgroundSize: "300% 300%",
+                    backgroundPosition: holoPosition,
+                  }}
+                />
+              ) : null}
+              <motion.div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 mix-blend-overlay"
+                style={{
+                  ...mask,
+                  backgroundImage: gloss,
+                  opacity: glossOpacity,
+                }}
+              />
+            </motion.div>
+
+            {/*
+            Peeled flap — double-sided paper. The clip is applied on this
+            wrapper (in un-rotated space); the silhouette mask is applied per
+            face, at exactly 100% size with no scaling, so the paper edge
+            matches the artwork edge and never pokes out or leaves a gap.
+          */}
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                transformOrigin: flapOrigin,
+                transform: flapTransform,
+                opacity: flapOpacity,
+                transformStyle: "preserve-3d",
+                clipPath: flapClip,
+                WebkitClipPath: flapClip,
+              }}
+            >
+              {/* Outward face (early peel) */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  ...mask,
+                  backgroundColor: PAPER,
+                  backgroundImage: PAPER_GRAIN,
+                  backgroundSize: "160px 160px",
+                  backfaceVisibility: "hidden",
+                  WebkitBackfaceVisibility: "hidden",
+                }}
+              />
+              {/* Inward face (late peel, toward camera past 90°) */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  ...mask,
+                  backgroundColor: PAPER,
+                  backgroundImage: PAPER_GRAIN,
+                  backgroundSize: "160px 160px",
+                  transform: "rotateY(180deg)",
+                  backfaceVisibility: "hidden",
+                  WebkitBackfaceVisibility: "hidden",
+                }}
+              />
+            </motion.div>
           </motion.div>
-        </motion.div>
+        </div>
       </div>
     </motion.div>
   );

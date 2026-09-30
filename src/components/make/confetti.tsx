@@ -10,7 +10,7 @@ const COLORS = [
   "#FF2D55",
 ]
 
-/** Full-viewport celebration — canvas sits above the dialog chrome. */
+/** Full-viewport celebration — fires immediately over the dialog. */
 export function firePeelConfetti() {
   const defaults = {
     colors: COLORS,
@@ -20,26 +20,31 @@ export function firePeelConfetti() {
 
   void confetti({
     ...defaults,
-    particleCount: 90,
-    spread: 78,
-    startVelocity: 42,
-    origin: { x: 0.5, y: 0.42 },
+    particleCount: 70,
+    spread: 72,
+    startVelocity: 38,
+    ticks: 160,
+    origin: { x: 0.5, y: 0.4 },
   })
 
   window.setTimeout(() => {
     void confetti({
       ...defaults,
-      particleCount: 55,
+      particleCount: 40,
       angle: 60,
-      spread: 58,
-      origin: { x: 0.12, y: 0.55 },
+      spread: 52,
+      startVelocity: 34,
+      ticks: 140,
+      origin: { x: 0.15, y: 0.55 },
     })
     void confetti({
       ...defaults,
-      particleCount: 55,
+      particleCount: 40,
       angle: 120,
-      spread: 58,
-      origin: { x: 0.88, y: 0.55 },
+      spread: 52,
+      startVelocity: 34,
+      ticks: 140,
+      origin: { x: 0.85, y: 0.55 },
     })
-  }, 160)
+  }, 60)
 }
