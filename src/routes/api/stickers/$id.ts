@@ -87,7 +87,9 @@ export const Route = createFileRoute("/api/stickers/$id")({
           }
 
           const uploadId = crypto.randomUUID()
-          const fileName = safeFileName(file.name || `sticker-${existing.id}.png`)
+          const fileName = safeFileName(
+            file.name || `sticker-${existing.id}.png`
+          )
           const key = `stickers/${session.user.id}/${uploadId}-${fileName}`
           const bytes = new Uint8Array(await file.arrayBuffer())
           await putObject(key, bytes, file.type || "image/png")

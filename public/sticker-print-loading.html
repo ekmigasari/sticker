@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sticker print loading</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #f2f2f2;
+        display: grid;
+        place-items: center;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+      }
+      #wrap {
+        position: relative;
+        width: min(100vw, calc(100vh * 1080 / 1350));
+        height: min(100vh, calc(100vw * 1350 / 1080));
+      }
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        background: transparent;
+      }
+      #pick {
+        position: fixed;
+        left: 16px;
+        bottom: 16px;
+        z-index: 2;
+        border: 0;
+        border-radius: 999px;
+        padding: 10px 16px;
+        background: #111;
+        color: #fff;
+        font: 600 13px/1 inherit;
+        cursor: pointer;
+      }
+      #file {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="wrap">
+      <canvas id="c" width="1080" height="1350"></canvas>
+    </div>
+    <input id="file" type="file" accept="image/*" />
+    <button id="pick" type="button">Choose image</button>
+    <script>
+      const PRINT_W = 1080
+      const PRINT_H = 1350
+      const PRINT_LOOP_S = 5
+      const canvas = document.getElementById("c")
+      const ctx = canvas.getContext("2d", { alpha: true })
+      let sticker = null
+      let start = performance.now()
+
+      const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
+      const lerp = (a, b, t) => a + (b - a) * t
+      const easeInOut = (t) =>
+        t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+      function stepperFeed(u) {
+        const steps = 12
+        const s = u * steps
+        const i = Math.floor(s)
+        const f = s - i
+        const local = f < 0.18 ? 0 : easeInOut((f - 0.18) / 0.82)
+        return (i + local) / steps
+      }
+      function roundRect(c, x, y, w, h, r) {
+        const rr = Math.min(r, w / 2, h / 2)
+        c.beginPath()
+        c.moveTo(x + rr, y)
+        c.arcTo(x + w, y, x + w, y + h, rr)
+        c.arcTo(x + w, y + h, x, y + h, rr)
+        c.arcTo(x, y + h, x, y, rr)
+        c.arcTo(x, y, x + w, y, rr)
+        c.closePath()
+      }
+
+      /** Demo build: aspect-correct white-border sticker (app uses classic die-cut). */
+      function buildSticker(img) {
+        const maxSide = 560
+        const border = 28
+        const aspect = img.naturalWidth / Math.max(1, img.naturalHeight)
+        let iw, ih
+        if (aspect >= 1) {
+          iw = maxSide
+          ih = Math.round(maxSide / aspect)
+        } else {
+          ih = maxSide
+          iw = Math.round(maxSide * aspect)
+        }
+        const c = document.createElement("canvas")
+        c.width = iw + border * 2
+        c.height = ih + border * 2
+        const g = c.getContext("2d")
+        // Soft white blob following image bounds (not forced square)
+        roundRect(g, 0, 0, c.width, c.height, Math.min(40, Math.min(c.width, c.height) * 0.12))
+        g.fillStyle = "#fff"
+        g.fill()
+        g.drawImage(img, border, border, iw, ih)
+        return c
+      }
+
+      function drawPrinter(c, cx, topY, vx, vy) {
+        const w = 520
+        const h = 200
+        const x = cx - w / 2 + vx
+        const y = topY + vy
+        c.fillStyle = "rgba(40,36,30,0.16)"
+        c.beginPath()
+        c.ellipse(cx + vx, y + h + 8, w * 0.44, 14, 0, 0, Math.PI * 2)
+        c.fill()
+        const body = c.createLinearGradient(x, y, x, y + h)
+        body.addColorStop(0, "#3a3a3c")
+        body.addColorStop(0.1, "#2c2c2e")
+        body.addColorStop(1, "#171719")
+        roundRect(c, x, y, w, h, 22)
+        c.fillStyle = body
+        c.fill()
+        const slotX = x + 70
+        const slotW = w - 140
+        const slotH = 16
+        const slotY = y + h - 36
+        roundRect(c, slotX, slotY, slotW, slotH, 4)
+        c.fillStyle = "#0c0c0d"
+        c.fill()
+        c.save()
+        c.translate(slotX, slotY + slotH + 1)
+        c.fillStyle = "#4a4a4c"
+        const teeth = 42
+        const tw = slotW / teeth
+        c.beginPath()
+        c.moveTo(0, 0)
+        for (let i = 0; i < teeth; i++) {
+          c.lineTo(i * tw + tw * 0.5, 5)
+          c.lineTo((i + 1) * tw, 0)
+        }
+        c.closePath()
+        c.fill()
+        c.restore()
+        c.beginPath()
+        c.arc(x + w - 42, y + 100, 5, 0, Math.PI * 2)
+        c.fillStyle = "#3DDC84"
+        c.fill()
+        return { slotX, slotY, slotW, slotH }
+      }
+
+      window.drawFrame = function drawFrame(t) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.clearRect(0, 0, PRINT_W, PRINT_H)
+
+        const printStart = 0.28
+        const printEnd = 4.15
+        const pullBack = 4.5
+        let feed = 0
+        if (t < printStart) feed = lerp(0, 0.05, easeInOut(t / printStart))
+        else if (t < printEnd)
+          feed = lerp(0.05, 1, stepperFeed((t - printStart) / (printEnd - printStart)))
+        else feed = 1
+
+        let cam = 1
+        if (t < printEnd) cam = lerp(1, 1.04, easeInOut(clamp(t / printEnd, 0, 1)))
+        else if (t < pullBack) cam = 1.04
+        else
+          cam = lerp(
+            1.04,
+            1,
+            easeInOut(clamp((t - pullBack) / (PRINT_LOOP_S - pullBack), 0, 1))
+          )
+
+        const feeding = t >= printStart && t < printEnd
+        const vib = feeding ? 0.65 : 0
+        const vx = Math.sin(t * 62) * vib * 0.35
+        const vy = Math.sin(t * 79 + 1.2) * vib
+
+        ctx.save()
+        ctx.translate(PRINT_W / 2, PRINT_H / 2)
+        ctx.scale(cam, cam)
+        ctx.translate(-PRINT_W / 2, -PRINT_H / 2)
+
+        const printer = drawPrinter(ctx, PRINT_W / 2, 72, vx, vy)
+        const sw = sticker?.width ?? 420
+        const sh = sticker?.height ?? 420
+        const scale = Math.min(1, 560 / Math.max(sw, sh))
+        const dw = sw * scale
+        const dh = sh * scale
+        const emerge = feed * (dh + 6)
+        const slotBottom = printer.slotY + printer.slotH + vy
+        const top = slotBottom - 2
+        const left = PRINT_W / 2 - dw / 2 + vx * 0.25
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, slotBottom - 1, PRINT_W, PRINT_H)
+        ctx.clip()
+        if (sticker) {
+          ctx.save()
+          ctx.beginPath()
+          ctx.rect(left, top, dw, emerge)
+          ctx.clip()
+          ctx.drawImage(sticker, left, top, dw, dh)
+          ctx.restore()
+        }
+        ctx.restore()
+
+        roundRect(ctx, printer.slotX + vx, printer.slotY + vy, printer.slotW, printer.slotH, 4)
+        ctx.fillStyle = "#0c0c0d"
+        ctx.fill()
+        ctx.restore()
+      }
+
+      function loop(now) {
+        window.drawFrame(((now - start) / 1000) % PRINT_LOOP_S)
+        requestAnimationFrame(loop)
+      }
+      requestAnimationFrame(loop)
+
+      const file = document.getElementById("file")
+      document.getElementById("pick").onclick = () => file.click()
+      file.onchange = () => {
+        const f = file.files && file.files[0]
+        if (!f) return
+        const url = URL.createObjectURL(f)
+        const img = new Image()
+        img.onload = () => {
+          sticker = buildSticker(img)
+          start = performance.now()
+          URL.revokeObjectURL(url)
+        }
+        img.src = url
+      }
+    </script>
+  </body>
+</html>

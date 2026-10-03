@@ -61,7 +61,7 @@ export const Route = createRootRoute({
     ],
   }),
   notFoundComponent: () => (
-    <main className="font-ui mx-auto max-w-lg px-6 py-24 text-center">
+    <main className="mx-auto max-w-lg px-6 py-24 text-center font-ui">
       <h1 className="text-[32px] font-semibold tracking-[-0.03em] text-neutral-900">
         404
       </h1>

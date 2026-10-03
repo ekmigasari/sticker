@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 import {
@@ -83,8 +83,7 @@ const FILTER_PREVIEW_CSS: Record<StickerFilter, string> = {
   red: "grayscale(1) sepia(1) hue-rotate(-50deg) saturate(6) brightness(0.95)",
   blue: "grayscale(1) sepia(1) hue-rotate(180deg) saturate(6) brightness(0.9)",
   green: "grayscale(1) sepia(1) hue-rotate(70deg) saturate(5) brightness(0.95)",
-  yellow:
-    "grayscale(1) sepia(1) hue-rotate(5deg) saturate(8) brightness(1.05)",
+  yellow: "grayscale(1) sepia(1) hue-rotate(5deg) saturate(8) brightness(1.05)",
 }
 
 const GRADATION_OVERLAY: Partial<Record<StickerFilter, string>> = {
@@ -152,13 +151,32 @@ export function EditorToolbar(props: Props) {
     exporting,
   } = props
   const [open, setOpen] = useState(false)
+  const actionsRef = useRef<HTMLDivElement>(null)
+  // Keep panel closed while disabled without syncing state in an effect.
+  const panelOpen = open && !disabled
 
+  // Dismiss on outside press or Escape. A fixed-position overlay cannot work
+  // here: the toolbar root's backdrop-filter makes it the containing block.
   useEffect(() => {
-    if (disabled) setOpen(false)
-  }, [disabled])
+    if (!actionsOpen) return
+    function onPointerDown(e: PointerEvent) {
+      if (actionsRef.current?.contains(e.target as Node)) return
+      onActionsOpenChange(false)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return
+      onActionsOpenChange(false)
+    }
+    document.addEventListener("pointerdown", onPointerDown)
+    document.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown)
+      document.removeEventListener("keydown", onKeyDown)
+    }
+  }, [actionsOpen, onActionsOpenChange])
 
   function selectTab(id: EditorTab) {
-    if (open && tab === id) {
+    if (panelOpen && tab === id) {
       setOpen(false)
       return
     }
@@ -170,7 +188,7 @@ export function EditorToolbar(props: Props) {
     <motion.div
       layout
       className={cn(
-        "pointer-events-auto mx-auto w-full max-w-lg overflow-hidden rounded-[30px] border border-black/[0.06] bg-white/80 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18),0_2px_6px_-2px_rgba(0,0,0,0.06)] backdrop-blur-2xl backdrop-saturate-150",
+        "pointer-events-auto mx-auto w-full max-w-lg rounded-[11px] border border-black/[0.06] bg-white/80 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18),0_2px_6px_-2px_rgba(0,0,0,0.06)] backdrop-blur-2xl backdrop-saturate-150",
         disabled && "pointer-events-none opacity-40"
       )}
       style={{
@@ -184,16 +202,16 @@ export function EditorToolbar(props: Props) {
       <motion.div
         layout
         initial={false}
-        animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }}
+        animate={{ height: panelOpen ? "auto" : 0, opacity: panelOpen ? 1 : 0 }}
         transition={{
           height: { duration: 0.28, ease: EASE_IN_OUT },
           opacity: { duration: 0.18, ease: EASE_OUT },
         }}
-        className="overflow-hidden"
+        className="overflow-hidden rounded-t-[11px]"
       >
         <div className="relative h-[132px]">
           <AnimatePresence mode="popLayout" initial={false}>
-            {open ? (
+            {panelOpen ? (
               <motion.div
                 key={tab}
                 className="absolute inset-0"
@@ -230,7 +248,7 @@ export function EditorToolbar(props: Props) {
           className="grid min-w-0 flex-1 grid-cols-4 gap-0.5 rounded-[14px] bg-black/[0.04] p-0.5"
         >
           {TABS.map((t) => {
-            const active = open && t.id === tab
+            const active = panelOpen && t.id === tab
             const Icon = t.Icon
             return (
               <button
@@ -249,7 +267,11 @@ export function EditorToolbar(props: Props) {
                   <motion.span
                     layoutId="editor-tab-pill"
                     className="absolute inset-0 rounded-[11px] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.1),0_0_0_0.5px_rgba(0,0,0,0.04)]"
-                    transition={{ type: "spring", duration: 0.32, bounce: 0.12 }}
+                    transition={{
+                      type: "spring",
+                      duration: 0.32,
+                      bounce: 0.12,
+                    }}
                   />
                 ) : null}
                 <Icon
@@ -264,7 +286,7 @@ export function EditorToolbar(props: Props) {
           })}
         </div>
 
-        <div className="relative shrink-0 self-stretch">
+        <div ref={actionsRef} className="relative shrink-0 self-stretch">
           <button
             type="button"
             aria-label="Download menu"
@@ -279,47 +301,39 @@ export function EditorToolbar(props: Props) {
 
           <AnimatePresence>
             {actionsOpen ? (
-              <>
-                <button
-                  type="button"
-                  aria-label="Close menu"
-                  className="fixed inset-0 z-30 cursor-default"
-                  onClick={() => onActionsOpenChange(false)}
+              <motion.div
+                role="menu"
+                className="absolute right-0 bottom-[calc(100%+10px)] z-40 min-w-[200px] origin-bottom-right overflow-hidden rounded-[18px] border border-black/[0.06] bg-white/95 p-1.5 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.28),0_2px_8px_-2px_rgba(0,0,0,0.08)] backdrop-blur-xl"
+                initial={{
+                  opacity: 0,
+                  transform: "scale(0.96) translateY(4px)",
+                }}
+                animate={{
+                  opacity: 1,
+                  transform: "scale(1) translateY(0px)",
+                }}
+                exit={{
+                  opacity: 0,
+                  transform: "scale(0.96) translateY(4px)",
+                }}
+                transition={{ duration: 0.16, ease: EASE_OUT }}
+              >
+                <ToolbarAction
+                  icon={DownloadSimple}
+                  label="Download PNG"
+                  onClick={onDownload}
                 />
-                <motion.div
-                  role="menu"
-                  className="absolute bottom-[calc(100%+10px)] right-0 z-40 min-w-[200px] origin-bottom-right overflow-hidden rounded-[18px] border border-black/[0.06] bg-white/95 p-1.5 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.28),0_2px_8px_-2px_rgba(0,0,0,0.08)] backdrop-blur-xl"
-                  initial={{
-                    opacity: 0,
-                    transform: "scale(0.96) translateY(4px)",
-                  }}
-                  animate={{
-                    opacity: 1,
-                    transform: "scale(1) translateY(0px)",
-                  }}
-                  exit={{
-                    opacity: 0,
-                    transform: "scale(0.96) translateY(4px)",
-                  }}
-                  transition={{ duration: 0.16, ease: EASE_OUT }}
-                >
-                  <ToolbarAction
-                    icon={DownloadSimple}
-                    label="Download PNG"
-                    onClick={onDownload}
-                  />
-                  <ToolbarAction
-                    icon={PushPin}
-                    label={placeLabel}
-                    onClick={onPlace}
-                  />
-                  <ToolbarAction
-                    icon={Plus}
-                    label="New sticker"
-                    onClick={onNewSticker}
-                  />
-                </motion.div>
-              </>
+                <ToolbarAction
+                  icon={PushPin}
+                  label={placeLabel}
+                  onClick={onPlace}
+                />
+                <ToolbarAction
+                  icon={Plus}
+                  label="New sticker"
+                  onClick={onNewSticker}
+                />
+              </motion.div>
             ) : null}
           </AnimatePresence>
         </div>
@@ -498,11 +512,11 @@ function OutlinePanel({
               <SliderPrimitive.Control className="flex h-8 w-full touch-none items-center select-none">
                 <SliderPrimitive.Track className="relative h-[5px] w-full rounded-full bg-black/[0.08]">
                   <SliderPrimitive.Indicator className="h-full rounded-full bg-neutral-900" />
-                  <SliderPrimitive.Thumb className="size-[26px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.08)] outline-none transition-transform duration-150 active:scale-110 focus-visible:ring-4 focus-visible:ring-black/10" />
+                  <SliderPrimitive.Thumb className="size-[26px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.08)] transition-transform duration-150 outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:scale-110" />
                 </SliderPrimitive.Track>
               </SliderPrimitive.Control>
             </SliderPrimitive.Root>
-            <span className="w-7 text-right text-[12px] font-medium tabular-nums text-neutral-900">
+            <span className="w-7 text-right text-[12px] font-medium text-neutral-900 tabular-nums">
               {thickness}
             </span>
           </div>
@@ -633,14 +647,14 @@ function SizePanel({ sizeMm, onSizeMmChange }: Props) {
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="text-[12px] font-medium text-neutral-500">Print size</p>
-          <p className="mt-0.5 text-[22px] font-semibold tracking-[-0.03em] tabular-nums text-neutral-900">
+          <p className="mt-0.5 text-[22px] font-semibold tracking-[-0.03em] text-neutral-900 tabular-nums">
             {sizeMm < 100 ? sizeMm.toFixed(1) : Math.round(sizeMm)}
             <span className="ml-1 text-[13px] font-medium text-neutral-400">
               mm
             </span>
           </p>
         </div>
-        <p className="pb-1 text-right text-[11px] font-medium tabular-nums text-neutral-400">
+        <p className="pb-1 text-right text-[11px] font-medium text-neutral-400 tabular-nums">
           {px} px
           <span className="mx-1 text-neutral-300">·</span>
           300 DPI
@@ -662,7 +676,7 @@ function SizePanel({ sizeMm, onSizeMmChange }: Props) {
         <SliderPrimitive.Control className="flex h-8 w-full touch-none items-center select-none">
           <SliderPrimitive.Track className="relative h-[5px] w-full rounded-full bg-black/[0.08]">
             <SliderPrimitive.Indicator className="h-full rounded-full bg-neutral-900" />
-            <SliderPrimitive.Thumb className="size-[26px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.08)] outline-none transition-transform duration-150 active:scale-110 focus-visible:ring-4 focus-visible:ring-black/10" />
+            <SliderPrimitive.Thumb className="size-[26px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.08)] transition-transform duration-150 outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:scale-110" />
           </SliderPrimitive.Track>
         </SliderPrimitive.Control>
       </SliderPrimitive.Root>

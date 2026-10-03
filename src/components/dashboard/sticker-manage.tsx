@@ -29,7 +29,8 @@ export function StickerManage({ sticker: initial }: { sticker: StickerDTO }) {
   }
 
   async function removeSticker() {
-    if (!window.confirm(`Remove “${sticker.name}” from your collection?`)) return
+    if (!window.confirm(`Remove “${sticker.name}” from your collection?`))
+      return
     setBusy(true)
     const response = await fetch(`/api/stickers/${sticker.id}`, {
       method: "DELETE",

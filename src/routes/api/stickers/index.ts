@@ -115,7 +115,10 @@ export const Route = createFileRoute("/api/stickers/")({
         const outlineThickness = Number(form.get("outlineThickness") ?? 16)
 
         if (!isStyle(styleRaw)) {
-          return Response.json({ error: "Invalid sticker style." }, { status: 400 })
+          return Response.json(
+            { error: "Invalid sticker style." },
+            { status: 400 }
+          )
         }
         if (!isFilter(filterRaw)) {
           return Response.json(
@@ -134,7 +137,10 @@ export const Route = createFileRoute("/api/stickers/")({
           )
         }
         if (!isCategory(parsed.data.category)) {
-          return Response.json({ error: "Pick a valid category." }, { status: 400 })
+          return Response.json(
+            { error: "Pick a valid category." },
+            { status: 400 }
+          )
         }
 
         const uploadId = crypto.randomUUID()

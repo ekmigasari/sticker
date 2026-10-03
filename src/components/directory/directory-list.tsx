@@ -23,7 +23,7 @@ export function DirectoryList({ stickers }: { stickers: StickerDTO[] }) {
   return (
     <div className="nk-page max-w-3xl">
       <header className="flex flex-col items-start gap-3">
-        <h1 className="nk-title">Directory</h1>
+        <h1 className="nk-title">Find</h1>
         <p className="nk-subtitle">
           Every sticker stays here permanently — even when buried on the wall.
           Product, service, company, or personal brand.
@@ -43,7 +43,7 @@ export function DirectoryList({ stickers }: { stickers: StickerDTO[] }) {
             className="nk-field pl-11"
           />
         </div>
-        <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        <div className="-mx-1 no-scrollbar flex gap-1.5 overflow-x-auto px-1 pb-1">
           {(["All", ...CATEGORIES] as const).map((c) => (
             <button
               key={c}

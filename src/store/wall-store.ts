@@ -1,5 +1,4 @@
 import { create } from "zustand"
-import { buildSeedBundle } from "@/data/seed"
 import type {
   DraftSticker,
   PlaceDraft,
@@ -7,15 +6,49 @@ import type {
   SizeTier,
   Sticker,
 } from "@/domain/types"
-import { WALL_SIZE, sizePx } from "@/domain/types"
+import {
+  SIZE_TIERS,
+  UNIT_SCALE,
+  WALL_SIZE,
+  snapPlotOrigin,
+  unitsToPx,
+} from "@/domain/types"
 import { slugifyName } from "@/lib/sticker-meta"
 
-const STORAGE_KEY = "sticker-wall-v2"
+function normalizePlacement(p: Placement): Placement {
+  if (
+    typeof p.unitsW === "number" &&
+    typeof p.unitsH === "number" &&
+    p.unitsW > 0 &&
+    p.unitsH > 0
+  ) {
+    return p
+  }
+  const legacy = p.sizeTier as SizeTier | undefined
+  const units = legacy && legacy in SIZE_TIERS ? SIZE_TIERS[legacy].units : 5
+  return {
+    ...p,
+    unitsW: units,
+    unitsH: units,
+    width: p.width || unitsToPx(units),
+    height: p.height || unitsToPx(units),
+  }
+}
+
+/** v3: empty wall (WALL_UNITS × WALL_UNITS) — no seed stickers. */
+const STORAGE_KEY = "sticker-wall-v3"
+/** Place flow draft survives sign-in full reloads. */
+const PLACE_DRAFT_KEY = "sticker-place-draft-v1"
 
 type Persisted = {
   stickers: Sticker[]
   placements: Placement[]
   nextZ: number
+}
+
+type PlaceSession = {
+  draftSticker: DraftSticker | null
+  placeDraft: PlaceDraft | null
 }
 
 type WallState = {
@@ -30,6 +63,7 @@ type WallState = {
   hydrate: () => void
   setDraftSticker: (draft: DraftSticker | null) => void
   setPlaceDraft: (draft: PlaceDraft | null) => void
+  updatePlaceDraftSize: (unitsW: number, unitsH: number) => void
   selectPlacement: (id: string | null) => void
   setCamera: (partial: Partial<WallState["camera"]>) => void
   focusPlacement: (placement: Placement, zoom?: number) => void
@@ -47,10 +81,7 @@ type WallState = {
 }
 
 function clampPlacement(x: number, y: number, w: number, h: number) {
-  return {
-    x: Math.min(Math.max(0, x), WALL_SIZE - w),
-    y: Math.min(Math.max(0, y), WALL_SIZE - h),
-  }
+  return snapPlotOrigin(x, y, w / UNIT_SCALE, h / UNIT_SCALE)
 }
 
 function loadPersisted(): Persisted | null {
@@ -66,74 +97,128 @@ function loadPersisted(): Persisted | null {
 
 function savePersisted(state: Persisted) {
   if (typeof localStorage === "undefined") return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // Quota exceeded: keep the in-memory wall rather than breaking the flow.
+  }
 }
+
+function loadPlaceSession(): PlaceSession {
+  if (typeof sessionStorage === "undefined") {
+    return { draftSticker: null, placeDraft: null }
+  }
+  try {
+    const raw = sessionStorage.getItem(PLACE_DRAFT_KEY)
+    if (!raw) return { draftSticker: null, placeDraft: null }
+    const parsed = JSON.parse(raw) as PlaceSession
+    return {
+      draftSticker: parsed.draftSticker ?? null,
+      placeDraft: parsed.placeDraft ?? null,
+    }
+  } catch {
+    return { draftSticker: null, placeDraft: null }
+  }
+}
+
+function savePlaceSession(session: PlaceSession) {
+  if (typeof sessionStorage === "undefined") return
+  if (!session.draftSticker && !session.placeDraft) {
+    sessionStorage.removeItem(PLACE_DRAFT_KEY)
+    return
+  }
+  try {
+    sessionStorage.setItem(PLACE_DRAFT_KEY, JSON.stringify(session))
+  } catch {
+    // Quota exceeded: drop the stale copy; the draft still lives in memory.
+    sessionStorage.removeItem(PLACE_DRAFT_KEY)
+  }
+}
+
+const initialPlace = loadPlaceSession()
 
 export const useWallStore = create<WallState>((set, get) => ({
   hydrated: false,
   stickers: [],
   placements: [],
   nextZ: 1,
-  draftSticker: null,
-  placeDraft: null,
+  draftSticker: initialPlace.draftSticker,
+  placeDraft: initialPlace.placeDraft,
   selectedPlacementId: null,
-  camera: { x: WALL_SIZE / 2, y: WALL_SIZE / 2, zoom: 1.35 },
+  camera: { x: WALL_SIZE / 2, y: WALL_SIZE / 2, zoom: 1 },
 
   hydrate: () => {
     if (get().hydrated) return
-    const seed = buildSeedBundle()
     const persisted = loadPersisted()
+    const place = loadPlaceSession()
 
-    if (!persisted || persisted.placements.length === 0) {
-      const nextZ =
-        seed.placements.reduce((m, p) => Math.max(m, p.zIndex), 0) + 1
+    if (!persisted) {
+      const empty = {
+        stickers: [] as Sticker[],
+        placements: [] as Placement[],
+        nextZ: 1,
+      }
       set({
         hydrated: true,
-        stickers: seed.stickers,
-        placements: seed.placements,
-        nextZ,
+        ...empty,
+        draftSticker: place.draftSticker,
+        placeDraft: place.placeDraft,
       })
-      savePersisted({
-        stickers: seed.stickers,
-        placements: seed.placements,
-        nextZ,
-      })
+      savePersisted(empty)
       return
     }
 
-    const stickerMap = new Map<string, Sticker>()
-    for (const s of seed.stickers) stickerMap.set(s.id, s)
-    for (const s of persisted.stickers) {
-      stickerMap.set(s.id, {
-        ...s,
-        slug: s.slug || slugifyName(s.name) || s.id,
-      })
-    }
-
-    const seedIds = new Set(seed.placements.map((p) => p.id))
-    const hasSeed = persisted.placements.some((p) => seedIds.has(p.id))
-    const placements = hasSeed
-      ? persisted.placements
-      : [...seed.placements, ...persisted.placements]
-
+    const stickers = persisted.stickers.map((s) => ({
+      ...s,
+      slug: s.slug || slugifyName(s.name) || s.id,
+    }))
+    const placements = persisted.placements.map(normalizePlacement)
     const nextZ = Math.max(
       persisted.nextZ,
-      placements.reduce((m, p) => Math.max(m, p.zIndex), 0) + 1
+      placements.reduce((m, p) => Math.max(m, p.zIndex), 0) + 1,
+      1
     )
 
     set({
       hydrated: true,
-      stickers: [...stickerMap.values()],
+      stickers,
       placements,
       nextZ,
+      draftSticker: place.draftSticker ?? get().draftSticker,
+      placeDraft: place.placeDraft ?? get().placeDraft,
     })
   },
 
-  setDraftSticker: (draft) => set({ draftSticker: draft }),
-  setPlaceDraft: (draft) => set({ placeDraft: draft }),
+  setDraftSticker: (draft) => {
+    set({ draftSticker: draft })
+    const { placeDraft } = get()
+    savePlaceSession({ draftSticker: draft, placeDraft })
+  },
+  setPlaceDraft: (draft) => {
+    set({ placeDraft: draft })
+    const { draftSticker } = get()
+    savePlaceSession({ draftSticker, placeDraft: draft })
+  },
+  updatePlaceDraftSize: (unitsW, unitsH) =>
+    set((s) => {
+      if (!s.placeDraft) return s
+      const width = unitsToPx(unitsW)
+      const height = unitsToPx(unitsH)
+      const pos =
+        s.placeDraft.x != null && s.placeDraft.y != null
+          ? clampPlacement(s.placeDraft.x, s.placeDraft.y, width, height)
+          : null
+      const placeDraft = {
+        ...s.placeDraft,
+        unitsW,
+        unitsH,
+        ...(pos ? { x: pos.x, y: pos.y } : null),
+      }
+      savePlaceSession({ draftSticker: s.draftSticker, placeDraft })
+      return { placeDraft }
+    }),
   selectPlacement: (id) => set({ selectedPlacementId: id }),
-  setCamera: (partial) =>
-    set((s) => ({ camera: { ...s.camera, ...partial } })),
+  setCamera: (partial) => set((s) => ({ camera: { ...s.camera, ...partial } })),
 
   focusPlacement: (placement, zoom = 2.2) => {
     set({
@@ -180,17 +265,21 @@ export const useWallStore = create<WallState>((set, get) => ({
 
   confirmPlacement: (x, y, ids) => {
     const draft = get().placeDraft
-    if (!draft) return null
+    if (!draft?.details) return null
 
-    const dim = sizePx(draft.sizeTier as SizeTier)
-    const pos = clampPlacement(x, y, dim, dim)
+    const width = unitsToPx(draft.unitsW)
+    const height = unitsToPx(draft.unitsH)
+    // Plot is axis-aligned — never rotate for clamping / coverage.
+    const pos = clampPlacement(x, y, width, height)
     const now = new Date().toISOString()
-    const stickerId =
-      ids?.stickerId ?? `stk_${crypto.randomUUID().slice(0, 8)}`
-    const slug =
-      ids?.slug ?? slugifyName(draft.details.name) ?? stickerId
+    const stickerId = ids?.stickerId ?? `stk_${crypto.randomUUID().slice(0, 8)}`
+    const slug = ids?.slug ?? slugifyName(draft.details.name) ?? stickerId
     const placementId = `plc_${crypto.randomUUID().slice(0, 8)}`
     const zIndex = get().nextZ
+    const stickerScale = draft.stickerScale ?? 1
+    const rotation = draft.rotation ?? 0
+    const stickerOffsetX = draft.stickerOffsetX ?? 0
+    const stickerOffsetY = draft.stickerOffsetY ?? 0
 
     const sticker: Sticker = {
       id: stickerId,
@@ -203,6 +292,8 @@ export const useWallStore = create<WallState>((set, get) => ({
       imageDataUrl: draft.sticker.imageDataUrl,
       outlineColor: draft.sticker.outlineColor,
       outlineThickness: draft.sticker.outlineThickness,
+      widthPx: draft.sticker.widthPx,
+      heightPx: draft.sticker.heightPx,
       createdAt: now,
     }
     const placement: Placement = {
@@ -210,10 +301,15 @@ export const useWallStore = create<WallState>((set, get) => ({
       stickerId,
       x: pos.x,
       y: pos.y,
-      width: dim,
-      height: dim,
+      width,
+      height,
       zIndex,
-      sizeTier: draft.sizeTier,
+      unitsW: draft.unitsW,
+      unitsH: draft.unitsH,
+      stickerScale,
+      rotation,
+      stickerOffsetX,
+      stickerOffsetY,
       createdAt: now,
     }
 
@@ -222,11 +318,13 @@ export const useWallStore = create<WallState>((set, get) => ({
       const placements = [...s.placements, placement]
       const nextZ = zIndex + 1
       savePersisted({ stickers, placements, nextZ })
+      savePlaceSession({ draftSticker: null, placeDraft: null })
       return {
         stickers,
         placements,
         nextZ,
         placeDraft: null,
+        draftSticker: null,
         selectedPlacementId: placementId,
         camera: {
           x: placement.x + placement.width / 2,
@@ -241,9 +339,7 @@ export const useWallStore = create<WallState>((set, get) => ({
 
   getSticker: (id) => get().stickers.find((s) => s.id === id),
   getStickerBySlugOrId: (slugOrId) =>
-    get().stickers.find(
-      (s) => s.slug === slugOrId || s.id === slugOrId
-    ),
+    get().stickers.find((s) => s.slug === slugOrId || s.id === slugOrId),
   placementsSorted: () =>
     [...get().placements].sort((a, b) => a.zIndex - b.zIndex),
 }))
