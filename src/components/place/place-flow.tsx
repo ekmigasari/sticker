@@ -14,6 +14,7 @@ import {
   ArrowsVertical,
   CaretLeft,
   CaretUp,
+  CornersIn,
   CheckCircle,
   CreditCard,
   FolderSimple,
@@ -45,9 +46,12 @@ import {
   fieldWarning,
   formatPlot,
   plotOriginAtCenter,
+  plotOriginContaining,
   plotPrice,
   plotSideBounds,
   plotUnitsForSticker,
+  plotUnitsWithFloor,
+  rotatedBounds,
   sizeParamFromContentUnits,
   snapPlotOrigin,
   stickerBoxSize,
@@ -615,6 +619,8 @@ export function PlaceFlow() {
     w: initialPlotFromSticker.w,
     h: initialPlotFromSticker.h,
   })
+  /** Area size set in area mode; sticker mode keeps it as a minimum. */
+  const areaFloor = useRef<{ w: number; h: number } | null>(null)
   /** World-space sticker centre — kept stable across resize/rotate so the view doesn't jump. */
   const stickerCenterRef = useRef<{ x: number; y: number } | null>(null)
 
@@ -666,6 +672,13 @@ export function PlaceFlow() {
   const curW = plotValid ? unitsW! : lastPlot.current.w
   const curH = plotValid ? unitsH! : lastPlot.current.h
   const curPrice = plotPrice(curW, curH)
+  const hugContent = stickerContentUnits(stickerSize, contentAspect)
+  const hugPlot = plotUnitsForSticker(
+    unitsToPx(hugContent.unitsW),
+    unitsToPx(hugContent.unitsH),
+    pendingRotation
+  )
+  const canFitArea = curW !== hugPlot.unitsW || curH !== hugPlot.unitsH
 
   const widthWarn = fieldWarning(unitsW, unitsH, "width")
   const heightWarn = fieldWarning(unitsH, unitsW, "height")
@@ -827,6 +840,7 @@ export function PlaceFlow() {
       )
     )
     lastPlot.current = { w: needed.unitsW, h: needed.unitsH }
+    areaFloor.current = null
     setWidthRaw(String(needed.unitsW))
     setHeightRaw(String(needed.unitsH))
     setStickerScale(scale)
@@ -848,6 +862,7 @@ export function PlaceFlow() {
     setStickerOffsetY(0)
     setEditTarget("sticker")
     stickerCenterRef.current = null
+    areaFloor.current = null
     const content = stickerContentUnits(stickerSize, contentAspect)
     const needed = plotUnitsForSticker(
       unitsToPx(content.unitsW),
@@ -910,6 +925,7 @@ export function PlaceFlow() {
       )
     }
     lastPlot.current = { w: nextW, h: nextH }
+    areaFloor.current = { w: nextW, h: nextH }
     setWidthRaw(String(nextW))
     setHeightRaw(String(nextH))
     setStickerScale(clamped.scale)
@@ -925,8 +941,9 @@ export function PlaceFlow() {
 
   /**
    * Sticker mode: set absolute content size (units) and grow/shrink the plot
-   * tightly around the rotated artwork. World centre stays locked so the
-   * sticker doesn't crawl across the screen while resizing.
+   * around the rotated artwork. Without a custom area the plot hugs the art;
+   * with one, it stays at least that size and only moves to keep the art
+   * inside. World centre stays locked so the sticker doesn't crawl.
    */
   function applyStickerContent(nextSize: number, nextRot: number) {
     const size = clampStickerSize(nextSize)
@@ -936,7 +953,10 @@ export function PlaceFlow() {
     const center = currentStickerCenter()
     const rot = Math.abs(nextRot) < 0.5 ? 0 : nextRot
 
-    const needed = plotUnitsForSticker(contentW, contentH, rot)
+    const floor = areaFloor.current
+    const needed = floor
+      ? plotUnitsWithFloor(contentW, contentH, rot, floor, contentAspect)
+      : plotUnitsForSticker(contentW, contentH, rot)
     const newPlotW = unitsToPx(needed.unitsW)
     const newPlotH = unitsToPx(needed.unitsH)
     const full = containStickerSize(newPlotW, newPlotH, contentAspect)
@@ -949,12 +969,26 @@ export function PlaceFlow() {
 
     if (center) {
       // Keep the visual centre fixed — no grid-snap crawl during live edits.
-      const pos = plotOriginAtCenter(
-        center.x,
-        center.y,
-        needed.unitsW,
-        needed.unitsH
-      )
+      let pos: { x: number; y: number }
+      if (floor && pendingSpot) {
+        const b = rotatedBounds(0, 0, contentW, contentH, rot)
+        pos = plotOriginContaining(
+          pendingSpot.x,
+          pendingSpot.y,
+          needed.unitsW,
+          needed.unitsH,
+          center,
+          b.width / 2,
+          b.height / 2
+        )
+      } else {
+        pos = plotOriginAtCenter(
+          center.x,
+          center.y,
+          needed.unitsW,
+          needed.unitsH
+        )
+      }
       setPendingSpot(pos)
       // If the wall edge forced a clamp, compensate with offset so the sticker
       // still sits on the remembered screen/world centre whenever possible.
@@ -1114,11 +1148,17 @@ export function PlaceFlow() {
       // Entering area mode: keep sticker inside current plot (full contain at max).
       onStickerOffset(stickerOffsetX, stickerOffsetY)
     } else {
-      // Back to sticker mode: free size; plot hugs the artwork.
+      // Back to sticker mode: keep the edited area; it only grows if the art needs it.
       const center = currentStickerCenter()
       if (center) rememberStickerCenter(center.x, center.y)
       applyStickerContent(stickerSize, pendingRotation)
     }
+  }
+
+  /** Drop the custom area so the plot hugs the artwork again. */
+  function fitAreaToSticker() {
+    areaFloor.current = null
+    applyStickerContent(stickerSize, pendingRotation)
   }
 
   function onGhostMove(x: number, y: number) {
@@ -1255,7 +1295,7 @@ export function PlaceFlow() {
                 <p className="truncate text-[12px] text-neutral-500">
                   {pendingSpot
                     ? areaMode
-                      ? "Resize the area or sticker position"
+                      ? "Resize or move the area, or drag the sticker inside"
                       : "Move, size, or rotate sticker"
                     : "Drag to pan · pinch or scroll to zoom"}
                 </p>
@@ -1282,7 +1322,7 @@ export function PlaceFlow() {
             editTarget={editTarget}
             onEditTarget={(t) => setAreaMode(t === "area")}
             onPlace={requestSpot}
-            onGhostMove={areaMode ? undefined : onGhostMove}
+            onGhostMove={onGhostMove}
             onGhostResize={onGhostResize}
             onGhostRotate={setRotation}
             onGhostStickerScale={
@@ -1382,7 +1422,30 @@ export function PlaceFlow() {
                             }}
                           />
                         </div>
-                      ) : null}
+                      ) : (
+                        <div className="flex items-center justify-between gap-2 pb-1">
+                          <span className="text-[12px] font-medium text-neutral-500 tabular-nums">
+                            Area{" "}
+                            <span className="text-neutral-900">
+                              {curW} × {curH}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={fitAreaToSticker}
+                            disabled={!canFitArea}
+                            title={
+                              canFitArea
+                                ? "Shrink the area to hug the sticker"
+                                : "Area already fits the sticker"
+                            }
+                            className="press inline-flex h-7 items-center gap-1 rounded-full bg-black/[0.06] px-2.5 text-[12px] font-semibold text-neutral-800 transition-colors hover:bg-black/[0.09] disabled:pointer-events-none disabled:opacity-40"
+                          >
+                            <CornersIn weight="bold" className="size-3.5" />
+                            Fit to sticker
+                          </button>
+                        </div>
+                      )}
                       {areaMode ? (
                         <SliderRow
                           label="Size"

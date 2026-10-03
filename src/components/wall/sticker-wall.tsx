@@ -10,6 +10,7 @@ import {
 } from "react"
 import { useShallow } from "zustand/react/shallow"
 import {
+  PLOT_MAX,
   PLOT_MIN,
   STICKER_SCALE_FIT_MAX,
   STICKER_SCALE_MAX,
@@ -20,6 +21,7 @@ import {
   WALL_SIZE,
   type PlotCorner,
   type PlotHandle,
+  type PlotLimit,
   clampPlotOrigin,
   containStickerSize,
   contentAspectRatio,
@@ -35,6 +37,7 @@ import { cn } from "@/lib/utils"
 import { useWallStore } from "@/store/wall-store"
 import { StickerSheet } from "./sticker-sheet"
 import { WallControls, ZoomControls, ZoomScale } from "./wall-controls"
+import { WallGrid } from "./wall-grid"
 import {
   cancelCameraAnimation,
   clampCamera,
@@ -212,6 +215,41 @@ function Anchor({
       }}
     >
       {children}
+    </div>
+  )
+}
+
+const LIMIT_COPY: Record<PlotLimit, { title: string; hint: string }> = {
+  min: {
+    title: `Smallest area is ${PLOT_MIN} × ${PLOT_MIN}`,
+    hint: "Drag outward to make it bigger",
+  },
+  max: {
+    title: `Largest side is ${PLOT_MAX} units`,
+    hint: "Drag inward to make it smaller",
+  },
+  wide: {
+    title: "Widest shape is 16:9",
+    hint: "Make it taller to go wider",
+  },
+  tall: {
+    title: "Tallest shape is 9:16",
+    hint: "Make it wider to go taller",
+  },
+}
+
+/** Explains which rule stopped an area resize and how to keep going. */
+function PlotLimitNote({ limit }: { limit: PlotLimit }) {
+  const copy = LIMIT_COPY[limit]
+  return (
+    <div
+      role="status"
+      className="pointer-events-none absolute top-[30px] left-0 -translate-x-1/2 rounded-[8px] bg-neutral-900/90 px-2.5 py-1.5 text-center font-ui whitespace-nowrap text-white shadow-[0_4px_14px_rgba(0,0,0,0.18)] backdrop-blur-md"
+    >
+      <p className="text-[11.5px] leading-tight font-semibold">{copy.title}</p>
+      <p className="mt-0.5 text-[11px] leading-tight text-white/65">
+        {copy.hint}
+      </p>
     </div>
   )
 }
@@ -473,6 +511,14 @@ export function StickerWall({
 
   // --- ghost (pinned sticker) drag state ---
   const ghostDrag = useRef<boolean>(false)
+  /** Live ghost drag, so a second finger can hand it off to a pinch. */
+  const activeGhost = useRef<{
+    pointerId: number
+    pointerType: string
+    x: number
+    y: number
+    stop: (revert: boolean) => void
+  } | null>(null)
   // Latest callbacks/geometry for window-level drag listeners (avoids stale closures).
   const live = useRef({
     onGhostMove,
@@ -508,14 +554,17 @@ export function StickerWall({
   const [grabbing, setGrabbing] = useState(false)
   const [viewportSize, setViewportSize] = useState({ w: 1440, h: 900 })
   const [ghostCenter, setGhostCenter] = useState<Pt | null>(null)
-  /** Sticker mode selection: click or drag selects, click outside / Esc clears. */
+  /** Ghost selection (both modes): click or drag selects, click outside / Esc clears. */
   const [ghostSelected, setGhostSelected] = useState(true)
   /** Active ghost gesture; drives which layers animate. */
   const [dragMode, setDragMode] = useState<GhostMode | null>(null)
+  /** Plot rule the current area resize is pressing against. */
+  const [resizeLimit, setResizeLimit] = useState<PlotLimit | null>(null)
 
   const hydrate = useWallStore((s) => s.hydrate)
   const hydrated = useWallStore((s) => s.hydrated)
   const camera = useWallStore(useShallow((s) => s.camera))
+  const gridVisible = useWallStore((s) => s.gridVisible)
   const setCamera = useWallStore((s) => s.setCamera)
   const rawPlacements = useWallStore((s) => s.placements)
   const selectedPlacementId = useWallStore((s) => s.selectedPlacementId)
@@ -677,8 +726,12 @@ export function StickerWall({
     if (e.pointerType === "mouse" && e.button !== 0) return
     e.stopPropagation()
     e.preventDefault()
+    if (activeGhost.current) {
+      handOffToPinch(e)
+      return
+    }
     cancelCameraAnimation()
-    if (editTarget === "sticker") setGhostSelected(true)
+    setGhostSelected(true)
 
     const cx = ghostPos.x + placeW / 2 + ghostOffsetX
     const cy = ghostPos.y + placeH / 2 + ghostOffsetY
@@ -742,6 +795,10 @@ export function StickerWall({
     const move = (ev: PointerEvent) => {
       if (ev.pointerId !== d.pointerId) return
       ev.preventDefault()
+      if (activeGhost.current) {
+        activeGhost.current.x = ev.clientX
+        activeGhost.current.y = ev.clientY
+      }
       const cam = useWallStore.getState().camera
       const dx = (ev.clientX - d.startX) / cam.zoom
       const dy = (ev.clientY - d.startY) / cam.zoom
@@ -767,6 +824,7 @@ export function StickerWall({
           dx,
           dy
         )
+        setResizeLimit(next?.limit ?? null)
         if (next) cb.onGhostResize(next.unitsW, next.unitsH, next.x, next.y)
       } else if (d.mode === "scale") {
         const w = clientToWorld(ev.clientX, ev.clientY)
@@ -810,27 +868,81 @@ export function StickerWall({
         cb.onGhostRotate(normalizeDeg(snapAngle(deg)))
       }
     }
-    const end = (ev: PointerEvent) => {
-      if (ev.pointerId !== d.pointerId) return
+    const stop = (revert: boolean) => {
       ghostDrag.current = false
+      activeGhost.current = null
       setDragMode(null)
+      setResizeLimit(null)
       window.removeEventListener("pointermove", move)
       window.removeEventListener("pointerup", end)
       window.removeEventListener("pointercancel", end)
+      const cb = live.current
+      // A pinch took over: undo the drift the first finger caused.
+      if (revert && d.mode === "move") cb.onGhostMove?.(d.originX, d.originY)
+      if (revert && d.mode === "sticker-move") {
+        cb.onGhostStickerOffset?.(d.originOffsetX, d.originOffsetY)
+      }
       if (
         d.moved ||
         d.mode === "scale" ||
         d.mode === "resize" ||
         d.mode === "rotate"
       ) {
-        live.current.onGhostTransformEnd?.()
+        cb.onGhostTransformEnd?.()
       }
     }
+    const end = (ev: PointerEvent) => {
+      if (ev.pointerId === d.pointerId) stop(false)
+    }
     ghostDrag.current = true
+    activeGhost.current = {
+      pointerId: e.pointerId,
+      pointerType: e.pointerType,
+      x: e.clientX,
+      y: e.clientY,
+      stop,
+    }
     setDragMode(mode)
     window.addEventListener("pointermove", move, { passive: false })
     window.addEventListener("pointerup", end)
     window.addEventListener("pointercancel", end)
+  }
+
+  /** Whether a screen point lands on the (rotated) sticker box. */
+  function pointOnSticker(clientX: number, clientY: number) {
+    const world = clientToWorld(clientX, clientY)
+    if (!world || !ghostPos) return false
+    const box = stickerBoxSize(placeW, placeH, stickerScale, contentAspect)
+    const local = rotateVec(
+      world.x - (ghostPos.x + placeW / 2 + ghostOffsetX),
+      world.y - (ghostPos.y + placeH / 2 + ghostOffsetY),
+      -ghostRotation
+    )
+    return Math.abs(local.x) <= box.w / 2 && Math.abs(local.y) <= box.h / 2
+  }
+
+  /**
+   * Second finger during a one-finger ghost drag: drop the drag and pinch the
+   * camera with both fingers instead, so zoom works even over the sticker.
+   */
+  function handOffToPinch(e: React.PointerEvent) {
+    const ghost = activeGhost.current
+    if (!ghost || ghost.pointerType !== "touch" || e.pointerType !== "touch") {
+      return
+    }
+    ghost.stop(true)
+    cancelCameraAnimation()
+    pointers.current.clear()
+    pointers.current.set(ghost.pointerId, { x: ghost.x, y: ghost.y })
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    const g = gesture.current
+    g.moved = true
+    g.pinchDist = Math.max(
+      1,
+      Math.hypot(ghost.x - e.clientX, ghost.y - e.clientY)
+    )
+    g.pinchMid = { x: (ghost.x + e.clientX) / 2, y: (ghost.y + e.clientY) / 2 }
+    setGrabbing(true)
   }
 
   // ---------------------------------------------------------------------------
@@ -865,7 +977,11 @@ export function StickerWall({
   }
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (clearHeroZone || ghostDrag.current) return
+    if (clearHeroZone) return
+    if (ghostDrag.current) {
+      handOffToPinch(e)
+      return
+    }
     if (e.pointerType === "mouse" && e.button !== 0) return
     cancelCameraAnimation()
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -982,11 +1098,19 @@ export function StickerWall({
   const selected = placements.find((p) => p.id === selectedPlacementId)
   const selectedSticker = selected ? getSticker(selected.stickerId) : undefined
 
-  // Plot chrome (fill + grid) only in area mode. Sticker mode shows the artwork
-  // plus a quiet outline of the plot you're paying for.
-  const showAreaChrome = Boolean(
-    placeMode && ghostPos && showPlotChrome && editMode && editTarget === "area"
+  // Area editing forces the wall grid on; otherwise it follows the camera toggle.
+  const areaEditing = Boolean(
+    placeMode && showPlotChrome && editMode && editTarget === "area"
   )
+  // Entering area editing turns the grid on; it can still be switched off and
+  // the saved toggle comes back once you leave area mode.
+  const [areaGridOn, setAreaGridOn] = useState(true)
+  const [prevAreaEditing, setPrevAreaEditing] = useState(areaEditing)
+  if (prevAreaEditing !== areaEditing) {
+    setPrevAreaEditing(areaEditing)
+    if (areaEditing) setAreaGridOn(true)
+  }
+  const showGrid = !clearHeroZone && (areaEditing ? areaGridOn : gridVisible)
 
   // Ghost geometry (all in plot-local world px) — aspect-correct, no letterbox pad.
   const z = camera.zoom
@@ -999,6 +1123,8 @@ export function StickerWall({
   const plotInteractive = editMode && !stickerInteractive
   // Plot outline eases between whole-unit sizes; skip while dragging it freely.
   const animatePlot = editMode && stickerMode && dragMode !== "move"
+  const dragCursor =
+    dragMode === "move" || dragMode === "sticker-move" ? "grabbing" : "grab"
   // Sticker eases only when settling (grid snap after release, slider edits).
   const animateSticker = editMode && dragMode == null
   const plotLayerClass = cn(
@@ -1039,6 +1165,13 @@ export function StickerWall({
           }
         }}
       >
+        {showGrid ? (
+          <WallGrid
+            camera={camera}
+            viewportW={viewportSize.w}
+            viewportH={viewportSize.h}
+          />
+        ) : null}
         <div
           className="absolute top-1/2 left-1/2 origin-center"
           style={{
@@ -1050,20 +1183,6 @@ export function StickerWall({
             transform: `translate(-50%, -50%) translate(${(WALL_SIZE / 2 - camera.x) * camera.zoom}px, ${(WALL_SIZE / 2 - camera.y) * camera.zoom}px) scale(${camera.zoom})`,
           }}
         >
-          <div className="absolute inset-0 bg-white" aria-hidden />
-
-          {showAreaChrome ? (
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                backgroundImage:
-                  "linear-gradient(to right, rgba(0,0,0,0.07) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.07) 1px, transparent 1px)",
-                backgroundSize: `${UNIT_SCALE}px ${UNIT_SCALE}px`,
-              }}
-              aria-hidden
-            />
-          ) : null}
-
           <div className="absolute inset-0">
             <PlacementLayer
               placements={placements}
@@ -1076,23 +1195,31 @@ export function StickerWall({
 
             {placeMode && ghostPos ? (
               <>
-                {/* Plot base: area fill + grid sit beneath the artwork. */}
-                {showAreaChrome ? (
+                {/* Plot base: translucent fill; the wall grid shows through it. */}
+                {editMode && !stickerMode ? (
                   <div
                     aria-hidden
-                    className={cn(plotLayerClass, "pointer-events-none")}
+                    className={cn(
+                      plotLayerClass,
+                      "pointer-events-none bg-sky-400/20"
+                    )}
                     style={{ ...plotLayerStyle, zIndex: topZ + 9 }}
-                  >
-                    <div className="absolute inset-0 bg-sky-400/20" />
-                    <div
-                      className="absolute inset-0"
-                      style={{
-                        backgroundImage:
-                          "linear-gradient(to right, rgba(0,0,0,0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.12) 1px, transparent 1px)",
-                        backgroundSize: `${UNIT_SCALE}px ${UNIT_SCALE}px`,
-                      }}
-                    />
-                  </div>
+                  />
+                ) : null}
+
+                {/* Sticker mode: empty area around the art also grabs and moves it all. */}
+                {stickerInteractive ? (
+                  <div
+                    aria-hidden
+                    className={plotLayerClass}
+                    style={{
+                      ...plotLayerStyle,
+                      zIndex: topZ + 9,
+                      cursor: dragCursor,
+                      touchAction: "none",
+                    }}
+                    onPointerDown={(e) => beginGhostDrag("move", e)}
+                  />
                 ) : null}
 
                 {/* Artwork, anchored at its own world centre so plot snapping never drags it. */}
@@ -1119,7 +1246,7 @@ export function StickerWall({
                         transform: `rotate(${ghostRotation}deg)`,
                         transformOrigin: "center center",
                         pointerEvents: stickerInteractive ? "auto" : "none",
-                        cursor: stickerInteractive ? "move" : undefined,
+                        cursor: stickerInteractive ? dragCursor : undefined,
                         touchAction: "none",
                       }}
                       onPointerDown={
@@ -1160,19 +1287,19 @@ export function StickerWall({
                       ...plotLayerStyle,
                       zIndex: topZ + 11,
                       pointerEvents: plotInteractive ? "auto" : "none",
-                      cursor: plotInteractive
-                        ? stickerMode
-                          ? "move"
-                          : "grab"
-                        : undefined,
+                      cursor: plotInteractive ? dragCursor : undefined,
                       touchAction: "none",
                     }}
-                    // Area mode: drag inside the plot nudges the sticker within it.
+                    // Area mode: drag the sticker to place it inside the area,
+                    // or the empty part of the area to move both together.
                     onPointerDown={
                       plotInteractive
                         ? (e) =>
                             beginGhostDrag(
-                              stickerMode ? "move" : "sticker-move",
+                              stickerMode ||
+                                !pointOnSticker(e.clientX, e.clientY)
+                                ? "move"
+                                : "sticker-move",
                               e
                             )
                         : undefined
@@ -1186,7 +1313,7 @@ export function StickerWall({
                           outline: `${1.5 / z}px dashed rgba(0,0,0,0.28)`,
                         }}
                       />
-                    ) : (
+                    ) : ghostSelected ? (
                       <SelectionChrome
                         w={placeW}
                         h={placeH}
@@ -1196,9 +1323,17 @@ export function StickerWall({
                           beginGhostDrag("resize", e, handle)
                         }
                       />
+                    ) : (
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute inset-0"
+                        style={{
+                          outline: `${1.5 / z}px dashed rgba(2,132,199,0.55)`,
+                        }}
+                      />
                     )}
                     {/* Figma-style size badge: what this selection costs. */}
-                    {!stickerMode || ghostSelected ? (
+                    {ghostSelected ? (
                       <Anchor x={placeW / 2} y={placeH} zoom={z}>
                         <div
                           aria-live="polite"
@@ -1207,6 +1342,9 @@ export function StickerWall({
                           {ghostUnitsW} × {ghostUnitsH} = $
                           {plotPrice(ghostUnitsW, ghostUnitsH).toLocaleString()}
                         </div>
+                        {resizeLimit ? (
+                          <PlotLimitNote limit={resizeLimit} />
+                        ) : null}
                       </Anchor>
                     ) : null}
                   </div>
@@ -1219,7 +1357,13 @@ export function StickerWall({
 
       {placeMode && showPlaceZoom ? (
         <>
-          <ZoomControls />
+          <ZoomControls
+            grid={
+              areaEditing
+                ? { on: areaGridOn, onToggle: () => setAreaGridOn((v) => !v) }
+                : undefined
+            }
+          />
           <ZoomScale />
         </>
       ) : null}

@@ -20,8 +20,10 @@ import {
   isValidPlot,
   maxScaleThatFits,
   plotPrice,
+  plotOriginContaining,
   plotSideBounds,
   plotUnitsForSticker,
+  plotUnitsWithFloor,
   resizePlotFromCorner,
   resizePlotFromHandle,
   sizeParamFromContentUnits,
@@ -218,5 +220,52 @@ describe("sticker wall sizing", () => {
     expect(south!.unitsW).toBe(5)
     expect(south!.unitsH).toBe(7)
     expect(south!.x).toBe(100)
+  })
+
+  it("keeps a custom area as the sticker-mode minimum", () => {
+    const floor = { w: 20, h: 12 }
+    // Small art inside a big custom area keeps the area.
+    expect(plotUnitsWithFloor(80, 80, 0, floor)).toEqual({
+      unitsW: 20,
+      unitsH: 12,
+    })
+    // Art bigger than the area grows it on the side that needs it.
+    expect(plotUnitsWithFloor(150, 150, 0, floor)).toEqual({
+      unitsW: 20,
+      unitsH: 15,
+    })
+    // Tiny art shrinks the area so the sticker stays ≥ 20% of the plot.
+    const tiny = plotUnitsWithFloor(30, 30, 0, { w: 100, h: 100 })
+    expect(tiny.unitsW).toBeLessThanOrEqual(15)
+    expect(isValidPlot(tiny.unitsW, tiny.unitsH)).toBe(true)
+  })
+
+  it("moves a plot only as far as needed to contain the sticker", () => {
+    const center = { x: 500, y: 500 }
+    // Already contains the art: stays put.
+    expect(plotOriginContaining(400, 420, 20, 12, center, 40, 40)).toEqual({
+      x: 400,
+      y: 420,
+    })
+    // Art sticks out past the right edge: shift just enough.
+    expect(plotOriginContaining(200, 420, 20, 12, center, 40, 40).x).toBe(340)
+  })
+
+  it("clamps area resizes at limits and reports which rule hit", () => {
+    const min = resizePlotFromHandle("e", 100, 100, 5, 5, -200, 0)
+    expect(min).toMatchObject({ unitsW: 3, x: 100, limit: "min" })
+
+    // Opposite edge stays put when dragging the west side past the max.
+    const max = resizePlotFromHandle("w", 2000, 100, 90, 90, -500, 0)
+    expect(max).toMatchObject({ unitsW: 100, limit: "max" })
+    expect(max!.x + max!.unitsW * 10).toBe(2000 + 900)
+
+    const wide = resizePlotFromHandle("e", 100, 100, 9, 9, 200, 0)
+    expect(wide).toMatchObject({ unitsW: 16, unitsH: 9, limit: "wide" })
+
+    const tall = resizePlotFromHandle("s", 100, 100, 9, 9, 0, 200)
+    expect(tall).toMatchObject({ unitsW: 9, unitsH: 16, limit: "tall" })
+
+    expect(resizePlotFromHandle("e", 100, 100, 5, 5, 20, 0)!.limit).toBeNull()
   })
 })

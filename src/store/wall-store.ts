@@ -60,6 +60,9 @@ type WallState = {
   placeDraft: PlaceDraft | null
   selectedPlacementId: string | null
   camera: { x: number; y: number; zoom: number }
+  /** User's grid toggle (camera controls); area editing forces it on. */
+  gridVisible: boolean
+  setGridVisible: (visible: boolean) => void
   hydrate: () => void
   setDraftSticker: (draft: DraftSticker | null) => void
   setPlaceDraft: (draft: PlaceDraft | null) => void
@@ -82,6 +85,13 @@ type WallState = {
 
 function clampPlacement(x: number, y: number, w: number, h: number) {
   return snapPlotOrigin(x, y, w / UNIT_SCALE, h / UNIT_SCALE)
+}
+
+const GRID_KEY = "sticker-wall-grid"
+
+function loadGridVisible(): boolean {
+  if (typeof localStorage === "undefined") return false
+  return localStorage.getItem(GRID_KEY) === "1"
 }
 
 function loadPersisted(): Persisted | null {
@@ -146,11 +156,20 @@ export const useWallStore = create<WallState>((set, get) => ({
   placeDraft: initialPlace.placeDraft,
   selectedPlacementId: null,
   camera: { x: WALL_SIZE / 2, y: WALL_SIZE / 2, zoom: 1 },
+  gridVisible: false,
+
+  setGridVisible: (visible) => {
+    set({ gridVisible: visible })
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(GRID_KEY, visible ? "1" : "0")
+    }
+  },
 
   hydrate: () => {
     if (get().hydrated) return
     const persisted = loadPersisted()
     const place = loadPlaceSession()
+    set({ gridVisible: loadGridVisible() })
 
     if (!persisted) {
       const empty = {

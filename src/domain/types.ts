@@ -9,6 +9,8 @@ export const WALL_UNITS = 1000
 export const WALL_SIZE = WALL_UNITS * UNIT_SCALE
 /** Default camera shows this many units of wall height on screen. */
 export const DEFAULT_VIEW_UNITS = 100
+/** Real-world size of one wall unit (a 500 mm print spans 100 units). */
+export const UNIT_MM = 5
 
 /** Zoom that fully covers the viewport with the wall (no empty gutters). */
 export function coverZoom(viewportW: number, viewportH: number): number {
@@ -497,7 +499,7 @@ export function sizeParamFromContentUnits(
  */
 export function defaultStickerSizeFromMm(sizeMm: number): number {
   if (!Number.isFinite(sizeMm) || sizeMm <= 0) return 8
-  const long = Math.round((sizeMm * STICKER_SIZE_MAX) / 500)
+  const long = Math.round(sizeMm / UNIT_MM)
   return Math.min(STICKER_SIZE_MAX, Math.max(STICKER_SIZE_MIN, long))
 }
 
@@ -808,9 +810,13 @@ export function plotUnitsForSticker(
   return { unitsW, unitsH }
 }
 
+/** Which plot rule stopped a resize: size bounds or the 16:9 ratio. */
+export type PlotLimit = "min" | "max" | "wide" | "tall"
+
 /**
- * Resize a grid-snapped plot from a corner or edge handle.
- * Invalid sizes return null (caller keeps previous).
+ * Resize a grid-snapped plot from a corner or edge handle. The opposite edge
+ * stays put; past a limit the plot clamps and `limit` says which rule hit.
+ * Returns null only if the wall edge leaves no valid size.
  */
 export function resizePlotFromHandle(
   handle: PlotHandle,
@@ -820,79 +826,67 @@ export function resizePlotFromHandle(
   unitsH: number,
   dx: number,
   dy: number
-): { x: number; y: number; unitsW: number; unitsH: number } | null {
-  const left = originX
-  const top = originY
-  const right = originX + unitsToPx(unitsW)
-  const bottom = originY + unitsToPx(unitsH)
-
-  let nextLeft = left
-  let nextTop = top
-  let nextRight = right
-  let nextBottom = bottom
-
-  if (handle === "se" || handle === "e" || handle === "ne") {
-    nextRight = right + dx
-  }
-  if (handle === "sw" || handle === "w" || handle === "nw") {
-    nextLeft = left + dx
-  }
-  if (handle === "se" || handle === "s" || handle === "sw") {
-    nextBottom = bottom + dy
-  }
-  if (handle === "ne" || handle === "n" || handle === "nw") {
-    nextTop = top + dy
-  }
-  // Pure edge handles only move that axis.
-  if (handle === "e" || handle === "w") {
-    nextTop = top
-    nextBottom = bottom
-  }
-  if (handle === "n" || handle === "s") {
-    nextLeft = left
-    nextRight = right
-  }
-
-  // Snap edges to grid.
+): {
+  x: number
+  y: number
+  unitsW: number
+  unitsH: number
+  limit: PlotLimit | null
+} | null {
   const snap = (v: number) => Math.round(v / UNIT_SCALE) * UNIT_SCALE
-  nextLeft = snap(nextLeft)
-  nextTop = snap(nextTop)
-  nextRight = snap(nextRight)
-  nextBottom = snap(nextBottom)
-
-  nextLeft = Math.max(0, Math.min(nextLeft, WALL_SIZE - unitsToPx(PLOT_MIN)))
-  nextTop = Math.max(0, Math.min(nextTop, WALL_SIZE - unitsToPx(PLOT_MIN)))
-  nextRight = Math.max(unitsToPx(PLOT_MIN), Math.min(WALL_SIZE, nextRight))
-  nextBottom = Math.max(unitsToPx(PLOT_MIN), Math.min(WALL_SIZE, nextBottom))
+  const left = snap(originX)
+  const top = snap(originY)
+  const right = left + unitsToPx(unitsW)
+  const bottom = top + unitsToPx(unitsH)
 
   const growsRight = handle === "se" || handle === "e" || handle === "ne"
+  const growsLeft = handle === "sw" || handle === "w" || handle === "nw"
   const growsDown = handle === "se" || handle === "s" || handle === "sw"
+  const growsUp = handle === "ne" || handle === "n" || handle === "nw"
+  const movesX = growsRight || growsLeft
+  const movesY = growsDown || growsUp
 
-  if (nextRight - nextLeft < unitsToPx(PLOT_MIN)) {
-    if (growsRight) nextRight = nextLeft + unitsToPx(PLOT_MIN)
-    else nextLeft = nextRight - unitsToPx(PLOT_MIN)
+  const rawW =
+    (snap(growsRight ? right + dx : right) -
+      snap(growsLeft ? left + dx : left)) /
+    UNIT_SCALE
+  const rawH =
+    (snap(growsDown ? bottom + dy : bottom) - snap(growsUp ? top + dy : top)) /
+    UNIT_SCALE
+
+  let limit: PlotLimit | null = null
+  if (rawW < PLOT_MIN || rawH < PLOT_MIN) limit = "min"
+  else if (rawW > PLOT_MAX || rawH > PLOT_MAX) limit = "max"
+  else if (rawW / rawH > PLOT_MAX_RATIO + 1e-9) limit = "wide"
+  else if (rawH / rawW > PLOT_MAX_RATIO + 1e-9) limit = "tall"
+
+  let w = Math.min(PLOT_MAX, Math.max(PLOT_MIN, Math.round(rawW)))
+  let h = Math.min(PLOT_MAX, Math.max(PLOT_MIN, Math.round(rawH)))
+  // Over the ratio: trim the side being dragged, else lift the other one.
+  if (w / h > PLOT_MAX_RATIO + 1e-9) {
+    if (movesX) w = Math.floor(h * PLOT_MAX_RATIO)
+    else h = Math.ceil(w / PLOT_MAX_RATIO)
+  } else if (h / w > PLOT_MAX_RATIO + 1e-9) {
+    if (movesY) h = Math.floor(w * PLOT_MAX_RATIO)
+    else w = Math.ceil(h / PLOT_MAX_RATIO)
   }
-  if (nextBottom - nextTop < unitsToPx(PLOT_MIN)) {
-    if (growsDown) nextBottom = nextTop + unitsToPx(PLOT_MIN)
-    else nextTop = nextBottom - unitsToPx(PLOT_MIN)
+
+  let x = growsLeft ? right - unitsToPx(w) : left
+  let y = growsUp ? bottom - unitsToPx(h) : top
+  // The wall edge shrinks the plot rather than pushing the anchored side.
+  if (x < 0) {
+    w += x / UNIT_SCALE
+    x = 0
   }
+  if (y < 0) {
+    h += y / UNIT_SCALE
+    y = 0
+  }
+  w = Math.min(w, (WALL_SIZE - x) / UNIT_SCALE)
+  h = Math.min(h, (WALL_SIZE - y) / UNIT_SCALE)
+  if (!validatePlot(w, h).ok) return null
 
-  let nextW = Math.round((nextRight - nextLeft) / UNIT_SCALE)
-  let nextH = Math.round((nextBottom - nextTop) / UNIT_SCALE)
-  nextW = Math.min(PLOT_MAX, Math.max(PLOT_MIN, nextW))
-  nextH = Math.min(PLOT_MAX, Math.max(PLOT_MIN, nextH))
-
-  if (!validatePlot(nextW, nextH).ok) return null
-
-  const pos = snapPlotOrigin(nextLeft, nextTop, nextW, nextH)
-  // Ensure size still fits from snapped origin.
-  const maxW = Math.floor((WALL_SIZE - pos.x) / UNIT_SCALE)
-  const maxH = Math.floor((WALL_SIZE - pos.y) / UNIT_SCALE)
-  nextW = Math.min(nextW, maxW)
-  nextH = Math.min(nextH, maxH)
-  if (!validatePlot(nextW, nextH).ok) return null
-
-  return { x: pos.x, y: pos.y, unitsW: nextW, unitsH: nextH }
+  return { x, y, unitsW: w, unitsH: h, limit }
 }
 
 /** @deprecated Prefer {@link resizePlotFromHandle}. */
@@ -904,8 +898,62 @@ export function resizePlotFromCorner(
   unitsH: number,
   dx: number,
   dy: number
-): { x: number; y: number; unitsW: number; unitsH: number } | null {
+): ReturnType<typeof resizePlotFromHandle> {
   return resizePlotFromHandle(corner, originX, originY, unitsW, unitsH, dx, dy)
+}
+
+/**
+ * Sticker-mode plot when the user has set a custom area: keep that area as a
+ * minimum, grow it when the rotated artwork needs more room, and shrink it
+ * only as far as needed to keep the sticker at STICKER_SCALE_MIN of the plot.
+ */
+export function plotUnitsWithFloor(
+  contentW: number,
+  contentH: number,
+  rotationDeg: number,
+  floor: PlotSize,
+  contentAspect = 1
+): { unitsW: number; unitsH: number } {
+  const needed = plotUnitsForSticker(contentW, contentH, rotationDeg)
+  const full = containStickerSize(
+    unitsToPx(floor.w),
+    unitsToPx(floor.h),
+    contentAspect
+  )
+  const scaleAtFloor = Math.min(
+    contentW / Math.max(1e-9, full.w),
+    contentH / Math.max(1e-9, full.h)
+  )
+  const f = Math.min(1, scaleAtFloor / STICKER_SCALE_MIN)
+  let w = Math.floor(floor.w * f)
+  let h = Math.floor(floor.h * f)
+  if (w > h * PLOT_MAX_RATIO) w = Math.floor(h * PLOT_MAX_RATIO)
+  else if (h > w * PLOT_MAX_RATIO) h = Math.floor(w * PLOT_MAX_RATIO)
+  // Max of two shapes within 16:9 is still within 16:9.
+  return {
+    unitsW: Math.min(PLOT_MAX, Math.max(needed.unitsW, w)),
+    unitsH: Math.min(PLOT_MAX, Math.max(needed.unitsH, h)),
+  }
+}
+
+/**
+ * Move a plot as little as possible so it still contains the sticker's
+ * rotated bounds (centre ± half extents), then keep it on the wall.
+ */
+export function plotOriginContaining(
+  prevX: number,
+  prevY: number,
+  unitsW: number,
+  unitsH: number,
+  center: { x: number; y: number },
+  halfW: number,
+  halfH: number
+): { x: number; y: number } {
+  const w = unitsToPx(unitsW)
+  const h = unitsToPx(unitsH)
+  const x = Math.min(center.x - halfW, Math.max(center.x + halfW - w, prevX))
+  const y = Math.min(center.y - halfH, Math.max(center.y + halfH - h, prevY))
+  return clampPlotOrigin(x, y, unitsW, unitsH)
 }
 
 /**
