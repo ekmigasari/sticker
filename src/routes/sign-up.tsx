@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { AuthForm } from "@/components/auth-form"
+import { AuthScreen } from "@/components/auth-form"
 import { AppChrome } from "@/components/layout/app-chrome"
 import { safeNextPath } from "@/lib/auth-redirect"
 
@@ -25,23 +25,9 @@ export const Route = createFileRoute("/sign-up")({
 
 function SignUpPage() {
   const { next } = Route.useSearch()
-  const continuingPlace = next === "/place"
-
   return (
     <AppChrome>
-      <main className="nk-page max-w-md">
-        <header>
-          <h1 className="nk-title">Create account</h1>
-          <p className="nk-subtitle mt-3">
-            {continuingPlace
-              ? "Make is free. An account lets you save sticker details and continue wall setup."
-              : "Join Netkraft to list stickers and keep them tied to your profile."}
-          </p>
-        </header>
-        <div className="rounded-[28px] border border-black/[0.06] bg-white p-5 sm:p-7">
-          <AuthForm mode="sign-up" next={next} />
-        </div>
-      </main>
+      <AuthScreen mode="sign-up" next={next} />
     </AppChrome>
   )
 }

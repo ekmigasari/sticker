@@ -246,7 +246,11 @@ export function drawFrame(t: number, state: DrawCtx) {
     feed = 1
   } else if (t < pullBack) {
     // Extra push so the sticker clears the tear bar a little.
-    feed = lerp(1, 1.06, easeInOut((t - finishNudge) / (pullBack - finishNudge)))
+    feed = lerp(
+      1,
+      1.06,
+      easeInOut((t - finishNudge) / (pullBack - finishNudge))
+    )
   } else {
     feed = 1.06
   }

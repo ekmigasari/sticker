@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react"
-import { Link, useNavigate, useRouteContext } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import {
   CaretLeft,
   MagnifyingGlassMinus,
@@ -16,7 +16,9 @@ import { cn } from "@/lib/utils"
 import {
   downloadDataUrl,
   getSourceMaxSide,
+  PLACE_MAX_SIDE,
   PREVIEW_MAX_SIDE,
+  probeImageSize,
   renderSticker,
   SIZE_DEFAULT_MM,
   SIZE_MAX_MM,
@@ -26,10 +28,7 @@ import { useWallStore } from "@/store/wall-store"
 import { firePeelConfetti } from "./confetti"
 import { EditorToolbar, type EditorTab } from "./editor-toolbar"
 import { FloatingSticker } from "./floating-sticker"
-import {
-  PrintLoadingCanvas,
-  PRINT_LOOP_S,
-} from "./print-loading-canvas"
+import { PrintLoadingCanvas, PRINT_LOOP_S } from "./print-loading-canvas"
 
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 const ZOOM_MIN = 0.35
@@ -53,7 +52,6 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
-  const { session } = useRouteContext({ from: "__root__" })
   const setDraftSticker = useWallStore((s) => s.setDraftSticker)
   const setPlaceDraft = useWallStore((s) => s.setPlaceDraft)
 
@@ -298,21 +296,26 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         filter,
         outlineColor,
         outlineThickness: thickness,
-        maxSide: Math.min(Math.round(mmToPx(sizeMm)), 480),
+        // Wall stickers are zoomable, so always export at the storage cap
+        // rather than the print size (small prints were only ~100px wide).
+        maxSide: PLACE_MAX_SIDE,
+        format: "webp",
       })
+      const { width, height } = await probeImageSize(url)
       setDraftSticker({
         imageDataUrl: url,
         style,
         filter,
         outlineColor,
         outlineThickness: thickness,
+        widthPx: width,
+        heightPx: height,
+        sizeMm,
       })
       setPlaceDraft(null)
-      if (!session) {
-        void navigate({ to: "/sign-in", search: { next: "/place" } })
-        return
-      }
       void navigate({ to: "/place" })
+    } catch {
+      setError("Couldn't prepare your sticker for the wall. Try again.")
     } finally {
       setExporting(false)
     }
@@ -395,7 +398,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
 
   return (
     <div
-      className="font-ui relative flex h-[100dvh] flex-col overflow-hidden bg-white text-neutral-900 antialiased"
+      className="relative flex h-[100dvh] flex-col overflow-hidden bg-white font-ui text-neutral-900 antialiased"
       onDragOver={(e) => {
         e.preventDefault()
         setDragOver(true)
@@ -454,7 +457,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
                 onClick={() => void handlePlace()}
                 className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity active:scale-[0.97] disabled:opacity-35"
               >
-                {exporting ? "…" : session ? "Place" : "Sign in"}
+                {exporting ? "…" : "Place"}
               </button>
             </>
           ) : null}
@@ -534,7 +537,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
           >
             <MagnifyingGlassMinus weight="bold" className="size-[16px]" />
           </ZoomButton>
-          <span className="pointer-events-none mt-0.5 text-center text-[10px] font-semibold tabular-nums text-neutral-400">
+          <span className="pointer-events-none mt-0.5 text-center text-[10px] font-semibold text-neutral-400 tabular-nums">
             {Math.round(zoom * 100)}%
           </span>
 
@@ -542,8 +545,11 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
             {upscaling ? (
               <motion.div
                 role="status"
-                className="mt-2 flex max-w-[200px] items-start gap-1.5 rounded-full border border-amber-200/80 bg-amber-50/95 px-3 py-1.5 text-[11px] font-medium leading-snug text-amber-800 shadow-[0_6px_20px_-8px_rgba(180,120,0,0.35)] backdrop-blur-md"
-                initial={{ opacity: 0, transform: "translateY(-4px) scale(0.96)" }}
+                className="mt-2 flex max-w-[200px] items-start gap-1.5 rounded-full border border-amber-200/80 bg-amber-50/95 px-3 py-1.5 text-[11px] leading-snug font-medium text-amber-800 shadow-[0_6px_20px_-8px_rgba(180,120,0,0.35)] backdrop-blur-md"
+                initial={{
+                  opacity: 0,
+                  transform: "translateY(-4px) scale(0.96)",
+                }}
                 animate={{ opacity: 1, transform: "translateY(0px) scale(1)" }}
                 exit={{ opacity: 0, transform: "translateY(-4px) scale(0.96)" }}
                 transition={{ duration: 0.18, ease: EASE_OUT }}
@@ -584,7 +590,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
           onDownload={() => void handleDownload()}
           onPlace={requestPlace}
           onNewSticker={requestNewSticker}
-          placeLabel={session ? "Put on wall" : "Sign in to place"}
+          placeLabel="Put on wall"
           exporting={exporting}
         />
       </div>
@@ -648,11 +654,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
                   onClick={placeFromPeel}
                   className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white active:scale-[0.97] disabled:opacity-50"
                 >
-                  {exporting
-                    ? "…"
-                    : session
-                      ? "Put on wall"
-                      : "Sign in"}
+                  {exporting ? "…" : "Put on wall"}
                 </button>
               </div>
             </motion.div>
@@ -741,7 +743,10 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
               aria-labelledby="place-sticker-title"
               aria-describedby="place-sticker-desc"
               className="relative w-full max-w-[320px] overflow-hidden rounded-[28px] border border-white/60 bg-white/90 shadow-[0_28px_80px_-24px_rgba(0,0,0,0.45)] backdrop-blur-xl"
-              initial={{ opacity: 0, transform: "scale(0.92) translateY(12px)" }}
+              initial={{
+                opacity: 0,
+                transform: "scale(0.92) translateY(12px)",
+              }}
               animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
               exit={{ opacity: 0, transform: "scale(0.96) translateY(8px)" }}
               transition={{
@@ -766,7 +771,10 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
                   />
                   <motion.div
                     className="relative grid size-[56px] place-items-center rounded-full bg-gradient-to-b from-amber-300 to-orange-400 text-white shadow-[0_10px_24px_-8px_rgba(234,88,12,0.55)]"
-                    initial={{ transform: "scale(0.6) rotate(-12deg)", opacity: 0 }}
+                    initial={{
+                      transform: "scale(0.6) rotate(-12deg)",
+                      opacity: 0,
+                    }}
                     animate={{ transform: "scale(1) rotate(0deg)", opacity: 1 }}
                     transition={{
                       type: "spring",
@@ -781,8 +789,14 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
                   <motion.span
                     aria-hidden
                     className="absolute top-0 right-1 text-amber-400"
-                    initial={{ opacity: 0, transform: "scale(0.4) translateY(6px)" }}
-                    animate={{ opacity: 1, transform: "scale(1) translateY(0px)" }}
+                    initial={{
+                      opacity: 0,
+                      transform: "scale(0.4) translateY(6px)",
+                    }}
+                    animate={{
+                      opacity: 1,
+                      transform: "scale(1) translateY(0px)",
+                    }}
                     transition={{ delay: 0.12, duration: 0.28, ease: EASE_OUT }}
                   >
                     <Sparkle weight="fill" className="size-4" />
@@ -799,7 +813,10 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
                   <motion.span
                     aria-hidden
                     className="absolute top-2 left-1 text-[15px] leading-none"
-                    initial={{ opacity: 0, transform: "scale(0.5) rotate(-20deg)" }}
+                    initial={{
+                      opacity: 0,
+                      transform: "scale(0.5) rotate(-20deg)",
+                    }}
                     animate={{ opacity: 1, transform: "scale(1) rotate(0deg)" }}
                     transition={{ delay: 0.16, duration: 0.3, ease: EASE_OUT }}
                   >
@@ -883,7 +900,7 @@ function ZoomButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="pointer-events-auto press grid size-9 place-items-center rounded-full border border-black/[0.06] bg-white/80 text-neutral-900 shadow-[0_4px_16px_-6px_rgba(0,0,0,0.2)] backdrop-blur-xl transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-white active:scale-[0.97] disabled:opacity-35"
+      className="press pointer-events-auto grid size-9 place-items-center rounded-full border border-black/[0.06] bg-white/80 text-neutral-900 shadow-[0_4px_16px_-6px_rgba(0,0,0,0.2)] backdrop-blur-xl transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-white active:scale-[0.97] disabled:opacity-35"
     >
       {children}
     </button>
@@ -972,7 +989,7 @@ function UploadLoading({
         )}
       </div>
 
-      <p className="mt-5 text-[28px] font-semibold tracking-[-0.04em] tabular-nums text-neutral-900">
+      <p className="mt-5 text-[28px] font-semibold tracking-[-0.04em] text-neutral-900 tabular-nums">
         {pct}
         <span className="ml-0.5 text-[18px] font-semibold text-neutral-400">
           %

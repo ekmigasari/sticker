@@ -55,7 +55,7 @@ function StickerPage() {
   if (!dbSticker && !hydrated) {
     return (
       <AppChrome>
-        <p className="font-ui px-8 py-24 text-[15px] text-neutral-500">
+        <p className="px-8 py-24 font-ui text-[15px] text-neutral-500">
           Loading…
         </p>
       </AppChrome>
@@ -85,7 +85,7 @@ function StickerPage() {
   if (!sticker) {
     return (
       <AppChrome>
-        <div className="font-ui mx-auto max-w-lg px-6 py-24 text-center">
+        <div className="mx-auto max-w-lg px-6 py-24 text-center font-ui">
           <h1 className="text-[32px] font-semibold tracking-[-0.03em] text-neutral-900">
             Sticker not found
           </h1>
@@ -104,7 +104,7 @@ function StickerPage() {
 
   return (
     <AppChrome>
-      <div className="font-ui mx-auto grid max-w-4xl gap-10 px-4 py-12 sm:px-8 lg:grid-cols-[200px_1fr]">
+      <div className="mx-auto grid max-w-4xl gap-10 px-4 py-12 font-ui sm:px-8 lg:grid-cols-[200px_1fr]">
         <div className="flex justify-center lg:justify-start">
           {sticker.imageSrc ? (
             <img

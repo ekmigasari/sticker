@@ -49,7 +49,14 @@ export function makeSeedStickerDataUrl(opts: {
 
   // Inner blob
   ctx.fillStyle = opts.fill
-  roundRect(ctx, pad + 28, pad + 28, size - (pad + 28) * 2, size - (pad + 28) * 2 - 40, 28)
+  roundRect(
+    ctx,
+    pad + 28,
+    pad + 28,
+    size - (pad + 28) * 2,
+    size - (pad + 28) * 2 - 40,
+    28
+  )
   ctx.fill()
 
   // Label

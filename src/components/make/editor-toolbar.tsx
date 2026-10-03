@@ -83,8 +83,7 @@ const FILTER_PREVIEW_CSS: Record<StickerFilter, string> = {
   red: "grayscale(1) sepia(1) hue-rotate(-50deg) saturate(6) brightness(0.95)",
   blue: "grayscale(1) sepia(1) hue-rotate(180deg) saturate(6) brightness(0.9)",
   green: "grayscale(1) sepia(1) hue-rotate(70deg) saturate(5) brightness(0.95)",
-  yellow:
-    "grayscale(1) sepia(1) hue-rotate(5deg) saturate(8) brightness(1.05)",
+  yellow: "grayscale(1) sepia(1) hue-rotate(5deg) saturate(8) brightness(1.05)",
 }
 
 const GRADATION_OVERLAY: Partial<Record<StickerFilter, string>> = {
@@ -268,7 +267,11 @@ export function EditorToolbar(props: Props) {
                   <motion.span
                     layoutId="editor-tab-pill"
                     className="absolute inset-0 rounded-[11px] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.1),0_0_0_0.5px_rgba(0,0,0,0.04)]"
-                    transition={{ type: "spring", duration: 0.32, bounce: 0.12 }}
+                    transition={{
+                      type: "spring",
+                      duration: 0.32,
+                      bounce: 0.12,
+                    }}
                   />
                 ) : null}
                 <Icon
@@ -300,7 +303,7 @@ export function EditorToolbar(props: Props) {
             {actionsOpen ? (
               <motion.div
                 role="menu"
-                className="absolute bottom-[calc(100%+10px)] right-0 z-40 min-w-[200px] origin-bottom-right overflow-hidden rounded-[18px] border border-black/[0.06] bg-white/95 p-1.5 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.28),0_2px_8px_-2px_rgba(0,0,0,0.08)] backdrop-blur-xl"
+                className="absolute right-0 bottom-[calc(100%+10px)] z-40 min-w-[200px] origin-bottom-right overflow-hidden rounded-[18px] border border-black/[0.06] bg-white/95 p-1.5 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.28),0_2px_8px_-2px_rgba(0,0,0,0.08)] backdrop-blur-xl"
                 initial={{
                   opacity: 0,
                   transform: "scale(0.96) translateY(4px)",
@@ -509,11 +512,11 @@ function OutlinePanel({
               <SliderPrimitive.Control className="flex h-8 w-full touch-none items-center select-none">
                 <SliderPrimitive.Track className="relative h-[5px] w-full rounded-full bg-black/[0.08]">
                   <SliderPrimitive.Indicator className="h-full rounded-full bg-neutral-900" />
-                  <SliderPrimitive.Thumb className="size-[26px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.08)] outline-none transition-transform duration-150 active:scale-110 focus-visible:ring-4 focus-visible:ring-black/10" />
+                  <SliderPrimitive.Thumb className="size-[26px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.08)] transition-transform duration-150 outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:scale-110" />
                 </SliderPrimitive.Track>
               </SliderPrimitive.Control>
             </SliderPrimitive.Root>
-            <span className="w-7 text-right text-[12px] font-medium tabular-nums text-neutral-900">
+            <span className="w-7 text-right text-[12px] font-medium text-neutral-900 tabular-nums">
               {thickness}
             </span>
           </div>
@@ -644,14 +647,14 @@ function SizePanel({ sizeMm, onSizeMmChange }: Props) {
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="text-[12px] font-medium text-neutral-500">Print size</p>
-          <p className="mt-0.5 text-[22px] font-semibold tracking-[-0.03em] tabular-nums text-neutral-900">
+          <p className="mt-0.5 text-[22px] font-semibold tracking-[-0.03em] text-neutral-900 tabular-nums">
             {sizeMm < 100 ? sizeMm.toFixed(1) : Math.round(sizeMm)}
             <span className="ml-1 text-[13px] font-medium text-neutral-400">
               mm
             </span>
           </p>
         </div>
-        <p className="pb-1 text-right text-[11px] font-medium tabular-nums text-neutral-400">
+        <p className="pb-1 text-right text-[11px] font-medium text-neutral-400 tabular-nums">
           {px} px
           <span className="mx-1 text-neutral-300">·</span>
           300 DPI
@@ -673,7 +676,7 @@ function SizePanel({ sizeMm, onSizeMmChange }: Props) {
         <SliderPrimitive.Control className="flex h-8 w-full touch-none items-center select-none">
           <SliderPrimitive.Track className="relative h-[5px] w-full rounded-full bg-black/[0.08]">
             <SliderPrimitive.Indicator className="h-full rounded-full bg-neutral-900" />
-            <SliderPrimitive.Thumb className="size-[26px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.08)] outline-none transition-transform duration-150 active:scale-110 focus-visible:ring-4 focus-visible:ring-black/10" />
+            <SliderPrimitive.Thumb className="size-[26px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.08)] transition-transform duration-150 outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:scale-110" />
           </SliderPrimitive.Track>
         </SliderPrimitive.Control>
       </SliderPrimitive.Root>

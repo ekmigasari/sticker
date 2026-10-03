@@ -1,9 +1,6 @@
 import { CATEGORIES, type Category } from "@/domain/types"
 import { prisma } from "@/lib/prisma"
-import {
-  normalizeStickerUrl,
-  slugifyName,
-} from "@/lib/sticker-meta"
+import { normalizeStickerUrl, slugifyName } from "@/lib/sticker-meta"
 
 export type StickerDTO = {
   id: string
@@ -93,9 +90,7 @@ export function parseStickerDetails(body: unknown) {
   const category = String(data.category ?? "").trim()
   const offerRaw = data.offer
   const offer =
-    offerRaw == null || offerRaw === ""
-      ? null
-      : String(offerRaw).trim() || null
+    offerRaw == null || offerRaw === "" ? null : String(offerRaw).trim() || null
 
   if (!name) return { error: "Title is required." as const }
   if (!oneLiner) return { error: "Short description is required." as const }

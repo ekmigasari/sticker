@@ -53,7 +53,7 @@ export function StickerForm({
   return (
     <form
       onSubmit={(e) => void handleSubmit(e)}
-      className="font-ui flex flex-col gap-5"
+      className="flex flex-col gap-5 font-ui"
     >
       <div className="flex flex-col gap-2">
         <label htmlFor="name" className="nk-label">
@@ -99,7 +99,7 @@ export function StickerForm({
       </div>
       <div className="flex flex-col gap-2">
         <span className="nk-label">Category</span>
-        <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        <div className="-mx-1 no-scrollbar flex gap-1.5 overflow-x-auto px-1 pb-1">
           {CATEGORIES.map((c) => (
             <button
               key={c}

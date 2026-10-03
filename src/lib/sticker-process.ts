@@ -8,6 +8,8 @@ export type RenderOptions = {
   outlineThickness: number
   /** Longest side of the subject in output pixels. */
   maxSide?: number
+  /** Output encoding. WebP keeps wall payloads small enough for web storage. */
+  format?: "png" | "webp"
 }
 
 const BASELINE = 640
@@ -21,6 +23,12 @@ export const SIZE_DEFAULT_MM = 54
 export const SIZE_MIN = Math.round((SIZE_MIN_MM * 300) / 25.4)
 export const SIZE_MAX = Math.round((SIZE_MAX_MM * 300) / 25.4)
 export const SIZE_DEFAULT = Math.round((SIZE_DEFAULT_MM * 300) / 25.4)
+/**
+ * Cap for wall / place exports. The data URL is kept in session/local
+ * storage (~5 MB per origin), so this trades a little max-zoom sharpness
+ * for a payload that always fits.
+ */
+export const PLACE_MAX_SIDE = 1200
 
 type Canvas = HTMLCanvasElement
 
@@ -74,6 +82,13 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   })
 }
 
+export async function probeImageSize(
+  dataUrl: string
+): Promise<{ width: number; height: number }> {
+  const img = await loadImage(dataUrl)
+  return { width: img.naturalWidth, height: img.naturalHeight }
+}
+
 /* ------------------------------------------------------------------ */
 /* Subject preparation: scale + trim transparent subjects             */
 /* ------------------------------------------------------------------ */
@@ -98,12 +113,11 @@ function hasTransparentBorder(data: Uint8ClampedArray, w: number, h: number) {
 
 function trim(src: Canvas): Canvas {
   const ctx = ctx2d(src)
-  const { data, width: w, height: h } = ctx.getImageData(
-    0,
-    0,
-    src.width,
-    src.height
-  )
+  const {
+    data,
+    width: w,
+    height: h,
+  } = ctx.getImageData(0, 0, src.width, src.height)
   let minX = w
   let minY = h
   let maxX = -1
@@ -328,7 +342,9 @@ function composeCircle(subject: Canvas, t: number, color: string): Composed {
   const margin = Math.max(14, t * 1.5)
   const pad = 2
   // Diameter must cover the subject diagonal + padding on both sides.
-  const inner = Math.ceil(Math.hypot(subject.width, subject.height) + margin * 2)
+  const inner = Math.ceil(
+    Math.hypot(subject.width, subject.height) + margin * 2
+  )
   const base = makeCanvas(inner + pad * 2, inner + pad * 2)
   const ctx = ctx2d(base)
   const cx = pad + inner / 2
@@ -585,7 +601,7 @@ function glitter(c: Canvas) {
       const fi = Math.floor(y / flake) * fw + Math.floor(x / flake)
       const glint = flakeGlint[fi]
       const hue =
-        ((((x * 0.8 + y) / span) * 720 + flakeHue[fi]) % 360 + 360) % 360
+        (((((x * 0.8 + y) / span) * 720 + flakeHue[fi]) % 360) + 360) % 360
       const [hr, hg, hb] = hslToRgb(hue, 0.9, 0.64)
 
       const r = data[o]
@@ -633,7 +649,7 @@ function hologram(c: Canvas) {
     for (let x = 0; x < w; x++) {
       const o = (y * w + x) * 4
       if (data[o + 3] === 0) continue
-      const hue = ((((x * 0.8 + y) / span) * 720) % 360 + 360) % 360
+      const hue = (((((x * 0.8 + y) / span) * 720) % 360) + 360) % 360
       const [hr, hg, hb] = hslToRgb(hue, 0.9, 0.64)
 
       const r = data[o]
@@ -664,10 +680,7 @@ function hologram(c: Canvas) {
  * Smooth colour gradation wash (no flakes). Variants sweep different hues
  * across the sticker surface while preserving subject luminance.
  */
-function colourGradation(
-  c: Canvas,
-  variant: "aurora" | "sunset" | "ocean"
-) {
+function colourGradation(c: Canvas, variant: "aurora" | "sunset" | "ocean") {
   const stops =
     variant === "aurora"
       ? [
@@ -817,7 +830,11 @@ export async function renderSticker(
       [0, -1],
       [0, 1],
     ]) {
-      ctx.drawImage(hair, composed.subjectX - 2 + dx, composed.subjectY - 2 + dy)
+      ctx.drawImage(
+        hair,
+        composed.subjectX - 2 + dx,
+        composed.subjectY - 2 + dy
+      )
     }
     ctx.drawImage(subject, composed.subjectX, composed.subjectY)
   } else {
@@ -853,6 +870,11 @@ export async function renderSticker(
   }
   if (options.filter === "glow") glow(out)
 
+  if (options.format === "webp") {
+    const webp = out.toDataURL("image/webp", 0.9)
+    // Browsers without WebP encoding silently return PNG.
+    if (webp.startsWith("data:image/webp")) return webp
+  }
   return out.toDataURL("image/png")
 }
 
