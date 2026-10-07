@@ -28,22 +28,9 @@ Philosophy remains **$1 per square unit**. Custom sizes come later.
 
 ## Categories
 
-Product Hunt–inspired, curated:
+Modelled on Product Hunt's top-level groups and outbid.lol's leaderboards. A category is what the thing _is_; platform (mobile), business model (SaaS) and licence (open source) are not categories. Source of truth: `CATEGORIES` in `src/domain/types.ts`.
 
-- Developer Tools
-- SaaS
-- AI
-- Productivity
-- Design
-- Marketing
-- Games
-- Mobile
-- Open Source
-- Newsletter
-- Community
-- Services
-- Personal Brand
-- Other
+AI & Agents · Developer Tools · No-Code · Productivity · Design & Creative · Marketing & SEO · Sales & CRM · Analytics & Data · Finance & Fintech · Crypto & Web3 · Ecommerce · Social & Community · Writing & Content · Media & Newsletters · Education · Health & Fitness · Travel & Lifestyle · Games & Entertainment · Hiring & Careers · Security & Privacy · Hardware · Agencies & Services · Personal Brand · Other
 
 ## Sticker fields (MVP)
 
@@ -51,7 +38,8 @@ Product Hunt–inspired, curated:
 - One-liner (short description)
 - Website / link URL
 - Category
-- Optional offer / launch line
+- Optional long description (hidden until added)
+- Optional promo (hidden until added): deal description (required), discount code and end date (both optional). Expired promos stop showing.
 - Artwork (crafted in Make — also the directory cover)
 
 One user can own many stickers. One sticker = one directory listing + one primary artwork.

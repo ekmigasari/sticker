@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProtectedRouteImport } from './routes/_protected'
+import { Route as CategoriesRouteImport } from './routes/categories'
 import { Route as DirectoryRouteImport } from './routes/directory'
 import { Route as MakeRouteImport } from './routes/make'
 import { Route as PlaceRouteImport } from './routes/place'
@@ -20,6 +21,8 @@ import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dash
 import { Route as ProtectedFilesRouteImport } from './routes/_protected/files'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
 import { Route as StickerSlugRouteImport } from './routes/sticker.$slug'
+import { Route as StickersIndexRouteImport } from './routes/stickers.index'
+import { Route as StickersSlugRouteImport } from './routes/stickers.$slug'
 import { Route as ProtectedDashboardIndexRouteImport } from './routes/_protected/dashboard/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiStickersIndexRouteImport } from './routes/api/stickers/index'
@@ -37,6 +40,11 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const ProtectedRoute = ProtectedRouteImport.update({
   id: '/_protected',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CategoriesRoute = CategoriesRouteImport.update({
+  id: '/categories',
+  path: '/categories',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DirectoryRoute = DirectoryRouteImport.update({
@@ -82,6 +90,16 @@ const ProductIdRoute = ProductIdRouteImport.update({
 const StickerSlugRoute = StickerSlugRouteImport.update({
   id: '/sticker/$slug',
   path: '/sticker/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StickersIndexRoute = StickersIndexRouteImport.update({
+  id: '/stickers/',
+  path: '/stickers/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StickersSlugRoute = StickersSlugRouteImport.update({
+  id: '/stickers/$slug',
+  path: '/stickers/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProtectedDashboardIndexRoute = ProtectedDashboardIndexRouteImport.update({
@@ -134,6 +152,7 @@ const ApiStickersIdImageRoute = ApiStickersIdImageRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/categories': typeof CategoriesRoute
   '/directory': typeof DirectoryRoute
   '/make': typeof MakeRoute
   '/place': typeof PlaceRoute
@@ -143,6 +162,8 @@ export interface FileRoutesByFullPath {
   '/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
   '/sticker/$slug': typeof StickerSlugRoute
+  '/stickers/$slug': typeof StickersSlugRoute
+  '/stickers/': typeof StickersIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
@@ -155,6 +176,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/categories': typeof CategoriesRoute
   '/directory': typeof DirectoryRoute
   '/make': typeof MakeRoute
   '/place': typeof PlaceRoute
@@ -163,6 +185,8 @@ export interface FileRoutesByTo {
   '/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
   '/sticker/$slug': typeof StickerSlugRoute
+  '/stickers/$slug': typeof StickersSlugRoute
+  '/stickers': typeof StickersIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
@@ -177,6 +201,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_protected': typeof ProtectedRouteWithChildren
+  '/categories': typeof CategoriesRoute
   '/directory': typeof DirectoryRoute
   '/make': typeof MakeRoute
   '/place': typeof PlaceRoute
@@ -186,6 +211,8 @@ export interface FileRoutesById {
   '/_protected/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
   '/sticker/$slug': typeof StickerSlugRoute
+  '/stickers/$slug': typeof StickersSlugRoute
+  '/stickers/': typeof StickersIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
@@ -200,6 +227,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/categories'
     | '/directory'
     | '/make'
     | '/place'
@@ -209,6 +237,8 @@ export interface FileRouteTypes {
     | '/files'
     | '/product/$id'
     | '/sticker/$slug'
+    | '/stickers/$slug'
+    | '/stickers/'
     | '/api/auth/$'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
@@ -221,6 +251,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/categories'
     | '/directory'
     | '/make'
     | '/place'
@@ -229,6 +260,8 @@ export interface FileRouteTypes {
     | '/files'
     | '/product/$id'
     | '/sticker/$slug'
+    | '/stickers/$slug'
+    | '/stickers'
     | '/api/auth/$'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
@@ -242,6 +275,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_protected'
+    | '/categories'
     | '/directory'
     | '/make'
     | '/place'
@@ -251,6 +285,8 @@ export interface FileRouteTypes {
     | '/_protected/files'
     | '/product/$id'
     | '/sticker/$slug'
+    | '/stickers/$slug'
+    | '/stickers/'
     | '/api/auth/$'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
@@ -265,6 +301,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProtectedRoute: typeof ProtectedRouteWithChildren
+  CategoriesRoute: typeof CategoriesRoute
   DirectoryRoute: typeof DirectoryRoute
   MakeRoute: typeof MakeRoute
   PlaceRoute: typeof PlaceRoute
@@ -272,6 +309,8 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   ProductIdRoute: typeof ProductIdRoute
   StickerSlugRoute: typeof StickerSlugRoute
+  StickersSlugRoute: typeof StickersSlugRoute
+  StickersIndexRoute: typeof StickersIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiStickersIdRoute: typeof ApiStickersIdRouteWithChildren
   ApiUploadsIdRoute: typeof ApiUploadsIdRoute
@@ -293,6 +332,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof ProtectedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/categories': {
+      id: '/categories'
+      path: '/categories'
+      fullPath: '/categories'
+      preLoaderRoute: typeof CategoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/directory': {
@@ -356,6 +402,20 @@ declare module '@tanstack/react-router' {
       path: '/sticker/$slug'
       fullPath: '/sticker/$slug'
       preLoaderRoute: typeof StickerSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stickers/': {
+      id: '/stickers/'
+      path: '/stickers'
+      fullPath: '/stickers/'
+      preLoaderRoute: typeof StickersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stickers/$slug': {
+      id: '/stickers/$slug'
+      path: '/stickers/$slug'
+      fullPath: '/stickers/$slug'
+      preLoaderRoute: typeof StickersSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_protected/dashboard/': {
@@ -468,6 +528,7 @@ const ApiStickersIdRouteWithChildren = ApiStickersIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProtectedRoute: ProtectedRouteWithChildren,
+  CategoriesRoute: CategoriesRoute,
   DirectoryRoute: DirectoryRoute,
   MakeRoute: MakeRoute,
   PlaceRoute: PlaceRoute,
@@ -475,6 +536,8 @@ const rootRouteChildren: RootRouteChildren = {
   SignUpRoute: SignUpRoute,
   ProductIdRoute: ProductIdRoute,
   StickerSlugRoute: StickerSlugRoute,
+  StickersSlugRoute: StickersSlugRoute,
+  StickersIndexRoute: StickersIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiStickersIdRoute: ApiStickersIdRouteWithChildren,
   ApiUploadsIdRoute: ApiUploadsIdRoute,

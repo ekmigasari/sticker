@@ -102,18 +102,24 @@ model Sticker {
   oneLiner         String
   url              String
   category         String
+  description      String?
   offer            String?
+  offerCode        String?
+  offerExpiresOn   DateTime? @db.Date
   uploadId         String
   upload           Upload   @relation(fields: [uploadId], references: [id], onDelete: Restrict)
   style            String
   filter           String   @default("original")
   outlineColor     String
   outlineThickness Int
+  /// Whole dollars paid for wall placements. Ranks are derived from this at read time.
+  totalSpent       Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   @@index([userId])
   @@index([category])
   @@index([uploadId])
+  @@index([totalSpent(sort: Desc), createdAt])
   @@map("sticker")
 }

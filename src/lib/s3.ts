@@ -33,7 +33,9 @@ export function getS3() {
     client = new S3Client({
       region: process.env.S3_REGION || "us-east-1",
       endpoint: endpoint || undefined,
-      forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+      forcePathStyle: process.env.S3_FORCE_PATH_STYLE
+        ? process.env.S3_FORCE_PATH_STYLE === "true"
+        : Boolean(endpoint),
       credentials: {
         accessKeyId: required("S3_ACCESS_KEY_ID"),
         secretAccessKey: required("S3_SECRET_ACCESS_KEY"),

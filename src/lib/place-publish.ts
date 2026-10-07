@@ -6,7 +6,10 @@ export type PlaceStickerInput = {
   oneLiner: string
   url: string
   category: string
+  description?: string
   offer?: string
+  offerCode?: string
+  offerExpiresOn?: string
 }
 
 function dataUrlToFile(dataUrl: string, fileName: string) {
@@ -25,10 +28,12 @@ async function readError(response: Response) {
   return payload?.error ?? "Request failed."
 }
 
-/** Create a directory sticker (listing + artwork) from a Place draft. */
+/** Create a listed sticker (details + artwork) from a Place draft. */
 export async function publishPlaceListing(input: {
   details: PlaceStickerInput
   sticker: DraftSticker
+  unitsW: number
+  unitsH: number
 }): Promise<{ stickerId: string; slug: string }> {
   const file = dataUrlToFile(
     input.sticker.imageDataUrl,
@@ -40,11 +45,20 @@ export async function publishPlaceListing(input: {
   form.set("oneLiner", input.details.oneLiner)
   form.set("url", input.details.url)
   form.set("category", input.details.category)
+  if (input.details.description) {
+    form.set("description", input.details.description)
+  }
   if (input.details.offer) form.set("offer", input.details.offer)
+  if (input.details.offerCode) form.set("offerCode", input.details.offerCode)
+  if (input.details.offerExpiresOn) {
+    form.set("offerExpiresOn", input.details.offerExpiresOn)
+  }
   form.set("style", input.sticker.style)
   form.set("filter", input.sticker.filter)
   form.set("outlineColor", input.sticker.outlineColor)
   form.set("outlineThickness", String(input.sticker.outlineThickness))
+  form.set("unitsW", String(input.unitsW))
+  form.set("unitsH", String(input.unitsH))
 
   const response = await fetch("/api/stickers", {
     method: "POST",
@@ -52,7 +66,7 @@ export async function publishPlaceListing(input: {
   })
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error("Sign in to save your sticker to the directory.")
+      throw new Error("Sign in to list your sticker.")
     }
     throw new Error(await readError(response))
   }

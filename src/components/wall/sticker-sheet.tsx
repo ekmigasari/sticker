@@ -2,6 +2,7 @@ import { ArrowSquareOut, X } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
 import type { Placement, Sticker } from "@/domain/types"
 import { formatPlot } from "@/domain/types"
+import { StickerPromo } from "@/components/sticker-promo"
 
 type Props = {
   sticker: Sticker
@@ -41,11 +42,12 @@ export function StickerSheet({ sticker, placement, onClose }: Props) {
           <p className="mt-1.5 text-[14px] leading-relaxed text-neutral-500">
             {sticker.oneLiner}
           </p>
-          {sticker.offer ? (
-            <p className="mt-2 text-[13px] font-medium tracking-[-0.01em] text-neutral-700">
-              {sticker.offer}
-            </p>
-          ) : null}
+          <StickerPromo
+            offer={sticker.offer}
+            offerCode={sticker.offerCode}
+            offerExpiresOn={sticker.offerExpiresOn}
+            className="mt-2.5"
+          />
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -59,7 +61,7 @@ export function StickerSheet({ sticker, placement, onClose }: Props) {
           <ArrowSquareOut weight="bold" className="size-3.5" />
         </a>
         <Link
-          to="/sticker/$slug"
+          to="/stickers/$slug"
           params={{ slug: sticker.slug }}
           className="press inline-flex h-10 items-center rounded-full bg-black/[0.06] px-4 text-[14px] font-semibold tracking-[-0.01em] text-neutral-900 transition-colors hover:bg-black/[0.09]"
         >

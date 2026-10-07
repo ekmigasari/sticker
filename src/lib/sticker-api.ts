@@ -1,6 +1,22 @@
-import { CATEGORIES, type Category } from "@/domain/types"
+import {
+  DETAIL_LIMITS,
+  isCategory,
+  isIsoDate,
+  normalizeCategory,
+  type Category,
+} from "@/domain/types"
+import type { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { normalizeStickerUrl, slugifyName } from "@/lib/sticker-meta"
+
+export { isCategory }
+
+/** Leaderboard order; must match the tie-breaks in `rankStickers`. */
+export const TOP_STICKER_ORDER = [
+  { totalSpent: "desc" },
+  { createdAt: "asc" },
+  { id: "asc" },
+] satisfies Prisma.StickerOrderByWithRelationInput[]
 
 export type StickerDTO = {
   id: string
@@ -10,20 +26,19 @@ export type StickerDTO = {
   oneLiner: string
   url: string
   category: Category
+  description?: string
   offer?: string
+  offerCode?: string
+  offerExpiresOn?: string
   style: string
   filter: string
   outlineColor: string
   outlineThickness: number
+  /** Whole dollars paid for wall placements. */
+  totalSpent: number
   imageUrl: string
   createdAt: string
   updatedAt: string
-}
-
-const categorySet = new Set<string>(CATEGORIES)
-
-export function isCategory(value: string): value is Category {
-  return categorySet.has(value)
 }
 
 type StickerRecord = {
@@ -34,13 +49,21 @@ type StickerRecord = {
   oneLiner: string
   url: string
   category: string
+  description: string | null
   offer: string | null
+  offerCode: string | null
+  offerExpiresOn: Date | null
   style: string
   filter: string
   outlineColor: string
   outlineThickness: number
+  totalSpent: number
   createdAt: Date
   updatedAt: Date
+}
+
+export function stickerImageUrl(id: string): string {
+  return `/api/stickers/${id}/image`
 }
 
 export function serializeSticker(sticker: StickerRecord): StickerDTO {
@@ -51,13 +74,17 @@ export function serializeSticker(sticker: StickerRecord): StickerDTO {
     name: sticker.name,
     oneLiner: sticker.oneLiner,
     url: sticker.url,
-    category: isCategory(sticker.category) ? sticker.category : "Other",
+    category: normalizeCategory(sticker.category),
+    description: sticker.description ?? undefined,
     offer: sticker.offer ?? undefined,
+    offerCode: sticker.offerCode ?? undefined,
+    offerExpiresOn: sticker.offerExpiresOn?.toISOString().slice(0, 10),
     style: sticker.style,
     filter: sticker.filter,
     outlineColor: sticker.outlineColor,
     outlineThickness: sticker.outlineThickness,
-    imageUrl: `/api/stickers/${sticker.id}/image`,
+    totalSpent: sticker.totalSpent,
+    imageUrl: stickerImageUrl(sticker.id),
     createdAt: sticker.createdAt.toISOString(),
     updatedAt: sticker.updatedAt.toISOString(),
   }
@@ -79,6 +106,12 @@ export async function allocateUniqueSlug(
   return `${base}-${crypto.randomUUID().slice(0, 8)}`
 }
 
+function optionalText(value: unknown, max: number): string | null {
+  if (value == null) return null
+  const text = String(value).trim()
+  return text ? text.slice(0, max) : null
+}
+
 export function parseStickerDetails(body: unknown) {
   if (!body || typeof body !== "object") {
     return { error: "Invalid JSON body." as const }
@@ -88,9 +121,6 @@ export function parseStickerDetails(body: unknown) {
   const oneLiner = String(data.oneLiner ?? "").trim()
   const url = String(data.url ?? "").trim()
   const category = String(data.category ?? "").trim()
-  const offerRaw = data.offer
-  const offer =
-    offerRaw == null || offerRaw === "" ? null : String(offerRaw).trim() || null
 
   if (!name) return { error: "Title is required." as const }
   if (!oneLiner) return { error: "Short description is required." as const }
@@ -106,13 +136,32 @@ export function parseStickerDetails(body: unknown) {
     }
   }
 
+  const offer = optionalText(data.offer, DETAIL_LIMITS.offer)
+  const offerCode = optionalText(data.offerCode, DETAIL_LIMITS.offerCode)
+  const offerExpiresOn = optionalText(data.offerExpiresOn, 10)
+  if (offerCode && /\s/.test(offerCode)) {
+    return { error: "Discount codes can't contain spaces." as const }
+  }
+  if (offerExpiresOn && !isIsoDate(offerExpiresOn)) {
+    return { error: "Enter a valid promo expiry date." as const }
+  }
+  if (!offer && (offerCode || offerExpiresOn)) {
+    return { error: "Describe the deal for your promo." as const }
+  }
+
   return {
     data: {
-      name: name.slice(0, 80),
-      oneLiner: oneLiner.slice(0, 160),
+      name: name.slice(0, DETAIL_LIMITS.name),
+      oneLiner: oneLiner.slice(0, DETAIL_LIMITS.oneLiner),
       url: normalizedUrl.slice(0, 500),
       category,
-      offer: offer ? offer.slice(0, 120) : null,
+      description: optionalText(data.description, DETAIL_LIMITS.description),
+      offer,
+      offerCode: offer ? offerCode : null,
+      offerExpiresOn:
+        offer && offerExpiresOn
+          ? new Date(`${offerExpiresOn}T00:00:00Z`)
+          : null,
     },
   }
 }

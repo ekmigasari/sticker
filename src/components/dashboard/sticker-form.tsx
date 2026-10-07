@@ -1,5 +1,11 @@
 import { useState } from "react"
-import { CATEGORIES, type Category } from "@/domain/types"
+import { Plus } from "@phosphor-icons/react"
+import {
+  CATEGORIES,
+  DEFAULT_CATEGORY,
+  DETAIL_LIMITS,
+  type Category,
+} from "@/domain/types"
 import { cn } from "@/lib/utils"
 
 export type StickerFormValues = {
@@ -7,7 +13,10 @@ export type StickerFormValues = {
   oneLiner: string
   url: string
   category: Category
+  description?: string
   offer?: string
+  offerCode?: string
+  offerExpiresOn?: string
 }
 
 type Props = {
@@ -15,6 +24,25 @@ type Props = {
   submitLabel: string
   onSubmit: (values: StickerFormValues) => Promise<void>
   onCancel?: () => void
+}
+
+function AddToggle({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="press inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-black/[0.14] px-3.5 text-[13px] font-medium tracking-[-0.01em] text-neutral-700 transition-colors hover:border-black/25 hover:bg-black/[0.03] hover:text-neutral-900"
+    >
+      <Plus weight="bold" className="size-3" />
+      {children}
+    </button>
+  )
 }
 
 export function StickerForm({
@@ -26,7 +54,13 @@ export function StickerForm({
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [category, setCategory] = useState<Category>(
-    initial?.category ?? "Developer Tools"
+    initial?.category ?? DEFAULT_CATEGORY
+  )
+  const [showDescription, setShowDescription] = useState(
+    !!initial?.description
+  )
+  const [showPromo, setShowPromo] = useState(
+    !!(initial?.offer || initial?.offerCode || initial?.offerExpiresOn)
   )
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -34,12 +68,16 @@ export function StickerForm({
     setError(null)
     setPending(true)
     const form = new FormData(event.currentTarget)
+    const text = (key: string) => String(form.get(key) ?? "").trim() || undefined
     const values: StickerFormValues = {
       name: String(form.get("name") ?? ""),
       oneLiner: String(form.get("oneLiner") ?? ""),
       url: String(form.get("url") ?? ""),
       category,
-      offer: String(form.get("offer") ?? "") || undefined,
+      description: showDescription ? text("description") : undefined,
+      offer: showPromo ? text("offer") : undefined,
+      offerCode: showPromo ? text("offerCode") : undefined,
+      offerExpiresOn: showPromo ? text("offerExpiresOn") : undefined,
     }
     try {
       await onSubmit(values)
@@ -63,7 +101,7 @@ export function StickerForm({
           id="name"
           name="name"
           required
-          maxLength={80}
+          maxLength={DETAIL_LIMITS.name}
           defaultValue={initial?.name}
           placeholder="Parcel Pilot"
           className="nk-field"
@@ -77,7 +115,7 @@ export function StickerForm({
           id="oneLiner"
           name="oneLiner"
           required
-          maxLength={160}
+          maxLength={DETAIL_LIMITS.oneLiner}
           defaultValue={initial?.oneLiner}
           placeholder="Ship indie launches without the chaos."
           className="nk-textarea"
@@ -99,7 +137,7 @@ export function StickerForm({
       </div>
       <div className="flex flex-col gap-2">
         <span className="nk-label">Category</span>
-        <div className="-mx-1 no-scrollbar flex gap-1.5 overflow-x-auto px-1 pb-1">
+        <div className="flex flex-wrap gap-1.5">
           {CATEGORIES.map((c) => (
             <button
               key={c}
@@ -114,22 +152,104 @@ export function StickerForm({
             </button>
           ))}
         </div>
-        <input type="hidden" name="category" value={category} />
       </div>
-      <div className="flex flex-col gap-2">
-        <label htmlFor="offer" className="nk-label">
-          Offer / launch line{" "}
-          <span className="text-neutral-400">(optional)</span>
-        </label>
-        <input
-          id="offer"
-          name="offer"
-          maxLength={120}
-          defaultValue={initial?.offer}
-          placeholder="Launch week: 30% off"
-          className="nk-field"
-        />
-      </div>
+      {showDescription ? (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <label htmlFor="description" className="nk-label">
+              Long description
+            </label>
+            <button
+              type="button"
+              className="text-[12px] font-medium text-neutral-500 hover:text-neutral-900"
+              onClick={() => setShowDescription(false)}
+            >
+              Remove
+            </button>
+          </div>
+          <textarea
+            id="description"
+            name="description"
+            maxLength={DETAIL_LIMITS.description}
+            defaultValue={initial?.description}
+            placeholder="What it does, who it's for, and why you built it."
+            className="nk-textarea min-h-36"
+          />
+        </div>
+      ) : null}
+      {showPromo ? (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <label htmlFor="offer" className="nk-label">
+              Promo
+            </label>
+            <button
+              type="button"
+              className="text-[12px] font-medium text-neutral-500 hover:text-neutral-900"
+              onClick={() => setShowPromo(false)}
+            >
+              Remove
+            </button>
+          </div>
+          <input
+            id="offer"
+            name="offer"
+            required
+            maxLength={DETAIL_LIMITS.offer}
+            defaultValue={initial?.offer}
+            placeholder="20% off your first year"
+            className="nk-field"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="offerCode"
+                className="text-[12px] text-neutral-500"
+              >
+                Code <span className="text-neutral-400">· optional</span>
+              </label>
+              <input
+                id="offerCode"
+                name="offerCode"
+                maxLength={DETAIL_LIMITS.offerCode}
+                pattern="\S*"
+                title="No spaces"
+                defaultValue={initial?.offerCode}
+                placeholder="LAUNCH20"
+                autoComplete="off"
+                className="nk-field font-mono tracking-wide"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="offerExpiresOn"
+                className="text-[12px] text-neutral-500"
+              >
+                Ends on <span className="text-neutral-400">· optional</span>
+              </label>
+              <input
+                id="offerExpiresOn"
+                name="offerExpiresOn"
+                type="date"
+                defaultValue={initial?.offerExpiresOn}
+                className="nk-field"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {!showDescription || !showPromo ? (
+        <div className="flex flex-wrap gap-2">
+          {!showDescription ? (
+            <AddToggle onClick={() => setShowDescription(true)}>
+              Long description
+            </AddToggle>
+          ) : null}
+          {!showPromo ? (
+            <AddToggle onClick={() => setShowPromo(true)}>Promo</AddToggle>
+          ) : null}
+        </div>
+      ) : null}
       {error ? (
         <p className="text-[14px] font-medium text-red-600">{error}</p>
       ) : null}

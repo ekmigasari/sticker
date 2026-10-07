@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import {
+  isValidPlot,
+  plotPrice,
   STICKER_FILTERS,
   STICKER_STYLES,
   type StickerFilter,
@@ -12,6 +14,7 @@ import {
   isCategory,
   parseStickerDetails,
   serializeSticker,
+  TOP_STICKER_ORDER,
 } from "@/lib/sticker-api"
 import { prisma } from "@/lib/prisma"
 import { putObject } from "@/lib/s3"
@@ -63,7 +66,7 @@ export const Route = createFileRoute("/api/stickers/")({
                 : {},
             ],
           },
-          orderBy: { createdAt: "desc" },
+          orderBy: TOP_STICKER_ORDER,
         })
 
         return Response.json({
@@ -103,7 +106,10 @@ export const Route = createFileRoute("/api/stickers/")({
           oneLiner: form.get("oneLiner"),
           url: form.get("url"),
           category: form.get("category"),
-          offer: form.get("offer") || null,
+          description: form.get("description"),
+          offer: form.get("offer"),
+          offerCode: form.get("offerCode"),
+          offerExpiresOn: form.get("offerExpiresOn"),
         })
         if ("error" in parsed) {
           return Response.json({ error: parsed.error }, { status: 400 })
@@ -143,6 +149,19 @@ export const Route = createFileRoute("/api/stickers/")({
           )
         }
 
+        let totalSpent = 0
+        if (form.has("unitsW") || form.has("unitsH")) {
+          const unitsW = Number(form.get("unitsW"))
+          const unitsH = Number(form.get("unitsH"))
+          if (!isValidPlot(unitsW, unitsH)) {
+            return Response.json(
+              { error: "Invalid wall plot size." },
+              { status: 400 }
+            )
+          }
+          totalSpent = plotPrice(unitsW, unitsH)
+        }
+
         const uploadId = crypto.randomUUID()
         const stickerId = crypto.randomUUID()
         const slug = await allocateUniqueSlug(parsed.data.name)
@@ -174,6 +193,7 @@ export const Route = createFileRoute("/api/stickers/")({
               filter: filterRaw,
               outlineColor: outlineColor.slice(0, 32),
               outlineThickness: Math.round(outlineThickness),
+              totalSpent,
             },
           })
         })

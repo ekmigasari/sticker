@@ -6,7 +6,7 @@ export const Route = createFileRoute("/product/$id")({
   beforeLoad: async ({ params }) => {
     const sticker = await getPublicSticker({ data: params.id })
     throw redirect({
-      to: "/sticker/$slug",
+      to: "/stickers/$slug",
       params: { slug: sticker?.slug ?? params.id },
     })
   },

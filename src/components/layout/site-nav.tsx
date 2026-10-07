@@ -7,9 +7,9 @@ import {
 import {
   House,
   MagicWand,
-  MagnifyingGlass,
   SignOut,
   SquaresFour,
+  Sticker,
 } from "@phosphor-icons/react"
 import {
   DropdownMenu,
@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils"
 const publicLinks = [
   { to: "/", label: "Wall", icon: SquaresFour },
   { to: "/make", label: "Make", icon: MagicWand },
-  { to: "/directory", label: "Find", icon: MagnifyingGlass },
+  { to: "/stickers", label: "Stickers", icon: Sticker },
 ] as const
 
 /** Apple-style glass capsule shared by the nav and account controls. */
@@ -47,9 +47,9 @@ export function SiteNav({ className }: { className?: string }) {
           key={to}
           to={to}
           activeOptions={{ exact: to === "/" }}
-          className="press flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium tracking-[-0.01em] text-neutral-500 transition-colors hover:text-neutral-900 sm:px-3.5 [&.active]:bg-black/[0.07] [&.active]:font-semibold [&.active]:text-neutral-900"
+          className="press flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium tracking-[-0.01em] text-neutral-500 transition-colors hover:text-neutral-900 max-[399px]:gap-1 max-[399px]:px-2.5 sm:px-3.5 [&.active]:bg-black/[0.07] [&.active]:font-semibold [&.active]:text-neutral-900"
         >
-          <Icon weight="bold" className="size-3.5" />
+          <Icon weight="bold" className="size-3.5 max-[359px]:hidden" />
           {label}
         </Link>
       ))}
@@ -76,7 +76,7 @@ export function AccountButton({ className }: { className?: string }) {
       <Link
         to="/sign-in"
         className={cn(
-          "press inline-flex h-10 items-center rounded-full bg-neutral-900 px-5 font-ui text-[14px] font-semibold tracking-[-0.01em] text-white shadow-[0_6px_20px_-8px_rgba(0,0,0,0.45)] transition-opacity hover:opacity-90",
+          "press inline-flex h-10 items-center rounded-full bg-neutral-900 px-4 font-ui text-[14px] font-semibold tracking-[-0.01em] whitespace-nowrap text-white shadow-[0_6px_20px_-8px_rgba(0,0,0,0.45)] transition-opacity hover:opacity-90 max-[399px]:px-3.5 sm:px-5",
           className
         )}
       >
@@ -101,7 +101,8 @@ export function AccountButton({ className }: { className?: string }) {
       <DropdownMenuTrigger
         aria-label="Account menu"
         className={cn(
-          "press grid size-10 place-items-center rounded-full p-0.5 font-ui outline-none focus-visible:ring-2 focus-visible:ring-neutral-400",
+          "press grid place-items-center rounded-full font-ui outline-none focus-visible:ring-2 focus-visible:ring-neutral-400",
+          "size-10 p-0.5",
           glassCapsule,
           className
         )}

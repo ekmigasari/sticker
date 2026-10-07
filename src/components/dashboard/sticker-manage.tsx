@@ -82,7 +82,7 @@ export function StickerManage({ sticker: initial }: { sticker: StickerDTO }) {
               Replace artwork
             </Link>
             <Link
-              to="/sticker/$slug"
+              to="/stickers/$slug"
               params={{ slug: sticker.slug }}
               className="nk-btn-secondary"
             >

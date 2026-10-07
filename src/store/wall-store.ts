@@ -10,6 +10,7 @@ import {
   SIZE_TIERS,
   UNIT_SCALE,
   WALL_SIZE,
+  normalizeCategory,
   snapPlotOrigin,
   unitsToPx,
 } from "@/domain/types"
@@ -190,6 +191,7 @@ export const useWallStore = create<WallState>((set, get) => ({
     const stickers = persisted.stickers.map((s) => ({
       ...s,
       slug: s.slug || slugifyName(s.name) || s.id,
+      category: normalizeCategory(s.category),
     }))
     const placements = persisted.placements.map(normalizePlacement)
     const nextZ = Math.max(
@@ -307,7 +309,10 @@ export const useWallStore = create<WallState>((set, get) => ({
       oneLiner: draft.details.oneLiner,
       url: draft.details.url,
       category: draft.details.category,
+      description: draft.details.description,
       offer: draft.details.offer,
+      offerCode: draft.details.offerCode,
+      offerExpiresOn: draft.details.offerExpiresOn,
       imageDataUrl: draft.sticker.imageDataUrl,
       outlineColor: draft.sticker.outlineColor,
       outlineThickness: draft.sticker.outlineThickness,

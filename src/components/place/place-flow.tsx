@@ -10,6 +10,7 @@ import {
 import { Link, useNavigate, useRouteContext } from "@tanstack/react-router"
 import {
   ArrowCounterClockwise,
+  Article,
   ArrowsHorizontal,
   ArrowsVertical,
   CaretLeft,
@@ -26,10 +27,13 @@ import {
   Sticker as StickerIcon,
   Tag,
   TextAlignLeft,
+  Ticket,
 } from "@phosphor-icons/react"
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 import {
   CATEGORIES,
+  DEFAULT_CATEGORY,
+  DETAIL_LIMITS,
   PLOT_MIN,
   STICKER_SCALE_FIT_MAX,
   STICKER_SCALE_MAX,
@@ -45,6 +49,8 @@ import {
   contentAspectRatio,
   fieldWarning,
   formatPlot,
+  localIsoDate,
+  normalizeCategory,
   plotOriginAtCenter,
   plotOriginContaining,
   plotPrice,
@@ -85,8 +91,7 @@ import { animateCamera, clampCamera, clampZoom } from "@/components/wall/camera"
 
 type Step = "place" | "details" | "pay" | "done"
 
-/** Matches backend short-description cap in sticker-api. */
-const MAX_DESCRIPTION_CHARS = 160
+const MAX_DESCRIPTION_CHARS = DETAIL_LIMITS.oneLiner
 
 /**
  * Apple-surface styling on top of underline-default UI primitives.
@@ -406,6 +411,47 @@ function FieldLabel({
   )
 }
 
+function AddDetailButton({
+  children,
+  onClick,
+}: {
+  children: ReactNode
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="press inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-black/[0.14] px-3.5 text-[13px] font-medium tracking-[-0.01em] text-neutral-700 transition-colors hover:border-black/25 hover:bg-black/[0.03] hover:text-neutral-900"
+    >
+      <Plus weight="bold" className="size-3 text-neutral-400" />
+      {children}
+    </button>
+  )
+}
+
+function RemoveDetailButton({
+  label,
+  onClick,
+}: {
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="press -my-1 rounded-full px-2 py-1 text-[12px] font-medium text-neutral-500 transition-colors hover:bg-black/[0.045] hover:text-neutral-900"
+    >
+      Remove
+    </button>
+  )
+}
+
+const revealMotion =
+  "animate-in fade-in slide-in-from-top-1 duration-200 ease-out motion-reduce:animate-none"
+
 function IconWell({
   children,
   tone = "neutral",
@@ -581,9 +627,34 @@ export function PlaceFlow() {
       ? placeDraft.details.url.replace(/^https?:\/\//i, "")
       : ""
   )
-  const [category, setCategory] = useState<Category>(
-    placeDraft?.details?.category ?? "Developer Tools"
+  const [category, setCategory] = useState<Category>(() =>
+    placeDraft?.details?.category
+      ? normalizeCategory(placeDraft.details.category)
+      : DEFAULT_CATEGORY
   )
+  const [description, setDescription] = useState(
+    placeDraft?.details?.description ?? ""
+  )
+  const [offer, setOffer] = useState(placeDraft?.details?.offer ?? "")
+  const [offerCode, setOfferCode] = useState(
+    placeDraft?.details?.offerCode ?? ""
+  )
+  const [offerExpiresOn, setOfferExpiresOn] = useState(
+    placeDraft?.details?.offerExpiresOn ?? ""
+  )
+  const [showDescription, setShowDescription] = useState(
+    () => !!placeDraft?.details?.description
+  )
+  const [showPromo, setShowPromo] = useState(
+    () =>
+      !!(
+        placeDraft?.details?.offer ||
+        placeDraft?.details?.offerCode ||
+        placeDraft?.details?.offerExpiresOn
+      )
+  )
+  /** Section the user just opened, so only that one grabs focus. */
+  const [revealed, setRevealed] = useState<"description" | "promo" | null>(null)
   const [paying, setPaying] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -690,9 +761,10 @@ export function PlaceFlow() {
       name.trim().length > 1 &&
       chars > 3 &&
       chars <= MAX_DESCRIPTION_CHARS &&
-      isValidStickerUrl(url)
+      isValidStickerUrl(url) &&
+      (!showPromo || offer.trim().length > 0)
     )
-  }, [plotCheck.ok, name, oneLiner, url])
+  }, [plotCheck.ok, name, oneLiner, url, showPromo, offer])
 
   // When a spot is pinned, bring it into the clear area above the bottom sheet.
   // Without this the sticker usually ends up hidden behind the controls on phones.
@@ -761,8 +833,13 @@ export function PlaceFlow() {
         oneLiner: oneLiner.trim(),
         url: normalizedUrl,
         category,
+        description: (showDescription && description.trim()) || undefined,
+        offer: (showPromo && offer.trim()) || undefined,
+        offerCode: (showPromo && offerCode.trim()) || undefined,
+        offerExpiresOn: (showPromo && offerExpiresOn) || undefined,
       },
     })
+    setRevealed(null)
     setStep("pay")
   }
 
@@ -1196,6 +1273,8 @@ export function PlaceFlow() {
       const published = await publishPlaceListing({
         details: draft.details,
         sticker: draft.sticker,
+        unitsW: draft.unitsW,
+        unitsH: draft.unitsH,
       })
       const placement = confirmPlacement(draft.x, draft.y, {
         stickerId: published.stickerId,
@@ -1236,7 +1315,8 @@ export function PlaceFlow() {
           </h2>
           <p className="max-w-sm text-[15px] leading-relaxed text-neutral-500">
             Your placement is permanent. Newer stickers can cover it —
-            that&apos;s the game. Your sticker is in the directory either way.
+            that&apos;s the game. Your sticker stays listed in Stickers either
+            way.
           </p>
           <div className="flex flex-wrap justify-center gap-2.5">
             <button
@@ -1251,7 +1331,7 @@ export function PlaceFlow() {
             </button>
             {savedSlug ? (
               <Link
-                to="/sticker/$slug"
+                to="/stickers/$slug"
                 params={{ slug: savedSlug }}
                 className="press inline-flex h-11 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold text-neutral-900"
                 onClick={() => setDraftSticker(null)}
@@ -1260,11 +1340,11 @@ export function PlaceFlow() {
               </Link>
             ) : (
               <Link
-                to="/directory"
+                to="/stickers"
                 className="press inline-flex h-11 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold text-neutral-900"
                 onClick={() => setDraftSticker(null)}
               >
-                Open directory
+                Browse stickers
               </Link>
             )}
           </div>
@@ -1737,7 +1817,7 @@ export function PlaceFlow() {
                     </SelectTrigger>
                     <SelectContent
                       align="start"
-                      className="rounded-xl border border-black/[0.06] bg-white shadow-[0_16px_40px_-16px_rgba(0,0,0,0.25)]"
+                      className="max-h-[min(22rem,var(--available-height))] rounded-xl border border-black/[0.06] bg-white shadow-[0_16px_40px_-16px_rgba(0,0,0,0.25)]"
                     >
                       {CATEGORIES.map((c) => (
                         <SelectItem
@@ -1751,6 +1831,158 @@ export function PlaceFlow() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {showDescription ? (
+                  <div className={cn("space-y-2", revealMotion)}>
+                    <FieldLabel
+                      htmlFor="description"
+                      icon={<Article weight="bold" className="size-3.5" />}
+                      hint={
+                        <span className="flex items-center gap-1">
+                          <span className="tabular-nums">
+                            {description.length}/{DETAIL_LIMITS.description}
+                          </span>
+                          <RemoveDetailButton
+                            label="Remove long description"
+                            onClick={() => {
+                              setDescription("")
+                              setShowDescription(false)
+                            }}
+                          />
+                        </span>
+                      }
+                    >
+                      Long description
+                    </FieldLabel>
+                    <Textarea
+                      id="description"
+                      autoFocus={revealed === "description"}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      maxLength={DETAIL_LIMITS.description}
+                      placeholder="What it does, who it's for, and why you built it. Shown on your sticker page."
+                      className={cn(textareaSurface, "min-h-36")}
+                    />
+                  </div>
+                ) : null}
+
+                {showPromo ? (
+                  <div className={cn("space-y-2", revealMotion)}>
+                    <FieldLabel
+                      htmlFor="offer"
+                      icon={<Ticket weight="bold" className="size-3.5" />}
+                      hint={
+                        <RemoveDetailButton
+                          label="Remove promo"
+                          onClick={() => {
+                            setOffer("")
+                            setOfferCode("")
+                            setOfferExpiresOn("")
+                            setShowPromo(false)
+                          }}
+                        />
+                      }
+                    >
+                      Promo
+                    </FieldLabel>
+                    <Input
+                      id="offer"
+                      autoFocus={revealed === "promo"}
+                      required
+                      aria-describedby="offer-hint"
+                      value={offer}
+                      onChange={(e) => setOffer(e.target.value)}
+                      maxLength={DETAIL_LIMITS.offer}
+                      placeholder="20% off your first year"
+                      autoComplete="off"
+                      className={fieldSurface}
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="offerCode"
+                          className="block px-1 text-[12px] text-neutral-500"
+                        >
+                          Code{" "}
+                          <span className="text-neutral-400">· optional</span>
+                        </label>
+                        <Input
+                          id="offerCode"
+                          value={offerCode}
+                          onChange={(e) =>
+                            setOfferCode(e.target.value.replace(/\s+/g, ""))
+                          }
+                          maxLength={DETAIL_LIMITS.offerCode}
+                          placeholder="LAUNCH20"
+                          autoComplete="off"
+                          autoCapitalize="characters"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          className={cn(
+                            fieldSurface,
+                            "font-mono tracking-wide"
+                          )}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="offerExpiresOn"
+                          className="block px-1 text-[12px] text-neutral-500"
+                        >
+                          Ends on{" "}
+                          <span className="text-neutral-400">· optional</span>
+                        </label>
+                        <Input
+                          id="offerExpiresOn"
+                          type="date"
+                          value={offerExpiresOn}
+                          min={localIsoDate()}
+                          onChange={(e) => setOfferExpiresOn(e.target.value)}
+                          className={cn(
+                            fieldSurface,
+                            "appearance-none",
+                            !offerExpiresOn && "text-neutral-400"
+                          )}
+                        />
+                      </div>
+                    </div>
+                    {!offer.trim() || offerExpiresOn ? (
+                      <p
+                        id="offer-hint"
+                        className="px-1 text-[12px] text-neutral-500"
+                      >
+                        {offer.trim()
+                          ? "The promo disappears from your sticker after this date."
+                          : "Describe the deal to continue, or remove the promo."}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {!showDescription || !showPromo ? (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {!showDescription ? (
+                      <AddDetailButton
+                        onClick={() => {
+                          setRevealed("description")
+                          setShowDescription(true)
+                        }}
+                      >
+                        Long description
+                      </AddDetailButton>
+                    ) : null}
+                    {!showPromo ? (
+                      <AddDetailButton
+                        onClick={() => {
+                          setRevealed("promo")
+                          setShowPromo(true)
+                        }}
+                      >
+                        Promo
+                      </AddDetailButton>
+                    ) : null}
+                  </div>
+                ) : null}
               </section>
 
               <button

@@ -1,18 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { AppChrome } from "@/components/layout/app-chrome"
-import { DirectoryList } from "@/components/directory/directory-list"
-import { listPublicStickers } from "@/lib/stickers"
+import { createFileRoute, redirect } from "@tanstack/react-router"
+import { parseStickersSearch } from "@/lib/stickers-search"
 
+/** Old listing URL → /stickers, keeping filters. */
 export const Route = createFileRoute("/directory")({
-  loader: () => listPublicStickers(),
-  component: DirectoryPage,
+  validateSearch: parseStickersSearch,
+  beforeLoad: ({ search }) => {
+    throw redirect({ to: "/stickers", search, statusCode: 301 })
+  },
 })
-
-function DirectoryPage() {
-  const stickers = Route.useLoaderData()
-  return (
-    <AppChrome>
-      <DirectoryList stickers={stickers} />
-    </AppChrome>
-  )
-}

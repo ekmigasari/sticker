@@ -75,24 +75,99 @@ export function clampOnWall(
   return { x: ncx - w / 2, y: ncy - h / 2 }
 }
 
+/**
+ * What the thing *is*, modelled on Product Hunt's top-level groups and
+ * outbid.lol's leaderboards. Platform (mobile), model (SaaS) and licence
+ * (open source) are attributes, not categories.
+ */
 export const CATEGORIES = [
+  "AI & Agents",
   "Developer Tools",
-  "SaaS",
-  "AI",
+  "No-Code",
   "Productivity",
-  "Design",
-  "Marketing",
-  "Games",
-  "Mobile",
-  "Open Source",
-  "Newsletter",
-  "Community",
-  "Services",
+  "Design & Creative",
+  "Marketing & SEO",
+  "Sales & CRM",
+  "Analytics & Data",
+  "Finance & Fintech",
+  "Crypto & Web3",
+  "Ecommerce",
+  "Social & Community",
+  "Writing & Content",
+  "Media & Newsletters",
+  "Education",
+  "Health & Fitness",
+  "Travel & Lifestyle",
+  "Games & Entertainment",
+  "Hiring & Careers",
+  "Security & Privacy",
+  "Hardware",
+  "Agencies & Services",
   "Personal Brand",
   "Other",
 ] as const
 
 export type Category = (typeof CATEGORIES)[number]
+
+export const DEFAULT_CATEGORY: Category = "Developer Tools"
+
+/** Pre-Oct-2026 names still found in local storage and old drafts. */
+const LEGACY_CATEGORIES: Record<string, Category> = {
+  AI: "AI & Agents",
+  SaaS: "Productivity",
+  Design: "Design & Creative",
+  Marketing: "Marketing & SEO",
+  Games: "Games & Entertainment",
+  Mobile: "Other",
+  "Open Source": "Developer Tools",
+  Newsletter: "Media & Newsletters",
+  Community: "Social & Community",
+  Services: "Agencies & Services",
+}
+
+const categorySet = new Set<string>(CATEGORIES)
+
+export function isCategory(value: string): value is Category {
+  return categorySet.has(value)
+}
+
+export function normalizeCategory(value: string | null | undefined): Category {
+  if (!value) return "Other"
+  if (isCategory(value)) return value
+  return LEGACY_CATEGORIES[value] ?? "Other"
+}
+
+/** Calendar date as `YYYY-MM-DD` in the viewer's local time zone. */
+export function localIsoDate(date = new Date()): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
+}
+
+export function isIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [y, m, d] = value.split("-").map(Number)
+  const date = new Date(Date.UTC(y, m - 1, d))
+  return date.getUTCMonth() === m - 1 && date.getUTCDate() === d
+}
+
+/** A promo stays live through the whole of its expiry day. */
+export function isOfferExpired(
+  expiresOn: string | undefined,
+  today = localIsoDate()
+): boolean {
+  return !!expiresOn && expiresOn < today
+}
+
+/** Field caps shared by the forms and the API. */
+export const DETAIL_LIMITS = {
+  name: 80,
+  oneLiner: 160,
+  description: 1000,
+  offer: 120,
+  offerCode: 32,
+} as const
 
 /** Min/max side length for a wall plot (pricing units). */
 export const PLOT_MIN = 3
@@ -273,7 +348,14 @@ export type Sticker = {
   oneLiner: string
   url: string
   category: Category
+  /** Long description for the sticker page. */
+  description?: string
+  /** Discount description, e.g. "20% off the first year". */
   offer?: string
+  /** Discount code redeemed on the maker's site. */
+  offerCode?: string
+  /** Last day the promo is valid (`YYYY-MM-DD`). */
+  offerExpiresOn?: string
   imageDataUrl: string
   outlineColor: string
   outlineThickness: number
@@ -379,7 +461,10 @@ export type StickerDetails = {
   oneLiner: string
   url: string
   category: Category
+  description?: string
   offer?: string
+  offerCode?: string
+  offerExpiresOn?: string
 }
 
 export type PlaceDraft = {
@@ -1074,4 +1159,58 @@ export function isPlotFullyCovered(
     if (!remaining.length) return true
   }
   return remaining.length === 0
+}
+
+type CoverablePlot = {
+  x: number
+  y: number
+  width: number
+  height: number
+  zIndex: number
+}
+
+function overlaps(a: Rect, b: Rect): boolean {
+  return (
+    a.x < b.x + b.w - 1e-6 &&
+    b.x < a.x + a.w - 1e-6 &&
+    a.y < b.y + b.h - 1e-6 &&
+    b.y < a.y + a.h - 1e-6
+  )
+}
+
+/**
+ * How much of a plot is still on show (0–1) once higher-z plot areas are
+ * stacked on top, plus how many plots overlap it from above.
+ */
+export function plotCoverage(
+  target: CoverablePlot,
+  all: ReadonlyArray<CoverablePlot>
+): { visible: number; coveredBy: number } {
+  const rect = asRect(target)
+  const total = rect.w * rect.h
+  const above = all.filter(
+    (p) => p.zIndex > target.zIndex && overlaps(asRect(p), rect)
+  )
+  if (total <= 0) return { visible: 0, coveredBy: above.length }
+
+  let remaining: Rect[] = [rect]
+  for (const cover of above) {
+    const cut = asRect(cover)
+    remaining = remaining.flatMap((r) => subtractRect(r, cut))
+    if (!remaining.length) break
+  }
+  const left = remaining.reduce((sum, r) => sum + r.w * r.h, 0)
+  return {
+    visible: Math.min(1, Math.max(0, left / total)),
+    coveredBy: above.length,
+  }
+}
+
+export type PlotVisibility = "visible" | "partly" | "mostly" | "hidden"
+
+export function plotVisibility(visible: number): PlotVisibility {
+  if (visible >= 0.999) return "visible"
+  if (visible >= 0.5) return "partly"
+  if (visible > 0.001) return "mostly"
+  return "hidden"
 }

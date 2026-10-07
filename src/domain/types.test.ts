@@ -17,9 +17,13 @@ import {
   fieldWarning,
   fitsOnWall,
   formatPlot,
+  isOfferExpired,
   isValidPlot,
   maxScaleThatFits,
+  normalizeCategory,
+  plotCoverage,
   plotPrice,
+  plotVisibility,
   plotOriginContaining,
   plotSideBounds,
   plotUnitsForSticker,
@@ -267,5 +271,61 @@ describe("sticker wall sizing", () => {
     expect(tall).toMatchObject({ unitsW: 9, unitsH: 16, limit: "tall" })
 
     expect(resizePlotFromHandle("e", 100, 100, 5, 5, 20, 0)!.limit).toBeNull()
+  })
+})
+
+describe("isOfferExpired", () => {
+  it("keeps a promo live through its end date", () => {
+    expect(isOfferExpired("2026-10-05", "2026-10-05")).toBe(false)
+    expect(isOfferExpired("2026-10-04", "2026-10-05")).toBe(true)
+    expect(isOfferExpired(undefined, "2026-10-05")).toBe(false)
+  })
+})
+
+describe("normalizeCategory", () => {
+  it("keeps current categories and maps legacy names", () => {
+    expect(normalizeCategory("Developer Tools")).toBe("Developer Tools")
+    expect(normalizeCategory("SaaS")).toBe("Productivity")
+    expect(normalizeCategory("Newsletter")).toBe("Media & Newsletters")
+    expect(normalizeCategory("Mobile")).toBe("Other")
+  })
+
+  it("falls back to Other for unknown or empty values", () => {
+    expect(normalizeCategory("Blockchain Stuff")).toBe("Other")
+    expect(normalizeCategory(undefined)).toBe("Other")
+  })
+})
+
+describe("plotCoverage", () => {
+  const target = { x: 0, y: 0, width: 100, height: 100, zIndex: 1 }
+
+  it("is fully visible with nothing above", () => {
+    const below = { x: 0, y: 0, width: 100, height: 100, zIndex: 0 }
+    expect(plotCoverage(target, [target, below])).toEqual({
+      visible: 1,
+      coveredBy: 0,
+    })
+  })
+
+  it("subtracts overlapping plots above without double counting", () => {
+    const a = { x: 50, y: 0, width: 50, height: 100, zIndex: 2 }
+    const b = { x: 50, y: 50, width: 50, height: 50, zIndex: 3 }
+    const apart = { x: 200, y: 200, width: 10, height: 10, zIndex: 4 }
+    expect(plotCoverage(target, [target, a, b, apart])).toEqual({
+      visible: 0.5,
+      coveredBy: 2,
+    })
+  })
+
+  it("reaches zero when fully covered", () => {
+    const top = { x: -10, y: -10, width: 200, height: 200, zIndex: 5 }
+    expect(plotCoverage(target, [target, top]).visible).toBe(0)
+  })
+
+  it("maps visible share to a status", () => {
+    expect(plotVisibility(1)).toBe("visible")
+    expect(plotVisibility(0.5)).toBe("partly")
+    expect(plotVisibility(0.2)).toBe("mostly")
+    expect(plotVisibility(0)).toBe("hidden")
   })
 })
