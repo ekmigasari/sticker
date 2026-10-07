@@ -35,7 +35,7 @@ export function AppChrome({ children, variant = "page" }: Props) {
 
   if (variant === "wall") {
     return (
-      <div className="relative min-h-svh bg-white font-ui text-neutral-900 antialiased">
+      <div className="bg-wall relative min-h-svh font-ui text-neutral-900 antialiased">
         <TopBar wall />
         {children}
       </div>

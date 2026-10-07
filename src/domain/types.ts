@@ -398,6 +398,10 @@ export type Placement = {
    * @deprecated
    */
   sizeTier?: SizeTier
+  /** Share of the plot not covered by newer plots (0–1), as stored on the server. */
+  visibleShare?: number
+  /** Newer plots overlapping this one, as stored on the server. */
+  coveredBy?: number
   createdAt: string
 }
 

@@ -37,6 +37,8 @@ export type StickerDTO = {
   /** Whole dollars paid for wall placements. */
   totalSpent: number
   imageUrl: string
+  /** Set while hidden from the directory and rankings. */
+  archivedAt?: string
   createdAt: string
   updatedAt: string
 }
@@ -58,6 +60,7 @@ type StickerRecord = {
   outlineColor: string
   outlineThickness: number
   totalSpent: number
+  archivedAt: Date | null
   createdAt: Date
   updatedAt: Date
 }
@@ -85,6 +88,7 @@ export function serializeSticker(sticker: StickerRecord): StickerDTO {
     outlineThickness: sticker.outlineThickness,
     totalSpent: sticker.totalSpent,
     imageUrl: stickerImageUrl(sticker.id),
+    archivedAt: sticker.archivedAt?.toISOString(),
     createdAt: sticker.createdAt.toISOString(),
     updatedAt: sticker.updatedAt.toISOString(),
   }

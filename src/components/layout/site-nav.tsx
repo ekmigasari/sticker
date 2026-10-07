@@ -19,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ProfileAvatar } from "@/components/profile-avatar"
 import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 
@@ -57,14 +58,6 @@ export function SiteNav({ className }: { className?: string }) {
   )
 }
 
-function initials(name: string | undefined, email: string | undefined) {
-  const source = (name?.trim() || email?.split("@")[0] || "?").trim()
-  const parts = source.split(/\s+/).filter(Boolean)
-  const letters =
-    parts.length > 1 ? parts[0]![0]! + parts[1]![0]! : source.slice(0, 2)
-  return letters.toUpperCase()
-}
-
 /** Log in CTA when signed out; avatar with Dashboard / Log out when signed in. */
 export function AccountButton({ className }: { className?: string }) {
   const { session } = useRouteContext({ from: "__root__" })
@@ -85,7 +78,7 @@ export function AccountButton({ className }: { className?: string }) {
     )
   }
 
-  const { name, email } = session.user
+  const { name, email, image } = session.user
 
   async function logOut() {
     await authClient.signOut()
@@ -107,9 +100,12 @@ export function AccountButton({ className }: { className?: string }) {
           className
         )}
       >
-        <span className="grid size-full place-items-center rounded-full bg-gradient-to-b from-neutral-400 to-neutral-600 text-[13px] font-semibold tracking-[-0.01em] text-white">
-          {initials(name, email)}
-        </span>
+        <ProfileAvatar
+          name={name}
+          email={email}
+          image={image}
+          className="size-full text-[13px]"
+        />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"

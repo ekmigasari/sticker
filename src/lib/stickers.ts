@@ -16,6 +16,7 @@ import {
   TOP_STICKER_ORDER,
   type StickerDTO,
 } from "@/lib/sticker-api"
+import { serializePlacement } from "@/lib/wall"
 
 async function requireUser() {
   const request = getRequest()
@@ -26,33 +27,57 @@ async function requireUser() {
   return session.user
 }
 
+export type MySticker = StickerDTO & {
+  /** Plots with at least part of the sticker still showing. */
+  onWall: number
+}
+
 export const listMyStickers = createServerFn({ method: "GET" }).handler(
-  async (): Promise<StickerDTO[]> => {
+  async (): Promise<MySticker[]> => {
     const user = await requireUser()
     const stickers = await prisma.sticker.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
+      include: {
+        _count: {
+          select: { placements: { where: { visibleShare: { gt: 0 } } } },
+        },
+      },
     })
-    return stickers.map(serializeSticker)
+    return stickers.map(({ _count, ...s }) => ({
+      ...serializeSticker(s),
+      onWall: _count.placements,
+    }))
   }
 )
 
+async function withPlacements(sticker: Parameters<typeof serializeSticker>[0]) {
+  const placements = await prisma.placement.findMany({
+    where: { stickerId: sticker.id },
+    orderBy: { zIndex: "desc" },
+  })
+  return {
+    ...serializeSticker(sticker),
+    placements: placements.map(serializePlacement),
+  }
+}
+
+export type StickerWithPlacements = Awaited<ReturnType<typeof withPlacements>>
+
 export const getMySticker = createServerFn({ method: "GET" })
   .validator((id: string) => id)
-  .handler(async ({ data: id }): Promise<StickerDTO> => {
+  .handler(async ({ data: id }): Promise<StickerWithPlacements | null> => {
     const user = await requireUser()
     const sticker = await prisma.sticker.findFirst({
       where: { id, userId: user.id },
     })
-    if (!sticker) {
-      throw new Error("Sticker not found")
-    }
-    return serializeSticker(sticker)
+    return sticker ? withPlacements(sticker) : null
   })
 
 export const listPublicStickers = createServerFn({ method: "GET" }).handler(
   async (): Promise<StickerDTO[]> => {
     const stickers = await prisma.sticker.findMany({
+      where: { archivedAt: null },
       orderBy: TOP_STICKER_ORDER,
     })
     return stickers.map(serializeSticker)
@@ -65,8 +90,8 @@ export type StickerSort = "top" | "newest"
 
 export type StickerListQuery = {
   category?: Category
-  /** Limit to these sticker ids (the wall lives in the browser, not the DB). */
-  ids?: string[]
+  /** Only stickers with at least part of a plot still showing on the wall. */
+  onWall?: boolean
   sort: StickerSort
   q?: string
   page: number
@@ -103,7 +128,7 @@ async function ranksFor(ids: string[]) {
           PARTITION BY category ORDER BY "totalSpent" DESC, "createdAt" ASC, id ASC
         ) AS category_rank
       FROM sticker
-      WHERE "totalSpent" > 0
+      WHERE "totalSpent" > 0 AND "archivedAt" IS NULL
     ) ranked
     WHERE id IN (${Prisma.join(ids)})
   `
@@ -115,23 +140,22 @@ async function ranksFor(ids: string[]) {
   )
 }
 
-export const listStickerPage = createServerFn({ method: "POST" })
+export const listStickerPage = createServerFn({ method: "GET" })
   .validator((input: StickerListQuery): StickerListQuery => ({
     category:
       input.category && isCategory(input.category) ? input.category : undefined,
-    ids: Array.isArray(input.ids)
-      ? input.ids
-          .filter((id): id is string => typeof id === "string")
-          .slice(0, 5_000)
-      : undefined,
+    onWall: input.onWall === true || undefined,
     sort: input.sort === "newest" ? "newest" : "top",
     q: input.q?.trim().slice(0, 80) || undefined,
     page: Number.isInteger(input.page) && input.page > 0 ? input.page : 1,
   }))
   .handler(async ({ data }): Promise<StickerListPage> => {
     const where: Prisma.StickerWhereInput = {
+      archivedAt: null,
       ...(data.category ? { category: data.category } : {}),
-      ...(data.ids ? { id: { in: data.ids } } : {}),
+      ...(data.onWall
+        ? { placements: { some: { visibleShare: { gt: 0 } } } }
+        : {}),
       ...(data.q
         ? {
             OR: [
@@ -143,8 +167,12 @@ export const listStickerPage = createServerFn({ method: "POST" })
     }
     const [total, stickerCount, featured] = await Promise.all([
       prisma.sticker.count({ where }),
-      prisma.sticker.count(),
-      prisma.sticker.findMany({ orderBy: TOP_STICKER_ORDER, take: 3 }),
+      prisma.sticker.count({ where: { archivedAt: null } }),
+      prisma.sticker.findMany({
+        where: { archivedAt: null },
+        orderBy: TOP_STICKER_ORDER,
+        take: 3,
+      }),
     ])
     const pageCount = Math.max(1, Math.ceil(total / STICKERS_PAGE_SIZE))
     const page = Math.min(data.page, pageCount)
@@ -187,6 +215,7 @@ export const listCategorySummaries = createServerFn({ method: "GET" }).handler(
         SELECT category, COUNT(*)::int AS count,
           COALESCE(SUM("totalSpent"), 0)::int AS spent
         FROM sticker
+        WHERE "archivedAt" IS NULL
         GROUP BY category
       `,
       prisma.$queryRaw<{ id: string; category: string }[]>`
@@ -196,6 +225,7 @@ export const listCategorySummaries = createServerFn({ method: "GET" }).handler(
               PARTITION BY category ORDER BY "totalSpent" DESC, "createdAt" ASC, id ASC
             ) AS position
           FROM sticker
+          WHERE "archivedAt" IS NULL
         ) ranked
         WHERE position <= 3
         ORDER BY category, position
@@ -227,6 +257,5 @@ export const getPublicSticker = createServerFn({ method: "GET" })
   .validator((slugOrId: string) => slugOrId)
   .handler(async ({ data: slugOrId }) => {
     const sticker = await findStickerBySlugOrId(slugOrId)
-    if (!sticker) return null
-    return serializeSticker(sticker)
+    return sticker ? withPlacements(sticker) : null
   })

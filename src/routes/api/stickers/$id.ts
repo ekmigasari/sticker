@@ -127,6 +127,23 @@ export const Route = createFileRoute("/api/stickers/$id")({
           return Response.json({ error: "Invalid JSON body." }, { status: 400 })
         }
 
+        if (body && typeof body === "object" && "archived" in body) {
+          const { archived } = body as { archived: unknown }
+          if (typeof archived !== "boolean") {
+            return Response.json(
+              { error: "`archived` must be true or false." },
+              { status: 400 }
+            )
+          }
+          const sticker = await prisma.sticker.update({
+            where: { id: existing.id },
+            data: {
+              archivedAt: archived ? (existing.archivedAt ?? new Date()) : null,
+            },
+          })
+          return Response.json({ sticker: serializeSticker(sticker) })
+        }
+
         const parsed = parseStickerDetails(body)
         if ("error" in parsed) {
           return Response.json({ error: parsed.error }, { status: 400 })
@@ -138,23 +155,6 @@ export const Route = createFileRoute("/api/stickers/$id")({
         })
 
         return Response.json({ sticker: serializeSticker(sticker) })
-      },
-
-      DELETE: async ({ request, params }) => {
-        const session = await auth.api.getSession({ headers: request.headers })
-        if (!session) {
-          return Response.json({ error: "Unauthorized" }, { status: 401 })
-        }
-
-        const sticker = await prisma.sticker.findFirst({
-          where: { id: params.id, userId: session.user.id },
-        })
-        if (!sticker) {
-          return Response.json({ error: "Sticker not found." }, { status: 404 })
-        }
-
-        await prisma.sticker.delete({ where: { id: sticker.id } })
-        return Response.json({ ok: true })
       },
     },
   },

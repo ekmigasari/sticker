@@ -31,7 +31,6 @@ import {
 } from "@phosphor-icons/react"
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 import {
-  CATEGORIES,
   DEFAULT_CATEGORY,
   DETAIL_LIMITS,
   PLOT_MIN,
@@ -72,17 +71,22 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  AddDetailButton,
+  CategorySelect,
+  DateField,
+  FieldLabel,
+  RemoveDetailButton,
+  fieldSurface,
+  revealMotion,
+  stripUrlProtocol,
+  textareaSurface,
+} from "@/components/sticker-fields"
 import { AppChrome } from "@/components/layout/app-chrome"
 import { cn } from "@/lib/utils"
 import { publishPlaceListing } from "@/lib/place-publish"
+import { wallStickerFromDTO } from "@/lib/wall-sticker"
 import { isValidStickerUrl, normalizeStickerUrl } from "@/lib/sticker-meta"
 import { probeImageSize } from "@/lib/sticker-process"
 import { useWallStore } from "@/store/wall-store"
@@ -93,16 +97,6 @@ type Step = "place" | "details" | "pay" | "done"
 
 const MAX_DESCRIPTION_CHARS = DETAIL_LIMITS.oneLiner
 
-/**
- * Apple-surface styling on top of underline-default UI primitives.
- * Text is 16px on mobile on purpose: smaller makes iOS Safari zoom on focus.
- */
-const fieldSurface =
-  "h-12 rounded-[14px] border border-black/[0.06] bg-[#f5f5f7] px-4 text-base tracking-[-0.01em] text-neutral-900 shadow-none placeholder:text-neutral-400 focus-visible:border-black/15 focus-visible:bg-white focus-visible:ring-0 sm:text-[15px]"
-
-const textareaSurface =
-  "min-h-24 rounded-[14px] border border-black/[0.06] bg-[#f5f5f7] px-4 py-3 text-base tracking-[-0.01em] text-neutral-900 shadow-none placeholder:text-neutral-400 focus-visible:border-black/15 focus-visible:bg-white focus-visible:ring-0 sm:text-[15px]"
-
 const clampScale = (n: number) =>
   Math.min(STICKER_SCALE_MAX, Math.max(STICKER_SCALE_MIN, n))
 /** Sticker mode: the plot hugs the rotated art, so scale may exceed 1. */
@@ -111,10 +105,6 @@ const clampFitScale = (n: number) =>
 
 const clampStickerSize = (n: number) =>
   Math.min(STICKER_SIZE_MAX, Math.max(STICKER_SIZE_MIN, n))
-
-function stripUrlProtocol(raw: string) {
-  return raw.replace(/^https?:\/\//i, "")
-}
 
 function PlaceShell({
   title,
@@ -382,76 +372,6 @@ function plotGridStyle(w: number, h: number): CSSProperties {
   }
 }
 
-function FieldLabel({
-  htmlFor,
-  icon,
-  children,
-  hint,
-}: {
-  htmlFor?: string
-  icon: ReactNode
-  children: ReactNode
-  hint?: ReactNode
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <label
-        htmlFor={htmlFor}
-        className="nk-label flex items-center gap-1.5 text-neutral-600"
-      >
-        <span className="grid size-5 place-items-center text-neutral-400">
-          {icon}
-        </span>
-        {children}
-      </label>
-      {hint ? (
-        <span className="text-[12px] text-neutral-400">{hint}</span>
-      ) : null}
-    </div>
-  )
-}
-
-function AddDetailButton({
-  children,
-  onClick,
-}: {
-  children: ReactNode
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="press inline-flex h-9 items-center gap-1.5 rounded-full border border-dashed border-black/[0.14] px-3.5 text-[13px] font-medium tracking-[-0.01em] text-neutral-700 transition-colors hover:border-black/25 hover:bg-black/[0.03] hover:text-neutral-900"
-    >
-      <Plus weight="bold" className="size-3 text-neutral-400" />
-      {children}
-    </button>
-  )
-}
-
-function RemoveDetailButton({
-  label,
-  onClick,
-}: {
-  label: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="press -my-1 rounded-full px-2 py-1 text-[12px] font-medium text-neutral-500 transition-colors hover:bg-black/[0.045] hover:text-neutral-900"
-    >
-      Remove
-    </button>
-  )
-}
-
-const revealMotion =
-  "animate-in fade-in slide-in-from-top-1 duration-200 ease-out motion-reduce:animate-none"
-
 function IconWell({
   children,
   tone = "neutral",
@@ -567,7 +487,7 @@ export function PlaceFlow() {
   const placeDraft = useWallStore((s) => s.placeDraft)
   const setDraftSticker = useWallStore((s) => s.setDraftSticker)
   const setPlaceDraft = useWallStore((s) => s.setPlaceDraft)
-  const confirmPlacement = useWallStore((s) => s.confirmPlacement)
+  const addPlacement = useWallStore((s) => s.addPlacement)
   const hydrate = useWallStore((s) => s.hydrate)
 
   const hasSpot =
@@ -1273,17 +1193,26 @@ export function PlaceFlow() {
       const published = await publishPlaceListing({
         details: draft.details,
         sticker: draft.sticker,
-        unitsW: draft.unitsW,
-        unitsH: draft.unitsH,
+        plot: {
+          x: draft.x,
+          y: draft.y,
+          unitsW: draft.unitsW,
+          unitsH: draft.unitsH,
+          stickerScale: draft.stickerScale ?? 1,
+          rotation: draft.rotation ?? 0,
+          offsetX: draft.stickerOffsetX ?? 0,
+          offsetY: draft.stickerOffsetY ?? 0,
+        },
       })
-      const placement = confirmPlacement(draft.x, draft.y, {
-        stickerId: published.stickerId,
-        slug: published.slug,
-      })
-      if (!placement) {
-        throw new Error("Could not place sticker on the wall.")
-      }
-      setSavedSlug(published.slug)
+      addPlacement(
+        {
+          ...wallStickerFromDTO(published.sticker),
+          widthPx: draft.sticker.widthPx,
+          heightPx: draft.sticker.heightPx,
+        },
+        published.placement
+      )
+      setSavedSlug(published.sticker.slug)
       setStep("done")
     } catch (err) {
       setSaveError(
@@ -1800,36 +1729,11 @@ export function PlaceFlow() {
                   >
                     Category
                   </FieldLabel>
-                  <Select
+                  <CategorySelect
+                    id="category"
                     value={category}
-                    onValueChange={(value) => {
-                      if (value) setCategory(value as Category)
-                    }}
-                  >
-                    <SelectTrigger
-                      id="category"
-                      className={cn(
-                        fieldSurface,
-                        "w-full justify-between px-4 font-normal"
-                      )}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent
-                      align="start"
-                      className="max-h-[min(22rem,var(--available-height))] rounded-xl border border-black/[0.06] bg-white shadow-[0_16px_40px_-16px_rgba(0,0,0,0.25)]"
-                    >
-                      {CATEGORIES.map((c) => (
-                        <SelectItem
-                          key={c}
-                          value={c}
-                          className="rounded-lg text-[15px]"
-                        >
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={setCategory}
+                  />
                 </div>
 
                 {showDescription ? (
@@ -1932,17 +1836,12 @@ export function PlaceFlow() {
                           Ends on{" "}
                           <span className="text-neutral-400">· optional</span>
                         </label>
-                        <Input
+                        <DateField
                           id="offerExpiresOn"
-                          type="date"
                           value={offerExpiresOn}
                           min={localIsoDate()}
-                          onChange={(e) => setOfferExpiresOn(e.target.value)}
-                          className={cn(
-                            fieldSurface,
-                            "appearance-none",
-                            !offerExpiresOn && "text-neutral-400"
-                          )}
+                          onChange={setOfferExpiresOn}
+                          placeholder="No end date"
                         />
                       </div>
                     </div>

@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
 import {
-  isValidPlot,
   plotPrice,
   STICKER_FILTERS,
   STICKER_STYLES,
@@ -18,6 +17,11 @@ import {
 } from "@/lib/sticker-api"
 import { prisma } from "@/lib/prisma"
 import { putObject } from "@/lib/s3"
+import {
+  parsePlacementInput,
+  placeOnWall,
+  type PlacementInput,
+} from "@/lib/wall"
 
 function isStyle(value: string): value is StickerStyle {
   return (STICKER_STYLES as readonly string[]).includes(value)
@@ -54,6 +58,7 @@ export const Route = createFileRoute("/api/stickers/")({
 
         const stickers = await prisma.sticker.findMany({
           where: {
+            archivedAt: null,
             AND: [
               category && category !== "All" ? { category } : {},
               q
@@ -149,18 +154,17 @@ export const Route = createFileRoute("/api/stickers/")({
           )
         }
 
-        let totalSpent = 0
+        let plot: PlacementInput | null = null
         if (form.has("unitsW") || form.has("unitsH")) {
-          const unitsW = Number(form.get("unitsW"))
-          const unitsH = Number(form.get("unitsH"))
-          if (!isValidPlot(unitsW, unitsH)) {
+          plot = parsePlacementInput(form)
+          if (!plot) {
             return Response.json(
-              { error: "Invalid wall plot size." },
+              { error: "Invalid wall plot." },
               { status: 400 }
             )
           }
-          totalSpent = plotPrice(unitsW, unitsH)
         }
+        const totalSpent = plot ? plotPrice(plot.unitsW, plot.unitsH) : 0
 
         const uploadId = crypto.randomUUID()
         const stickerId = crypto.randomUUID()
@@ -171,7 +175,7 @@ export const Route = createFileRoute("/api/stickers/")({
 
         await putObject(key, bytes, file.type || "image/png")
 
-        const sticker = await prisma.$transaction(async (tx) => {
+        const { sticker, placement } = await prisma.$transaction(async (tx) => {
           await tx.upload.create({
             data: {
               id: uploadId,
@@ -182,7 +186,7 @@ export const Route = createFileRoute("/api/stickers/")({
               sizeBytes: file.size,
             },
           })
-          return tx.sticker.create({
+          const created = await tx.sticker.create({
             data: {
               id: stickerId,
               userId: session.user.id,
@@ -196,10 +200,14 @@ export const Route = createFileRoute("/api/stickers/")({
               totalSpent,
             },
           })
+          return {
+            sticker: created,
+            placement: plot ? await placeOnWall(tx, stickerId, plot) : null,
+          }
         })
 
         return Response.json(
-          { sticker: serializeSticker(sticker) },
+          { sticker: serializeSticker(sticker), placement },
           { status: 201 }
         )
       },

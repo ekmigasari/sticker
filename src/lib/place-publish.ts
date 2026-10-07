@@ -1,4 +1,4 @@
-import type { DraftSticker } from "@/domain/types"
+import type { DraftSticker, Placement } from "@/domain/types"
 import type { StickerDTO } from "@/lib/sticker-api"
 
 export type PlaceStickerInput = {
@@ -28,13 +28,21 @@ async function readError(response: Response) {
   return payload?.error ?? "Request failed."
 }
 
-/** Create a listed sticker (details + artwork) from a Place draft. */
+/** Create a listed sticker (details + artwork) and stick its plot on the wall. */
 export async function publishPlaceListing(input: {
   details: PlaceStickerInput
   sticker: DraftSticker
-  unitsW: number
-  unitsH: number
-}): Promise<{ stickerId: string; slug: string }> {
+  plot: {
+    x: number
+    y: number
+    unitsW: number
+    unitsH: number
+    stickerScale: number
+    rotation: number
+    offsetX: number
+    offsetY: number
+  }
+}): Promise<{ sticker: StickerDTO; placement: Placement }> {
   const file = dataUrlToFile(
     input.sticker.imageDataUrl,
     `sticker-${input.sticker.style}.png`
@@ -57,8 +65,9 @@ export async function publishPlaceListing(input: {
   form.set("filter", input.sticker.filter)
   form.set("outlineColor", input.sticker.outlineColor)
   form.set("outlineThickness", String(input.sticker.outlineThickness))
-  form.set("unitsW", String(input.unitsW))
-  form.set("unitsH", String(input.unitsH))
+  for (const [key, value] of Object.entries(input.plot)) {
+    form.set(key, String(value))
+  }
 
   const response = await fetch("/api/stickers", {
     method: "POST",
@@ -70,6 +79,11 @@ export async function publishPlaceListing(input: {
     }
     throw new Error(await readError(response))
   }
-  const payload = (await response.json()) as { sticker: StickerDTO }
-  return { stickerId: payload.sticker.id, slug: payload.sticker.slug }
+  const payload = (await response.json()) as {
+    sticker: StickerDTO
+    placement: Placement | null
+  }
+  if (!payload.placement)
+    throw new Error("Could not place sticker on the wall.")
+  return { sticker: payload.sticker, placement: payload.placement }
 }

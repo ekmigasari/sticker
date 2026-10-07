@@ -195,6 +195,39 @@ export function exploreRandom() {
   animateCamera({ x: c.x, y: c.y, zoom }, 700)
 }
 
+type Box = { x: number; y: number; width: number; height: number }
+
+/**
+ * Camera that shows a world box as large as it fits inside `free` (a screen
+ * rect relative to the viewport), so overlays like the sticker card never
+ * cover it.
+ */
+export function cameraFittingBox(
+  box: Box,
+  free: Box,
+  viewportW: number,
+  viewportH: number
+): Camera {
+  const zoom = clampZoom(
+    Math.min(
+      free.width / Math.max(1, box.width),
+      free.height / Math.max(1, box.height)
+    ),
+    viewportW,
+    viewportH
+  )
+  const freeCx = free.x + free.width / 2
+  const freeCy = free.y + free.height / 2
+  const c = clampCamera(
+    box.x + box.width / 2 - (freeCx - viewportW / 2) / zoom,
+    box.y + box.height / 2 - (freeCy - viewportH / 2) / zoom,
+    zoom,
+    viewportW,
+    viewportH
+  )
+  return { ...c, zoom }
+}
+
 export function fitWall() {
   const { w, h } = windowSize()
   animateCamera({ x: WALL_SIZE / 2, y: WALL_SIZE / 2, zoom: coverZoom(w, h) })

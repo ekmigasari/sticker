@@ -26,13 +26,16 @@ const glass = glassCapsule
  * centred, so it never collides with the top nav or a bottom bar, and stays
  * in thumb reach. Shared by the browse wall and the place flow.
  * `grid` overrides the saved toggle (area editing has its own, default-on state).
+ * `fit` replaces the default fit-whole-wall action.
  */
 export function ZoomControls({
   className,
   grid,
+  fit,
 }: {
   className?: string
   grid?: { on: boolean; onToggle: () => void }
+  fit?: { label: string; onFit: () => void }
 }) {
   const zoom = useWallStore((s) => s.camera.zoom)
   const gridVisible = useWallStore((s) => s.gridVisible)
@@ -81,8 +84,9 @@ export function ZoomControls({
       <button
         type="button"
         className={btn}
-        aria-label="Fit wall to screen"
-        onClick={fitWall}
+        aria-label={fit?.label ?? "Fit wall to screen"}
+        title={fit?.label ?? "Fit wall to screen"}
+        onClick={fit?.onFit ?? fitWall}
       >
         <CornersOut weight="bold" className="size-4" />
       </button>
@@ -164,13 +168,18 @@ export function ZoomScale({ className }: { className?: string }) {
   )
 }
 
-/** Landing wall: zoom + scale, plus a bottom bar to explore or start making. */
-export function WallControls() {
+/**
+ * Landing wall: zoom + scale, plus a bottom bar to explore or start making.
+ * With a sticker selected, fit-to-screen calls `onFit` to frame that sticker.
+ */
+export function WallControls({ onFit }: { onFit: () => void }) {
   const selected = useWallStore((s) => s.selectedPlacementId != null)
 
   return (
     <>
-      <ZoomControls />
+      <ZoomControls
+        fit={selected ? { label: "Fit sticker to screen", onFit } : undefined}
+      />
       <ZoomScale className="bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] sm:bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]" />
       {selected ? null : (
         <div

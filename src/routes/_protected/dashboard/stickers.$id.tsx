@@ -1,18 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { AppChrome } from "@/components/layout/app-chrome"
 import { StickerManage } from "@/components/dashboard/sticker-manage"
-import { getMySticker } from "@/lib/stickers"
+import { getMySticker, listPublicStickers } from "@/lib/stickers"
 
 export const Route = createFileRoute("/_protected/dashboard/stickers/$id")({
-  loader: ({ params }) => getMySticker({ data: params.id }),
+  loader: async ({ params }) => {
+    const [sticker, all] = await Promise.all([
+      getMySticker({ data: params.id }),
+      listPublicStickers(),
+    ])
+    return { sticker, all }
+  },
   component: DashboardStickerPage,
 })
 
 function DashboardStickerPage() {
-  const sticker = Route.useLoaderData()
+  const { sticker, all } = Route.useLoaderData()
   return (
     <AppChrome>
-      <StickerManage sticker={sticker} />
+      <StickerManage sticker={sticker} all={all} />
     </AppChrome>
   )
 }

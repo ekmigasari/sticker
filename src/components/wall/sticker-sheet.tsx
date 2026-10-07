@@ -1,71 +1,93 @@
-import { ArrowSquareOut, X } from "@phosphor-icons/react"
+import type { Ref } from "react"
+import { ArrowUpRight, X } from "@phosphor-icons/react"
 import { Link } from "@tanstack/react-router"
 import type { Placement, Sticker } from "@/domain/types"
-import { formatPlot } from "@/domain/types"
+import { CategoryTag } from "@/components/category-icon"
 import { StickerPromo } from "@/components/sticker-promo"
 
 type Props = {
   sticker: Sticker
   placement: Placement
   onClose: () => void
+  ref?: Ref<HTMLElement>
 }
 
-export function StickerSheet({ sticker, placement, onClose }: Props) {
+function hostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "")
+  } catch {
+    return url
+  }
+}
+
+/**
+ * Card for the selected sticker. Docks at the bottom on phones and to the
+ * bottom-right on wider screens; fit-to-screen keeps the sticker clear of it.
+ */
+export function StickerSheet({ sticker, placement, onClose, ref }: Props) {
   return (
-    <aside className="pointer-events-auto absolute right-3 bottom-3 left-3 z-30 max-w-md rounded-[28px] border border-black/[0.06] bg-white/85 p-4 font-ui shadow-[0_16px_48px_-16px_rgba(0,0,0,0.22),0_2px_8px_-2px_rgba(0,0,0,0.06)] backdrop-blur-2xl backdrop-saturate-150 sm:right-4 sm:bottom-4 sm:left-auto">
-      <div className="flex gap-3">
+    <aside
+      ref={ref}
+      key={placement.id}
+      aria-label={sticker.name}
+      className="pointer-events-auto absolute right-3 bottom-[max(12px,env(safe-area-inset-bottom))] left-3 z-30 animate-in rounded-[28px] bg-white/90 p-3 font-ui shadow-[0_24px_60px_-20px_rgba(0,0,0,0.3),0_0_0_0.5px_rgba(0,0,0,0.06)] backdrop-blur-2xl backdrop-saturate-150 duration-300 fade-in slide-in-from-bottom-3 sm:right-4 sm:bottom-4 sm:left-auto sm:w-[360px]"
+    >
+      <div className="flex items-start gap-3 p-1">
         <img
           src={sticker.imageDataUrl}
-          alt={sticker.name}
-          className="size-20 shrink-0 object-contain drop-shadow-md"
+          alt=""
+          className="size-14 shrink-0 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.16)]"
         />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-[12px] font-medium tracking-[-0.01em] text-neutral-500">
-                {sticker.category} ·{" "}
-                {formatPlot(placement.unitsW, placement.unitsH)}
-              </p>
-              <h2 className="mt-0.5 text-[20px] font-semibold tracking-[-0.02em] text-neutral-900">
-                {sticker.name}
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="press grid size-8 shrink-0 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07]"
-            >
-              <X weight="bold" className="size-3.5" />
-            </button>
-          </div>
-          <p className="mt-1.5 text-[14px] leading-relaxed text-neutral-500">
-            {sticker.oneLiner}
-          </p>
-          <StickerPromo
-            offer={sticker.offer}
-            offerCode={sticker.offerCode}
-            offerExpiresOn={sticker.offerExpiresOn}
-            className="mt-2.5"
+        <div className="min-w-0 flex-1 pt-0.5">
+          <CategoryTag
+            category={sticker.category}
+            className="max-w-full text-[12px] font-semibold tracking-[-0.01em]"
+            iconClassName="size-3"
           />
+          <h2 className="mt-0.5 line-clamp-2 text-[19px] leading-tight font-semibold tracking-[-0.025em] break-words text-neutral-900">
+            {sticker.name}
+          </h2>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="press -mt-0.5 -mr-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-black/[0.05] text-neutral-600 transition-colors hover:bg-black/[0.08] hover:text-neutral-900"
+        >
+          <X weight="bold" className="size-3.5" />
+        </button>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
+
+      {sticker.oneLiner ? (
+        <p className="mt-1.5 line-clamp-2 px-1 text-[14px] leading-snug tracking-[-0.01em] break-words text-neutral-500">
+          {sticker.oneLiner}
+        </p>
+      ) : null}
+
+      <StickerPromo
+        variant="feature"
+        offer={sticker.offer}
+        offerCode={sticker.offerCode}
+        offerExpiresOn={sticker.offerExpiresOn}
+        className="mt-3"
+      />
+
+      <div className="mt-3 flex gap-2">
         <a
           href={sticker.url}
           target="_blank"
           rel="noreferrer"
-          className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white"
+          className="press inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-neutral-900 px-4 text-[15px] font-semibold tracking-[-0.01em] text-white transition-opacity hover:opacity-90"
         >
-          Visit
-          <ArrowSquareOut weight="bold" className="size-3.5" />
+          <span className="truncate">Visit {hostname(sticker.url)}</span>
+          <ArrowUpRight weight="bold" className="size-3.5 shrink-0" />
         </a>
         <Link
           to="/stickers/$slug"
           params={{ slug: sticker.slug }}
-          className="press inline-flex h-10 items-center rounded-full bg-black/[0.06] px-4 text-[14px] font-semibold tracking-[-0.01em] text-neutral-900 transition-colors hover:bg-black/[0.09]"
+          className="press inline-flex h-11 shrink-0 items-center rounded-full bg-black/[0.05] px-4 text-[15px] font-semibold tracking-[-0.01em] text-neutral-900 transition-colors hover:bg-black/[0.08]"
         >
-          Sticker page
+          Details
         </Link>
       </div>
     </aside>

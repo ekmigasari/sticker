@@ -1,129 +1,232 @@
-import { Link, useRouter } from "@tanstack/react-router"
-import { ArrowLeft, Plus, Trash, ArrowSquareOut } from "@phosphor-icons/react"
-import type { StickerDTO } from "@/lib/sticker-api"
 import { useState } from "react"
+import { useRouter } from "@tanstack/react-router"
+import { Archive, Lock } from "@phosphor-icons/react"
+import { StickerDetail } from "@/components/stickers/sticker-detail"
+import type { StickerDTO } from "@/lib/sticker-api"
+import type { StickerWithPlacements } from "@/lib/stickers"
+import { FormSheet } from "./form-sheet"
 import { StickerForm, type StickerFormValues } from "./sticker-form"
 
-export function StickerManage({ sticker: initial }: { sticker: StickerDTO }) {
+async function patchSticker(id: string, body: object) {
+  const response = await fetch(`/api/stickers/${id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string
+    } | null
+    throw new Error(payload?.error ?? "Could not save.")
+  }
+}
+
+export function StickerManage({
+  sticker,
+  all,
+}: {
+  sticker: StickerWithPlacements | null
+  all: StickerDTO[]
+}) {
   const router = useRouter()
-  const [sticker, setSticker] = useState(initial)
   const [editing, setEditing] = useState(false)
-  const [busy, setBusy] = useState(false)
 
   async function saveDetails(values: StickerFormValues) {
-    const response = await fetch(`/api/stickers/${sticker.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(values),
-    })
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string
-      } | null
-      throw new Error(payload?.error ?? "Could not save.")
-    }
-    const payload = (await response.json()) as { sticker: StickerDTO }
-    setSticker(payload.sticker)
-    setEditing(false)
+    if (!sticker) return
+    await patchSticker(sticker.id, values)
     await router.invalidate()
+    setEditing(false)
   }
 
-  async function removeSticker() {
-    if (!window.confirm(`Remove “${sticker.name}” from your collection?`))
-      return
-    setBusy(true)
-    const response = await fetch(`/api/stickers/${sticker.id}`, {
-      method: "DELETE",
-    })
-    setBusy(false)
-    if (!response.ok) {
-      window.alert("Could not delete sticker.")
-      return
-    }
+  async function setArchived(archived: boolean) {
+    if (!sticker) return
+    await patchSticker(sticker.id, { archived })
     await router.invalidate()
-    await router.navigate({ to: "/dashboard" })
+    setEditing(false)
   }
 
   return (
-    <div className="nk-page max-w-2xl">
-      <div>
-        <Link
-          to="/dashboard"
-          className="press inline-flex items-center gap-1.5 text-[13px] font-medium tracking-[-0.01em] text-neutral-500 transition-colors hover:text-neutral-900"
-        >
-          <ArrowLeft weight="bold" className="size-3.5" />
-          Collection
-        </Link>
-      </div>
-
-      <div className="mt-6 flex flex-col items-center gap-6 sm:flex-row sm:items-start">
-        <div className="grid size-44 shrink-0 place-items-center rounded-[28px] border border-black/[0.06] bg-[#f5f5f7] p-4 shadow-[0_12px_28px_-16px_rgba(0,0,0,0.2)] sm:size-52">
-          <img
-            src={sticker.imageUrl}
-            alt=""
-            className="max-h-full object-contain drop-shadow-lg"
-          />
-        </div>
-        <div className="min-w-0 flex-1 text-center sm:text-left">
-          <p className="nk-label">{sticker.category}</p>
-          <h1 className="mt-2 text-[32px] font-semibold tracking-[-0.03em] text-neutral-900 sm:text-[40px]">
-            {sticker.name}
-          </h1>
-          <p className="mt-2 text-[15px] leading-snug text-neutral-500">
-            {sticker.oneLiner}
-          </p>
-          <div className="mt-5 flex flex-wrap justify-center gap-2 sm:justify-start">
-            <Link
-              to="/make"
-              search={{ stickerId: sticker.id }}
-              className="nk-btn"
-            >
-              <Plus weight="bold" className="size-4" />
-              Replace artwork
-            </Link>
-            <Link
-              to="/stickers/$slug"
-              params={{ slug: sticker.slug }}
-              className="nk-btn-secondary"
-            >
-              Public page
-              <ArrowSquareOut weight="bold" className="size-4" />
-            </Link>
+    <>
+      <StickerDetail
+        sticker={sticker}
+        all={all}
+        back={{ to: "/dashboard", label: "Dashboard" }}
+        action={
+          sticker ? (
             <button
               type="button"
-              className="nk-btn-secondary"
-              onClick={() => setEditing((v) => !v)}
+              onClick={() => setEditing(true)}
+              className="press -mr-2 inline-flex h-9 items-center rounded-full px-3 text-[16px] font-semibold tracking-[-0.01em] text-[#0071e3] transition-colors hover:bg-[#0071e3]/[0.06]"
             >
-              {editing ? "Close edit" : "Edit details"}
+              Edit
             </button>
-            <button
-              type="button"
-              className="press inline-flex h-11 items-center gap-1.5 rounded-full bg-red-50 px-5 text-[15px] font-semibold tracking-[-0.01em] text-red-600 disabled:opacity-35"
-              disabled={busy}
-              onClick={() => void removeSticker()}
-            >
-              <Trash weight="bold" className="size-4" />
-              Remove
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {editing ? (
-        <div className="mt-8 rounded-[28px] border border-black/[0.06] bg-white p-5 sm:p-7">
-          <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-neutral-900">
-            Sticker details
-          </h2>
-          <div className="mt-5">
-            <StickerForm
-              initial={sticker}
-              submitLabel="Save"
-              onSubmit={saveDetails}
-              onCancel={() => setEditing(false)}
-            />
-          </div>
-        </div>
+          ) : null
+        }
+        notice={
+          sticker?.archivedAt ? (
+            <ArchivedNotice onUnarchive={() => setArchived(false)} />
+          ) : null
+        }
+      />
+      {sticker ? (
+        <EditSheet
+          open={editing}
+          onOpenChange={setEditing}
+          sticker={sticker}
+          onSave={saveDetails}
+          onArchive={() => setArchived(true)}
+        />
       ) : null}
+    </>
+  )
+}
+
+function ArchivedNotice({ onUnarchive }: { onUnarchive: () => Promise<void> }) {
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function unarchive() {
+    setPending(true)
+    setError(null)
+    try {
+      await onUnarchive()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not unarchive.")
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 flex items-center gap-3 rounded-[18px] bg-[#f5f5f7] py-3 pr-3 pl-4">
+      <Archive weight="fill" className="size-5 shrink-0 text-neutral-400" />
+      <div className="min-w-0 flex-1">
+        <p className="text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">
+          Archived
+        </p>
+        <p className="text-[13px] leading-snug text-neutral-500">
+          {error ??
+            "Hidden from the directory and rankings. Its wall spots stay."}
+        </p>
+      </div>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => void unarchive()}
+        className="press h-9 shrink-0 rounded-full bg-white px-4 text-[14px] font-semibold tracking-[-0.01em] text-[#0071e3] shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-black/[0.06] transition-colors hover:bg-neutral-50 disabled:opacity-40"
+      >
+        {pending ? "Restoring…" : "Unarchive"}
+      </button>
+    </div>
+  )
+}
+
+function EditSheet({
+  open,
+  onOpenChange,
+  sticker,
+  onSave,
+  onArchive,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  sticker: StickerDTO
+  onSave: (values: StickerFormValues) => Promise<void>
+  onArchive: () => Promise<void>
+}) {
+  return (
+    <FormSheet open={open} onOpenChange={onOpenChange} title="Edit Sticker">
+      <div className="flex items-center gap-4 pb-5">
+        <img
+          src={sticker.imageUrl}
+          alt=""
+          className="size-16 shrink-0 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.14)]"
+        />
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-[15px] font-semibold tracking-[-0.01em]">
+            Artwork
+            <Lock weight="fill" className="size-3.5 text-neutral-400" />
+          </p>
+          <p className="mt-0.5 text-[13px] leading-snug text-neutral-500">
+            The artwork is locked once made. You can still change everything
+            below.
+          </p>
+        </div>
+      </div>
+
+      <StickerForm
+        initial={sticker}
+        submitLabel="Save"
+        onSubmit={onSave}
+        onCancel={() => onOpenChange(false)}
+      />
+
+      {sticker.archivedAt ? null : <ArchiveRow onArchive={onArchive} />}
+    </FormSheet>
+  )
+}
+
+function ArchiveRow({ onArchive }: { onArchive: () => Promise<void> }) {
+  const [confirming, setConfirming] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function archive() {
+    setPending(true)
+    setError(null)
+    try {
+      await onArchive()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not archive.")
+      setPending(false)
+    }
+  }
+
+  return (
+    <div className="mt-8 border-t border-black/[0.06] pt-5">
+      {confirming ? (
+        <div className="rounded-[18px] bg-[#f5f5f7] p-4">
+          <p className="text-[15px] font-semibold tracking-[-0.01em]">
+            Archive this sticker?
+          </p>
+          <p className="mt-1 text-[13px] leading-snug text-neutral-500">
+            It leaves the directory and rankings. The spots you paid for stay on
+            the wall, and you can unarchive any time.
+          </p>
+          {error ? (
+            <p className="mt-2 text-[13px] font-medium text-[#ff3b30]">
+              {error}
+            </p>
+          ) : null}
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => void archive()}
+              className="press h-10 rounded-full bg-[#ff3b30] px-5 text-[15px] font-semibold tracking-[-0.01em] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              {pending ? "Archiving…" : "Archive"}
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => setConfirming(false)}
+              className="press h-10 rounded-full bg-white px-5 text-[15px] font-semibold tracking-[-0.01em] text-neutral-900 ring-1 ring-black/[0.06] transition-colors hover:bg-neutral-50 disabled:opacity-40"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className="press flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-[#f5f5f7] text-[15px] font-semibold tracking-[-0.01em] text-[#ff3b30] transition-colors hover:bg-[#ededf0]"
+        >
+          <Archive weight="bold" className="size-4" />
+          Archive Sticker
+        </button>
+      )}
     </div>
   )
 }

@@ -14,7 +14,10 @@ function DashboardPage() {
 
   return (
     <AppChrome>
-      <DashboardHome userEmail={user.email} stickers={stickers} />
+      <DashboardHome
+        user={{ name: user.name, email: user.email, image: user.image }}
+        stickers={stickers}
+      />
     </AppChrome>
   )
 }

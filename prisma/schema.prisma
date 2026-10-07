@@ -114,12 +114,45 @@ model Sticker {
   outlineThickness Int
   /// Whole dollars paid for wall placements. Ranks are derived from this at read time.
   totalSpent       Int      @default(0)
+  /// Archived stickers leave the directory and rankings; their wall plots stay.
+  archivedAt       DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  placements       Placement[]
 
   @@index([userId])
   @@index([category])
+  @@index([archivedAt])
   @@index([uploadId])
   @@index([totalSpent(sort: Desc), createdAt])
   @@map("sticker")
+}
+
+/// One paid plot on the wall. Newer plots stack on top (higher zIndex).
+model Placement {
+  id            String   @id
+  stickerId     String
+  sticker       Sticker  @relation(fields: [stickerId], references: [id], onDelete: Cascade)
+  /// Plot top-left and size in wall px (axis-aligned, snapped to whole units).
+  x             Int
+  y             Int
+  width         Int
+  height        Int
+  unitsW        Int
+  unitsH        Int
+  zIndex        Int      @unique @default(autoincrement())
+  stickerScale  Float    @default(1)
+  rotation      Float    @default(0)
+  offsetX       Float    @default(0)
+  offsetY       Float    @default(0)
+  /// Share of the plot not covered by newer plots (0–1). 0 = off the wall.
+  visibleShare  Float    @default(1)
+  /// Newer plots overlapping this one.
+  coveredBy     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([stickerId])
+  @@index([visibleShare])
+  @@index([x, y])
+  @@map("placement")
 }

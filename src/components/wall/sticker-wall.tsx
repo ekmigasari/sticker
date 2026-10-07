@@ -39,13 +39,52 @@ import { StickerSheet } from "./sticker-sheet"
 import { WallControls, ZoomControls, ZoomScale } from "./wall-controls"
 import { WallGrid } from "./wall-grid"
 import {
+  animateCamera,
+  cameraFittingBox,
   cancelCameraAnimation,
   clampCamera,
   clampZoom,
   defaultZoom,
+  fitWall,
   pinchTransform,
   zoomAtPoint,
+  type Camera,
 } from "./camera"
+
+/** Clear space around a focused sticker, kept away from screen edges and the card. */
+const FOCUS_PAD = 28
+/** Top bar height, so a focused sticker never sits under the nav. */
+const TOP_CHROME = 64
+
+type ScreenBox = { x: number; y: number; width: number; height: number }
+
+function paddedArea(right: number, bottom: number): ScreenBox {
+  const top = TOP_CHROME + FOCUS_PAD
+  return {
+    x: FOCUS_PAD,
+    y: top,
+    width: Math.max(1, right - FOCUS_PAD * 2),
+    height: Math.max(1, bottom - top - FOCUS_PAD),
+  }
+}
+
+/**
+ * The part of the viewport a focused sticker can use: below the top bar and
+ * clear of the sticker card, either above it or beside it, whichever lets
+ * this sticker show larger.
+ */
+function freeArea(
+  view: DOMRect,
+  box: { width: number; height: number },
+  sheet?: DOMRect
+): ScreenBox {
+  if (!sheet) return paddedArea(view.width, view.height)
+  const above = paddedArea(view.width, sheet.top - view.top)
+  const beside = paddedArea(sheet.left - view.left, view.height)
+  const scale = (a: ScreenBox) =>
+    Math.min(a.width / box.width, a.height / box.height)
+  return scale(beside) > scale(above) ? beside : above
+}
 
 type PlaceEditTarget = "area" | "sticker"
 type GhostMode = "resize" | "rotate" | "scale" | "sticker-move" | "move"
@@ -399,6 +438,9 @@ const PlacementLayer = memo(function PlacementLayer({
           aspectById[sticker.id] ??
           contentAspectRatio(sticker.widthPx, sticker.heightPx)
         const box = stickerBoxSize(p.width, p.height, scale, aspect)
+        // Shadow scales with the sticker so small and large ones sit on the
+        // wall at the same apparent height.
+        const lift = Math.min(box.w, box.h)
         const onImgLoad = (e: SyntheticEvent<HTMLImageElement>) => {
           if (sticker.widthPx && sticker.heightPx) return
           const { naturalWidth: w, naturalHeight: h } = e.currentTarget
@@ -415,7 +457,7 @@ const PlacementLayer = memo(function PlacementLayer({
             key={p.id}
             type="button"
             data-placement-id={p.id}
-            className="absolute overflow-hidden bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-400"
+            className="absolute bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-400"
             style={{
               left: p.x,
               top: p.y,
@@ -443,6 +485,9 @@ const PlacementLayer = memo(function PlacementLayer({
                   height: box.h,
                   transform: `translate(calc(-50% + ${ox}px), calc(-50% + ${oy}px)) rotate(${rot}deg)${active ? " scale(1.04)" : ""}`,
                   transformOrigin: "center center",
+                  filter: active
+                    ? `drop-shadow(0 ${lift * 0.05}px ${lift * 0.08}px rgba(0,0,0,0.24))`
+                    : `drop-shadow(0 ${lift * 0.02}px ${lift * 0.035}px rgba(0,0,0,0.2))`,
                 }}
               />
             </span>
@@ -656,6 +701,70 @@ export function StickerWall({
       window.clearTimeout(timer)
     }
   }, [])
+
+  // With a sticker selected, fit-to-screen frames that sticker beside its card;
+  // closing the card flies back to where you were, unless you've moved since.
+  const sheetRef = useRef<HTMLElement>(null)
+  const returnView = useRef<Camera | null>(null)
+  const fittedView = useRef<Camera | null>(null)
+
+  function fitSelected() {
+    cancelCameraAnimation()
+    const {
+      placements: all,
+      selectedPlacementId: id,
+      camera: cam,
+    } = useWallStore.getState()
+    const target = id ? all.find((p) => p.id === id) : undefined
+    const el = viewportRef.current
+    if (!target || !el) {
+      fitWall()
+      return
+    }
+    const view = el.getBoundingClientRect()
+    // The rendered artwork knows its real aspect and rotation; the plot is
+    // only a fallback before the image has laid out.
+    const art = el
+      .querySelector(`[data-placement-id="${target.id}"] img`)
+      ?.getBoundingClientRect()
+    const box =
+      art && art.width > 0 && art.height > 0
+        ? {
+            x: cam.x + (art.left - view.left - view.width / 2) / cam.zoom,
+            y: cam.y + (art.top - view.top - view.height / 2) / cam.zoom,
+            width: art.width / cam.zoom,
+            height: art.height / cam.zoom,
+          }
+        : target
+    const fit = cameraFittingBox(
+      box,
+      freeArea(view, box, sheetRef.current?.getBoundingClientRect()),
+      view.width,
+      view.height
+    )
+    returnView.current ??= { ...cam }
+    fittedView.current = fit
+    animateCamera(fit, 520)
+  }
+
+  useEffect(() => {
+    if (selectedPlacementId) return
+    const back = returnView.current
+    const fit = fittedView.current
+    returnView.current = null
+    fittedView.current = null
+    const el = viewportRef.current
+    if (!back || !fit || !el) return
+    const cam = useWallStore.getState().camera
+    const untouched =
+      Math.abs(cam.zoom / fit.zoom - 1) < 0.02 &&
+      Math.hypot(cam.x - fit.x, cam.y - fit.y) * cam.zoom < 4
+    if (!untouched) return
+    const w = el.clientWidth
+    const h = el.clientHeight
+    const zoom = clampZoom(back.zoom, w, h)
+    animateCamera({ ...clampCamera(back.x, back.y, zoom, w, h), zoom }, 420)
+  }, [selectedPlacementId])
 
   // Re-select whenever a new spot is pinned or the edit target switches.
   const hasPinned = pinnedGhost != null
@@ -1137,7 +1246,7 @@ export function StickerWall({
     : undefined
 
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden overscroll-none bg-white">
+    <div className="bg-wall relative h-[100dvh] w-full overflow-hidden overscroll-none">
       <div
         ref={viewportRef}
         className="absolute inset-0 touch-none select-none"
@@ -1369,9 +1478,12 @@ export function StickerWall({
       ) : null}
 
       <div data-ui-chrome className="contents">
-        {!placeMode && !hideControls ? <WallControls /> : null}
+        {!placeMode && !hideControls ? (
+          <WallControls onFit={fitSelected} />
+        ) : null}
         {!placeMode && !clearHeroZone && selected && selectedSticker ? (
           <StickerSheet
+            ref={sheetRef}
             sticker={selectedSticker}
             placement={selected}
             onClose={() => selectPlacement(null)}
