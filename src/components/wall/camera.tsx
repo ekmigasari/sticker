@@ -3,6 +3,7 @@ import {
   UNIT_SCALE,
   WALL_SIZE,
   coverZoom,
+  uncoveredPlacements,
 } from "@/domain/types"
 import { useWallStore } from "@/store/wall-store"
 
@@ -169,7 +170,9 @@ export function exploreRandom() {
   const { placements, camera } = useWallStore.getState()
   const { w, h } = windowSize()
   const zoom = defaultZoom(w, h)
-  const pool = placements.filter((p) => p.id !== lastExploreId)
+  const pool = uncoveredPlacements(placements).filter(
+    (p) => p.id !== lastExploreId
+  )
   let x: number
   let y: number
   if (pool.length && Math.random() < 0.75) {

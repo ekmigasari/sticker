@@ -65,6 +65,8 @@ export type StickerSort = "top" | "newest"
 
 export type StickerListQuery = {
   category?: Category
+  /** Limit to these sticker ids (the wall lives in the browser, not the DB). */
+  ids?: string[]
   sort: StickerSort
   q?: string
   page: number
@@ -81,8 +83,8 @@ export type StickerListPage = {
   pageCount: number
   /** Matches for the current filters, across all pages. */
   total: number
-  /** Dollars spent across every sticker, ignoring filters. */
-  totalSpent: number
+  /** Every sticker on the wall, ignoring filters. */
+  stickerCount: number
   /** Current top three, for the page header. */
   featured: StickerDTO[]
 }
@@ -113,10 +115,15 @@ async function ranksFor(ids: string[]) {
   )
 }
 
-export const listStickerPage = createServerFn({ method: "GET" })
+export const listStickerPage = createServerFn({ method: "POST" })
   .validator((input: StickerListQuery): StickerListQuery => ({
     category:
       input.category && isCategory(input.category) ? input.category : undefined,
+    ids: Array.isArray(input.ids)
+      ? input.ids
+          .filter((id): id is string => typeof id === "string")
+          .slice(0, 5_000)
+      : undefined,
     sort: input.sort === "newest" ? "newest" : "top",
     q: input.q?.trim().slice(0, 80) || undefined,
     page: Number.isInteger(input.page) && input.page > 0 ? input.page : 1,
@@ -124,6 +131,7 @@ export const listStickerPage = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<StickerListPage> => {
     const where: Prisma.StickerWhereInput = {
       ...(data.category ? { category: data.category } : {}),
+      ...(data.ids ? { id: { in: data.ids } } : {}),
       ...(data.q
         ? {
             OR: [
@@ -133,11 +141,9 @@ export const listStickerPage = createServerFn({ method: "GET" })
           }
         : {}),
     }
-    const [total, totals, featured] = await Promise.all([
+    const [total, stickerCount, featured] = await Promise.all([
       prisma.sticker.count({ where }),
-      prisma.$queryRaw<{ spent: number }[]>`
-        SELECT COALESCE(SUM("totalSpent"), 0)::int AS spent FROM sticker
-      `,
+      prisma.sticker.count(),
       prisma.sticker.findMany({ orderBy: TOP_STICKER_ORDER, take: 3 }),
     ])
     const pageCount = Math.max(1, Math.ceil(total / STICKERS_PAGE_SIZE))
@@ -161,7 +167,7 @@ export const listStickerPage = createServerFn({ method: "GET" })
       page,
       pageCount,
       total,
-      totalSpent: totals[0]?.spent ?? 0,
+      stickerCount,
       featured: featured.map(serializeSticker),
     }
   })

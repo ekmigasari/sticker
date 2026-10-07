@@ -18,6 +18,8 @@ import {
   Trophy,
 } from "@phosphor-icons/react"
 import { CategoryTag } from "@/components/category-icon"
+import { FloatingSticker } from "@/components/make/floating-sticker"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { AppChrome } from "@/components/layout/app-chrome"
 import { StickerPromo } from "@/components/sticker-promo"
 import { StickerRow } from "@/components/sticker-row"
@@ -252,12 +254,16 @@ function StickerPage() {
     <AppChrome>
       <article className="mx-auto max-w-3xl px-4 pt-2 sm:px-8 sm:pt-6">
         <BackButton />
-        <div className="mt-2 grid h-80 place-items-center rounded-[32px] bg-[#f5f5f7] sm:h-[420px]">
+        <div className="mt-2 flex h-80 flex-col items-center justify-center sm:h-[420px]">
           {sticker.imageSrc ? (
-            <img
+            <PeelToVisit
               src={sticker.imageSrc}
-              alt={sticker.name}
-              className="size-56 object-contain drop-shadow-[0_18px_28px_rgba(0,0,0,0.16)] sm:size-72"
+              name={sticker.name}
+              url={sticker.url}
+              holo={
+                dbSticker?.filter === "glitter" ||
+                dbSticker?.filter === "hologram"
+              }
             />
           ) : (
             <StickerIcon weight="fill" className="size-20 text-neutral-300" />
@@ -511,6 +517,43 @@ function RankStrip({
         )
       })}
     </div>
+  )
+}
+
+/** The make-page peel; peeling it all the way off opens the maker's site. */
+function PeelToVisit({
+  src,
+  name,
+  url,
+  holo,
+}: {
+  src: string
+  name: string
+  url: string
+  holo: boolean
+}) {
+  const isMobile = useIsMobile()
+  const [session, setSession] = useState(0)
+
+  function visit() {
+    // `noopener` in the features string makes window.open return null even on
+    // success, so drop the opener by hand to still detect a blocked popup.
+    const tab = window.open(url, "_blank")
+    if (tab) tab.opener = null
+    else window.location.assign(url)
+    window.setTimeout(() => setSession((n) => n + 1), 400)
+  }
+
+  return (
+    <FloatingSticker
+      key={session}
+      src={src}
+      alt={name}
+      holo={holo}
+      displayPx={isMobile ? 224 : 288}
+      appearKey={session}
+      onFullyPeeled={visit}
+    />
   )
 }
 

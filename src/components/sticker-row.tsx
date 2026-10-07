@@ -1,5 +1,9 @@
 import { Link } from "@tanstack/react-router"
-import { ArrowUpRight, Sticker as StickerIcon } from "@phosphor-icons/react"
+import {
+  ArrowUpRight,
+  CaretRight,
+  Sticker as StickerIcon,
+} from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -8,10 +12,12 @@ type Props = {
   oneLiner: string
   url: string
   imageSrc?: string
-  /** Rendered before the thumbnail, e.g. a rank badge. */
-  leading?: React.ReactNode
+  /** Rendered before the name, e.g. a rank badge. */
+  badge?: React.ReactNode
   /** Small line under the one-liner. */
   meta?: React.ReactNode
+  /** Rendered before the Detail button, e.g. total spent. */
+  trailing?: React.ReactNode
   className?: string
 }
 
@@ -25,8 +31,9 @@ export function StickerRow({
   oneLiner,
   url,
   imageSrc,
-  leading,
+  badge,
   meta,
+  trailing,
   className,
 }: Props) {
   return (
@@ -45,16 +52,13 @@ export function StickerRow({
         aria-label={`Visit ${name} website`}
         className="absolute inset-0 rounded-[20px] focus-visible:ring-2 focus-visible:ring-[#0071e3] focus-visible:outline-none"
       />
-      {leading ? (
-        <div className="pointer-events-none shrink-0">{leading}</div>
-      ) : null}
-      <div className="pointer-events-none my-3 grid size-14 shrink-0 place-items-center overflow-hidden rounded-[14px] bg-[#f5f5f7] p-2 ring-1 ring-black/[0.05] transition-colors duration-200 ring-inset group-hover:bg-white sm:size-16 sm:rounded-[16px]">
+      <div className="pointer-events-none my-3 flex size-16 shrink-0 items-center justify-center">
         {imageSrc ? (
           <img
             src={imageSrc}
             alt=""
             loading="lazy"
-            className="size-full object-contain transition-transform duration-300 ease-out group-hover:scale-[1.06]"
+            className="max-h-full max-w-full object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.14)] transition-transform duration-300 ease-out group-hover:scale-[1.06]"
           />
         ) : (
           <StickerIcon weight="fill" className="size-6 text-neutral-300" />
@@ -62,7 +66,8 @@ export function StickerRow({
       </div>
       <div className="flex min-w-0 flex-1 items-center gap-3 self-stretch border-b border-black/[0.08] py-3 transition-colors duration-200 group-last:border-transparent group-hover:border-transparent">
         <div className="pointer-events-none min-w-0 flex-1">
-          <p className="flex items-center gap-1 text-[16px] font-semibold tracking-[-0.02em] text-neutral-900 sm:text-[17px]">
+          <p className="flex items-center gap-1.5 text-[16px] font-semibold tracking-[-0.02em] text-neutral-900 sm:text-[17px]">
+            {badge}
             <span className="truncate">{name}</span>
             <ArrowUpRight
               weight="bold"
@@ -70,7 +75,7 @@ export function StickerRow({
               className="size-3.5 shrink-0 text-neutral-400 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
             />
           </p>
-          <p className="truncate text-[13px] text-neutral-500 sm:text-[14px]">
+          <p className="line-clamp-2 text-[13px] leading-snug text-neutral-500 sm:truncate sm:text-[14px]">
             {oneLiner}
           </p>
           {meta ? (
@@ -79,12 +84,17 @@ export function StickerRow({
             </div>
           ) : null}
         </div>
+        {trailing ? (
+          <div className="pointer-events-none shrink-0">{trailing}</div>
+        ) : null}
         <Link
           to="/stickers/$slug"
           params={{ slug }}
-          className="press relative inline-flex h-8 shrink-0 items-center rounded-full bg-[#f2f2f7] px-4 text-[14px] font-semibold tracking-[-0.01em] text-[#0071e3] transition-colors group-hover:bg-white hover:bg-[#e8e8ed]!"
+          aria-label={`${name} details`}
+          className="press relative inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-[#f2f2f7] text-[14px] font-semibold tracking-[-0.01em] text-[#0071e3] transition-colors group-hover:bg-white hover:bg-[#e8e8ed]! sm:h-8 sm:w-auto sm:px-4"
         >
-          Detail
+          <span className="hidden sm:inline">Detail</span>
+          <CaretRight weight="bold" className="size-3.5 sm:hidden" />
         </Link>
       </div>
     </li>

@@ -1161,6 +1161,13 @@ export function isPlotFullyCovered(
   return remaining.length === 0
 }
 
+/** Placements with any part of their plot still showing; the rest are off the wall. */
+export function uncoveredPlacements<T extends CoverablePlot>(
+  all: ReadonlyArray<T>
+): T[] {
+  return all.filter((p) => !isPlotFullyCovered(p, all))
+}
+
 type CoverablePlot = {
   x: number
   y: number

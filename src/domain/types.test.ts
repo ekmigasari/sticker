@@ -36,6 +36,7 @@ import {
   stickerAabbInPlot,
   stickerBoxSize,
   stickerContentUnits,
+  uncoveredPlacements,
   unitsToPx,
   validatePlot,
 } from "./types"
@@ -327,5 +328,26 @@ describe("plotCoverage", () => {
     expect(plotVisibility(0.5)).toBe("partly")
     expect(plotVisibility(0.2)).toBe("mostly")
     expect(plotVisibility(0)).toBe("hidden")
+  })
+})
+
+describe("uncoveredPlacements", () => {
+  it("drops plots fully covered by several newer plots together", () => {
+    const old = { x: 0, y: 0, width: 100, height: 100, zIndex: 1 }
+    const left = { x: 0, y: 0, width: 50, height: 100, zIndex: 2 }
+    const right = { x: 50, y: 0, width: 50, height: 100, zIndex: 3 }
+    expect(uncoveredPlacements([old, left, right])).toEqual([left, right])
+  })
+
+  it("keeps a plot while any sliver still shows", () => {
+    const old = { x: 0, y: 0, width: 100, height: 100, zIndex: 1 }
+    const top = { x: 0, y: 0, width: 100, height: 99, zIndex: 2 }
+    expect(uncoveredPlacements([old, top])).toEqual([old, top])
+  })
+
+  it("ignores older plots stacked underneath", () => {
+    const top = { x: 0, y: 0, width: 50, height: 50, zIndex: 2 }
+    const under = { x: 0, y: 0, width: 100, height: 100, zIndex: 1 }
+    expect(uncoveredPlacements([top, under])).toEqual([top, under])
   })
 })

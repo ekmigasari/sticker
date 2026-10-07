@@ -12,6 +12,7 @@ import {
   WALL_SIZE,
   normalizeCategory,
   snapPlotOrigin,
+  uncoveredPlacements,
   unitsToPx,
 } from "@/domain/types"
 import { slugifyName } from "@/lib/sticker-meta"
@@ -259,7 +260,7 @@ export const useWallStore = create<WallState>((set, get) => ({
   },
 
   focusRandom: () => {
-    const list = get().placements
+    const list = uncoveredPlacements(get().placements)
     if (!list.length) return
     const pick = list[Math.floor(Math.random() * list.length)]
     get().focusPlacement(pick, 2.2)
@@ -276,7 +277,7 @@ export const useWallStore = create<WallState>((set, get) => ({
         s.category.toLowerCase().includes(q)
     )
     if (!sticker) return null
-    const placement = [...placements]
+    const placement = uncoveredPlacements(placements)
       .filter((p) => p.stickerId === sticker.id)
       .sort((a, b) => b.zIndex - a.zIndex)[0]
     if (!placement) return null

@@ -23,6 +23,7 @@ import {
   Stack,
   UserCircle,
   UsersThree,
+  Wall,
   Wallet,
   type Icon,
   type IconWeight,
@@ -30,8 +31,11 @@ import {
 import type { Category } from "@/domain/types"
 import { cn } from "@/lib/utils"
 
-const ICONS: Record<Category | "All", Icon> = {
+type ChipCategory = Category | "All" | "Wall"
+
+const ICONS: Record<ChipCategory, Icon> = {
   All: Stack,
+  Wall,
   "AI & Agents": Robot,
   "Developer Tools": Code,
   "No-Code": PuzzlePiece,
@@ -59,8 +63,9 @@ const ICONS: Record<Category | "All", Icon> = {
 }
 
 /** Text-safe accent per category (≥4.5:1 on white). */
-const ACCENTS: Record<Category | "All", string> = {
+const ACCENTS: Record<ChipCategory, string> = {
   All: "#1d1d1f",
+  Wall: "#0071e3",
   "AI & Agents": "#7c3aed",
   "Developer Tools": "#2563eb",
   "No-Code": "#0e7490",
@@ -87,7 +92,7 @@ const ACCENTS: Record<Category | "All", string> = {
   Other: "#525252",
 }
 
-export function categoryAccent(category: Category | "All"): string {
+export function categoryAccent(category: ChipCategory): string {
   return ACCENTS[category]
 }
 
@@ -97,7 +102,7 @@ export function CategoryIcon({
   color,
   className,
 }: {
-  category: Category | "All"
+  category: ChipCategory
   weight?: IconWeight
   color?: string
   className?: string

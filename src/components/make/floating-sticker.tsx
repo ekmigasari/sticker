@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 
 type Props = {
   src: string
+  alt?: string
   holo: boolean
   /** Visual longest-side size in CSS pixels. */
   displayPx: number
@@ -256,6 +257,7 @@ function ReleaseLiner() {
 
 export function FloatingSticker({
   src,
+  alt = "Sticker preview",
   holo,
   displayPx,
   appearKey,
@@ -679,7 +681,7 @@ export function FloatingSticker({
             >
               <img
                 src={src}
-                alt="Sticker preview"
+                alt={alt}
                 draggable={false}
                 onLoad={(e) => {
                   const { naturalWidth: w, naturalHeight: h } = e.currentTarget

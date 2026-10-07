@@ -1,7 +1,12 @@
 import { isCategory, type Category } from "@/domain/types"
 
+/** Pseudo-category: stickers with at least part of a plot still showing on the wall. */
+export const WALL_FILTER = "Wall"
+
+export type StickersFilter = Category | typeof WALL_FILTER
+
 export type StickersSearch = {
-  category?: Category
+  category?: StickersFilter
   /** Top is the default, so only Newest is spelled out in the URL. */
   sort?: "newest"
   q?: string
@@ -15,7 +20,8 @@ export function parseStickersSearch(
   const q = typeof search.q === "string" ? search.q.trim() : ""
   return {
     category:
-      typeof search.category === "string" && isCategory(search.category)
+      typeof search.category === "string" &&
+      (search.category === WALL_FILTER || isCategory(search.category))
         ? search.category
         : undefined,
     sort: search.sort === "newest" ? "newest" : undefined,

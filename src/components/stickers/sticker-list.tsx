@@ -20,12 +20,9 @@ import {
   type StickerListItem,
   type StickerListPage,
 } from "@/lib/stickers"
-import type { StickersSearch } from "@/lib/stickers-search"
+import { WALL_FILTER, type StickersSearch } from "@/lib/stickers-search"
 import type { StickerDTO } from "@/lib/sticker-api"
 import { cn } from "@/lib/utils"
-
-/** Below this the total reads as an empty room, not a busy wall. */
-const HEADLINE_SPEND_MIN = 1_000
 
 const SORTS = [
   { id: "top", label: "Top" },
@@ -40,6 +37,7 @@ type Props = {
 
 export function StickerList({ data, search, onSearchChange }: Props) {
   const category = search.category ?? "All"
+  const onWall = category === WALL_FILTER
   const sort = search.sort ?? "top"
   const [query, setQuery] = useState(search.q ?? "")
   const input = useRef<HTMLInputElement>(null)
@@ -89,21 +87,22 @@ export function StickerList({ data, search, onSearchChange }: Props) {
 
   return (
     <div className="nk-page max-w-3xl">
-      <header className="flex flex-col gap-3">
-        <div className="flex items-end justify-between gap-4">
-          <div className="min-w-0">
-            {data.totalSpent >= HEADLINE_SPEND_MIN ? (
-              <p className="mb-1.5 text-[13px] font-semibold tracking-[-0.01em] text-neutral-500 tabular-nums">
-                ${data.totalSpent.toLocaleString("en-US")} spent on the wall
-              </p>
-            ) : null}
-            <h1 className="nk-title">Stickers</h1>
-          </div>
-          <StickerCluster stickers={data.featured} />
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 sm:gap-x-10">
+        <div className="min-w-0 self-end">
+          <p className="mb-2 text-[13px] font-semibold tracking-[-0.01em] text-[#0071e3] tabular-nums">
+            {data.stickerCount > 0
+              ? `${data.stickerCount.toLocaleString("en-US")} cool ${data.stickerCount === 1 ? "thing" : "things"} and counting`
+              : "Fresh off the wall"}
+          </p>
+          <h1 className="nk-title">Wall of Fame</h1>
         </div>
-        <p className="nk-subtitle">
-          Every sticker stays listed here — even when it&apos;s buried on the
-          wall.
+        <StickerCluster
+          stickers={data.featured}
+          className="sm:row-span-2 sm:self-center"
+        />
+        <p className="nk-subtitle col-span-2 text-pretty sm:col-span-1">
+          Cool things made by people on the internet. Apps, tools, and side
+          projects that earned a spot on the wall.
         </p>
       </header>
 
@@ -174,7 +173,7 @@ export function StickerList({ data, search, onSearchChange }: Props) {
             ref={chips}
             className="relative no-scrollbar flex min-w-0 flex-1 gap-0.5 overflow-x-auto [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] pr-6"
           >
-            {(["All", ...CATEGORIES] as const).map((c) => {
+            {(["All", WALL_FILTER, ...CATEGORIES] as const).map((c) => {
               const active = category === c
               return (
                 <button
@@ -213,7 +212,12 @@ export function StickerList({ data, search, onSearchChange }: Props) {
 
         <p className="mt-2 text-[13px] font-medium tracking-[-0.01em] text-neutral-500 tabular-nums">
           {data.total} {data.total === 1 ? "result" : "results"}
-          {search.category ? (
+          {onWall ? (
+            <>
+              {" "}
+              <span className="text-[#0071e3]">showing on the wall</span>
+            </>
+          ) : search.category ? (
             <>
               {" in "}
               <span style={{ color: categoryAccent(search.category) }}>
@@ -231,7 +235,9 @@ export function StickerList({ data, search, onSearchChange }: Props) {
                 key={sticker.id}
                 sticker={sticker}
                 sort={sort}
-                category={search.category}
+                category={
+                  search.category === WALL_FILTER ? undefined : search.category
+                }
               />
             ))}
           </ul>
@@ -240,7 +246,11 @@ export function StickerList({ data, search, onSearchChange }: Props) {
             <div className="grid size-14 place-items-center rounded-[18px] bg-[#f5f5f7] text-neutral-400">
               <MagnifyingGlass weight="bold" className="size-6" />
             </div>
-            <p className="text-[15px] text-neutral-500">No stickers match.</p>
+            <p className="text-[15px] text-neutral-500">
+              {onWall && !search.q
+                ? "Nothing showing on the wall yet."
+                : "No stickers match."}
+            </p>
           </div>
         )}
 
@@ -265,6 +275,10 @@ function ListRow({
   category: Category | undefined
 }) {
   const position = category ? sticker.rank?.category : sticker.rank?.overall
+  const spent =
+    sticker.totalSpent > 0
+      ? `$${sticker.totalSpent.toLocaleString("en-US")}`
+      : null
   return (
     <StickerRow
       slug={sticker.slug}
@@ -272,20 +286,25 @@ function ListRow({
       oneLiner={sticker.oneLiner}
       url={sticker.url}
       imageSrc={sticker.imageUrl}
-      leading={
-        sort === "top" ? (
-          <RankBadge position={position} spent={sticker.totalSpent} />
-        ) : null
+      badge={
+        sort === "top" && position ? <RankBadge position={position} /> : null
       }
       meta={
         <>
           <CategoryTag category={sticker.category} />
-          {sort === "newest" && sticker.totalSpent > 0 ? (
-            <span className="shrink-0 text-neutral-500">
-              · ${sticker.totalSpent.toLocaleString("en-US")}
+          {spent ? (
+            <span className="shrink-0 font-semibold text-neutral-600 sm:hidden">
+              · {spent}
             </span>
           ) : null}
         </>
+      }
+      trailing={
+        spent ? (
+          <p className="hidden text-[15px] font-semibold tracking-[-0.01em] text-neutral-900 tabular-nums sm:block">
+            {spent}
+          </p>
+        ) : null
       }
     />
   )
@@ -409,70 +428,55 @@ function Pagination({
   )
 }
 
-const MEDALS = [
-  "bg-gradient-to-b from-[#ffe08a] to-[#f0a000] text-[#5c3800]",
-  "bg-gradient-to-b from-[#f2f4f7] to-[#b4bac3] text-[#3b4148]",
-  "bg-gradient-to-b from-[#f6cfa8] to-[#c47a3e] text-[#4f280a]",
-]
-
-function RankBadge({
-  position,
-  spent,
-}: {
-  position: number | undefined
-  spent: number
-}) {
-  const medal = position ? MEDALS[position - 1] : undefined
+function RankBadge({ position }: { position: number }) {
   return (
-    <div className="flex w-11 flex-col items-center gap-1">
-      <span
-        className={cn(
-          "grid size-8 place-items-center rounded-full text-[15px] font-semibold tracking-[-0.02em] tabular-nums",
-          medal
-            ? cn(
-                medal,
-                "shadow-[inset_0_1px_0_rgba(255,255,255,0.6),0_2px_6px_-2px_rgba(0,0,0,0.25)]"
-              )
-            : position
-              ? "text-neutral-900"
-              : "text-neutral-300"
-        )}
-      >
-        {position ?? "–"}
-      </span>
-      {position ? (
-        <span className="max-w-full truncate text-[11px] font-semibold tracking-[-0.01em] text-neutral-500 tabular-nums">
-          ${spent.toLocaleString("en-US")}
-        </span>
-      ) : null}
-    </div>
+    <span className="inline-flex h-[22px] shrink-0 items-center rounded-[7px] bg-[#0071e3]/10 px-1.5 text-[12px] font-semibold tracking-[-0.01em] text-[#0071e3] tabular-nums">
+      #{position}
+    </span>
   )
 }
 
 const CLUSTER_SLOTS = [
-  "left-0 top-3 -rotate-[10deg] group-hover:-translate-x-1.5 group-hover:-rotate-[16deg]",
-  "right-0 top-0 rotate-[9deg] group-hover:translate-x-1.5 group-hover:rotate-[15deg]",
-  "left-1/2 bottom-0 -translate-x-1/2 rotate-[2deg] group-hover:-translate-y-1 group-hover:-rotate-[2deg]",
+  "left-0 top-[18%] -rotate-[10deg] group-hover:-translate-x-1 group-hover:-rotate-[15deg]",
+  "right-0 top-0 rotate-[9deg] group-hover:translate-x-1 group-hover:rotate-[14deg]",
+  "left-1/2 bottom-0 z-10 -translate-x-1/2 rotate-[2deg] group-hover:-translate-y-1 group-hover:-rotate-[2deg]",
 ]
 
-/** Decorative stack of the current top stickers. */
-function StickerCluster({ stickers }: { stickers: StickerDTO[] }) {
+/** Stack of the current top stickers; each one links to its website. */
+function StickerCluster({
+  stickers,
+  className,
+}: {
+  stickers: StickerDTO[]
+  className?: string
+}) {
   if (!stickers.length) return null
   return (
     <div
-      aria-hidden
-      className="group relative h-24 w-28 shrink-0 sm:h-28 sm:w-36"
+      className={cn(
+        "group relative h-[84px] w-[104px] shrink-0 sm:h-32 sm:w-40",
+        className
+      )}
     >
       {stickers.map((s, i) => (
-        <img
+        <a
           key={s.id}
-          src={s.imageUrl}
-          alt=""
+          href={s.url}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Visit ${s.name} website`}
+          title={s.name}
           className={cn(
-            "absolute size-14 object-contain drop-shadow-[0_8px_14px_rgba(0,0,0,0.18)] transition-transform duration-300 ease-out sm:size-16",
+            "absolute size-12 rounded-[12px] transition-[translate,rotate,scale] duration-300 ease-out hover:z-20 hover:scale-110 focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-[#0071e3] focus-visible:outline-none sm:size-[72px]",
             CLUSTER_SLOTS[i]
           )}
-        />
+        >
+          <img
+            src={s.imageUrl}
+            alt=""
+            className="size-full object-contain drop-shadow-[0_6px_12px_rgba(0,0,0,0.18)]"
+          />
+        </a>
       ))}
     </div>
   )

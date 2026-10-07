@@ -56,9 +56,7 @@ export function StickerForm({
   const [category, setCategory] = useState<Category>(
     initial?.category ?? DEFAULT_CATEGORY
   )
-  const [showDescription, setShowDescription] = useState(
-    !!initial?.description
-  )
+  const [showDescription, setShowDescription] = useState(!!initial?.description)
   const [showPromo, setShowPromo] = useState(
     !!(initial?.offer || initial?.offerCode || initial?.offerExpiresOn)
   )
@@ -68,7 +66,8 @@ export function StickerForm({
     setError(null)
     setPending(true)
     const form = new FormData(event.currentTarget)
-    const text = (key: string) => String(form.get(key) ?? "").trim() || undefined
+    const text = (key: string) =>
+      String(form.get(key) ?? "").trim() || undefined
     const values: StickerFormValues = {
       name: String(form.get("name") ?? ""),
       oneLiner: String(form.get("oneLiner") ?? ""),

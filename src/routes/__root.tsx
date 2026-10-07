@@ -26,7 +26,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "Netkraft - cool things built by people on internet. Make a sticker and put it on the wall.",
+          "Netkraft: cool things made by people on the internet. Make a sticker and put it on the wall.",
       },
       {
         title: "Netkraft",
