@@ -16,7 +16,7 @@ import {
   Trophy,
 } from "@phosphor-icons/react"
 import { CategoryTag } from "@/components/category-icon"
-import { FloatingSticker } from "@/components/make/floating-sticker"
+import { PeelToVisit } from "@/components/stickers/peel-to-visit"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { StickerPromo } from "@/components/sticker-promo"
 import { StickerRow } from "@/components/sticker-row"
@@ -104,6 +104,7 @@ export function StickerDetail({
   notice,
 }: Props) {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const focusPlacement = useWallStore((s) => s.focusPlacement)
 
   const stickerKey = dbSticker?.id
@@ -191,6 +192,7 @@ export function StickerDetail({
             name={sticker.name}
             url={sticker.url}
             holo={sticker.filter === "glitter" || sticker.filter === "hologram"}
+            displayPx={isMobile ? 224 : 288}
           />
         ) : (
           <StickerIcon weight="fill" className="size-20 text-neutral-300" />
@@ -450,43 +452,6 @@ function RankStrip({
         )
       })}
     </div>
-  )
-}
-
-/** The make-page peel; peeling it all the way off opens the maker's site. */
-function PeelToVisit({
-  src,
-  name,
-  url,
-  holo,
-}: {
-  src: string
-  name: string
-  url: string
-  holo: boolean
-}) {
-  const isMobile = useIsMobile()
-  const [session, setSession] = useState(0)
-
-  function visit() {
-    // `noopener` in the features string makes window.open return null even on
-    // success, so drop the opener by hand to still detect a blocked popup.
-    const tab = window.open(url, "_blank")
-    if (tab) tab.opener = null
-    else window.location.assign(url)
-    window.setTimeout(() => setSession((n) => n + 1), 400)
-  }
-
-  return (
-    <FloatingSticker
-      key={session}
-      src={src}
-      alt={name}
-      holo={holo}
-      displayPx={isMobile ? 224 : 288}
-      appearKey={session}
-      onFullyPeeled={visit}
-    />
   )
 }
 

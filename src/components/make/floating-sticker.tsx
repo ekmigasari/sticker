@@ -21,6 +21,16 @@ type Props = {
   className?: string
   /** Fired once when the sticker is fully peeled — continue to place on wall. */
   onFullyPeeled?: () => void
+  /** Fired on a press-and-release that never turned into a peel. */
+  onTap?: () => void
+  /** Idle bobbing; off when the sticker sits in a grid. */
+  floating?: boolean
+  /** Play the appear animation on mount. */
+  appear?: boolean
+  /** Extra grab area around the art. Keep small when neighbours are close. */
+  hitPad?: number
+  /** `pan-y` lets vertical swipes scroll the page instead of peeling. */
+  touchAction?: "none" | "pan-y"
 }
 
 type PeelEdge = "left" | "right" | "top" | "bottom"
@@ -129,6 +139,9 @@ function freeGeometry(
 
 /** Min drag distance before the free direction locks onto the pointer vector. */
 const DIR_ARM = 6
+/** A release within this distance and time of the press counts as a tap. */
+const TAP_SLOP = 6
+const TAP_MS = 450
 
 /* ------------------------------------------------------------------ */
 /* Unified peel geometry (edges and corners share the same model).     */
@@ -263,6 +276,11 @@ export function FloatingSticker({
   appearKey,
   className,
   onFullyPeeled,
+  onTap,
+  floating = true,
+  appear = true,
+  hitPad = HIT_PAD,
+  touchAction = "none",
 }: Props) {
   const hitRef = useRef<HTMLDivElement>(null)
   const visualRef = useRef<HTMLDivElement>(null)
@@ -274,6 +292,7 @@ export function FloatingSticker({
   /** Guards place-on-wall so it only fires once per peel. */
   const placedRef = useRef(false)
   const onFullyPeeledRef = useRef(onFullyPeeled)
+  const onTapRef = useRef(onTap)
   const settleAnim = useRef<AnimationPlaybackControls | null>(null)
   const drag = useRef<{
     id: number
@@ -290,6 +309,9 @@ export function FloatingSticker({
     lastX: number
     lastY: number
     lastT: number
+    startT: number
+    /** Px/ms along the peel direction; negative while pulling back. */
+    vel: number
   } | null>(null)
   /** Live free-peel geometry while dragging (overrides discrete edge/corner). */
   const freeGeoRef = useRef<Geo | null>(null)
@@ -302,6 +324,7 @@ export function FloatingSticker({
 
   useEffect(() => {
     onFullyPeeledRef.current = onFullyPeeled
+    onTapRef.current = onTap
   })
 
   useEffect(() => {
@@ -486,26 +509,29 @@ export function FloatingSticker({
     const dist = Math.hypot(dx, dy)
 
     // Follow the pointer once it has moved enough; seed is only the start.
+    // Drags back past the grab point, out of the sticker, fall back to the
+    // seed direction and only count travel along it, so they close the peel.
     let nx = d.seedNx
     let ny = d.seedNy
-    if (dist >= DIR_ARM) {
+    let travel = dx * nx + dy * ny
+    if (dist >= DIR_ARM && (dx * d.seedNx + dy * d.seedNy) / dist >= 0) {
       nx = dx / dist
       ny = dy / dist
-      // Keep peeling into the sticker — outward drags would invert the flap.
-      if (nx * d.seedNx + ny * d.seedNy < 0) {
-        nx = d.seedNx
-        ny = d.seedNy
-      }
+      travel = dist
     }
 
     const g = freeGeometry(d.cx, d.cy, nx, ny, d.w, d.h)
     freeGeoRef.current = g
 
-    const raw = clamp((dist * PEEL_GAIN) / g.len, 0, 1)
+    const raw = clamp((Math.max(0, travel) * PEEL_GAIN) / g.len, 0, 1)
     peel.set(Math.pow(raw, DRAG_CURVE))
+    const now = performance.now()
+    d.vel =
+      ((clientX - d.lastX) * nx + (clientY - d.lastY) * ny) /
+      Math.max(1, now - d.lastT)
     d.lastX = clientX
     d.lastY = clientY
-    d.lastT = performance.now()
+    d.lastT = now
   }
 
   function onPointerMove(e: React.PointerEvent) {
@@ -557,6 +583,8 @@ export function FloatingSticker({
       lastX: e.clientX,
       lastY: e.clientY,
       lastT: now,
+      startT: now,
+      vel: 0,
     }
     freeGeoRef.current = freeGeometry(
       live.px,
@@ -576,15 +604,27 @@ export function FloatingSticker({
     // lostpointercapture / mismatched ids still must release the drag.
     if (e.type !== "lostpointercapture" && e.pointerId !== d.id) return
 
-    // Momentum: a quick flick finishes the peel even below the distance threshold.
-    const elapsed = Math.max(1, performance.now() - d.lastT)
-    const recentDist = Math.hypot(e.clientX - d.lastX, e.clientY - d.lastY)
-    const recentVel = recentDist / elapsed
+    // Momentum: a quick flick that is still opening the peel finishes it even
+    // below the distance threshold; a flick back toward the start does not.
+    const recentVel = performance.now() - d.lastT < 80 ? d.vel : 0
+
+    const tapped =
+      e.type === "pointerup" &&
+      Math.hypot(e.clientX - d.x, e.clientY - d.y) < TAP_SLOP &&
+      performance.now() - d.startT < TAP_MS
 
     clearDrag(e)
     if (placedRef.current) return
     const p = peel.get()
     const hovering = e.pointerType === "mouse" && e.type === "pointerup"
+    if (tapped && onTapRef.current) {
+      restHover(hovering)
+      settleTo(0, () => {
+        freeGeoRef.current = null
+      })
+      onTapRef.current()
+      return
+    }
     if (p >= PEEL_THRESHOLD || (recentVel > 0.11 && p > 0.18)) {
       placedRef.current = true
       restHover(false)
@@ -601,8 +641,18 @@ export function FloatingSticker({
   return (
     <motion.div
       key={appearKey}
-      className={cn("sticker-float relative shrink-0", className)}
-      initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.9, rotate: -4 }}
+      className={cn(
+        floating && "sticker-float",
+        "relative shrink-0",
+        className
+      )}
+      initial={
+        !appear
+          ? false
+          : reduce
+            ? { opacity: 0 }
+            : { opacity: 0, scale: 0.9, rotate: -4 }
+      }
       animate={{ opacity: 1, scale: 1, rotate: 0, width, height }}
       transition={{
         opacity: { type: "spring", duration: 0.55, bounce: 0.3 },
@@ -615,7 +665,7 @@ export function FloatingSticker({
     >
       <div
         ref={hitRef}
-        className="absolute touch-none select-none"
+        className="absolute select-none"
         onPointerMove={onPointerMove}
         onPointerDown={onPointerDown}
         onPointerUp={endDrag}
@@ -626,10 +676,11 @@ export function FloatingSticker({
         }}
         style={{
           cursor: "grab",
-          top: -HIT_PAD,
-          right: -HIT_PAD,
-          bottom: -HIT_PAD,
-          left: -HIT_PAD,
+          touchAction,
+          top: -hitPad,
+          right: -hitPad,
+          bottom: -hitPad,
+          left: -hitPad,
         }}
       >
         {/* Visual sticker sits in the unpadded core; hit pad is only for grab. */}
@@ -637,10 +688,10 @@ export function FloatingSticker({
           ref={visualRef}
           className="absolute"
           style={{
-            top: HIT_PAD,
-            right: HIT_PAD,
-            bottom: HIT_PAD,
-            left: HIT_PAD,
+            top: hitPad,
+            right: hitPad,
+            bottom: hitPad,
+            left: hitPad,
           }}
         >
           {/* One shared tilt wrapper: liner, shadow, front and flap all tilt
