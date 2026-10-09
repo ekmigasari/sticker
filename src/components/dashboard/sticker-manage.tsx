@@ -1,6 +1,11 @@
 import { useState } from "react"
 import { useRouter } from "@tanstack/react-router"
 import { Archive, Lock } from "@phosphor-icons/react"
+import { useMoveSpot } from "@/components/place/use-move-spot"
+import {
+  RestoreSheet,
+  type RestoreTarget,
+} from "@/components/stickers/restore-sheet"
 import { StickerDetail } from "@/components/stickers/sticker-detail"
 import type { StickerDTO } from "@/lib/sticker-api"
 import type { StickerWithPlacements } from "@/lib/stickers"
@@ -30,6 +35,15 @@ export function StickerManage({
 }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
+  const [restoring, setRestoring] = useState<RestoreTarget | null>(null)
+  const { moveSpot, pending: movePending, error: moveError } = useMoveSpot()
+  const live = sticker && !sticker.archivedAt ? sticker : null
+
+  const restoringIds = restoring?.quote.placementIds
+  const restoringSpot =
+    live && restoringIds?.length === 1
+      ? live.placements.find((p) => p.id === restoringIds[0])
+      : undefined
 
   async function saveDetails(values: StickerFormValues) {
     if (!sticker) return
@@ -50,7 +64,7 @@ export function StickerManage({
       <StickerDetail
         sticker={sticker}
         all={all}
-        back={{ to: "/dashboard", label: "Dashboard" }}
+        back={{ to: "/dashboard", label: "Sticker Book" }}
         action={
           sticker ? (
             <button
@@ -66,6 +80,32 @@ export function StickerManage({
           sticker?.archivedAt ? (
             <ArchivedNotice onUnarchive={() => setArchived(false)} />
           ) : null
+        }
+        onRestore={
+          live ? (quote) => setRestoring({ sticker: live, quote }) : undefined
+        }
+        move={
+          live
+            ? {
+                onMove: (spot) => void moveSpot(live, spot),
+                pending: movePending,
+                error: moveError,
+              }
+            : undefined
+        }
+      />
+      <RestoreSheet
+        target={restoring}
+        onOpenChange={(open) => {
+          if (!open) setRestoring(null)
+        }}
+        onMove={
+          live && restoringSpot
+            ? () => {
+                setRestoring(null)
+                void moveSpot(live, restoringSpot)
+              }
+            : undefined
         }
       />
       {sticker ? (

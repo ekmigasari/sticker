@@ -32,6 +32,7 @@ export type StickerDTO = {
   offerExpiresOn?: string
   style: string
   filter: string
+  finish: string
   outlineColor: string
   outlineThickness: number
   /** Whole dollars paid for wall placements. */
@@ -57,6 +58,7 @@ type StickerRecord = {
   offerExpiresOn: Date | null
   style: string
   filter: string
+  finish: string
   outlineColor: string
   outlineThickness: number
   totalSpent: number
@@ -84,6 +86,7 @@ export function serializeSticker(sticker: StickerRecord): StickerDTO {
     offerExpiresOn: sticker.offerExpiresOn?.toISOString().slice(0, 10),
     style: sticker.style,
     filter: sticker.filter,
+    finish: sticker.finish,
     outlineColor: sticker.outlineColor,
     outlineThickness: sticker.outlineThickness,
     totalSpent: sticker.totalSpent,

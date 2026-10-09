@@ -1,5 +1,5 @@
 import { Dialog } from "@base-ui/react/dialog"
-import { X } from "@phosphor-icons/react"
+import { CaretLeft, X } from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
 
 /** Bottom sheet on phones, centered card on larger screens. */
@@ -7,11 +7,13 @@ export function FormSheet({
   open,
   onOpenChange,
   title,
+  onBack,
   children,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
+  onBack?: () => void
   children: React.ReactNode
 }) {
   return (
@@ -28,6 +30,16 @@ export function FormSheet({
           )}
         >
           <div className="relative flex h-14 shrink-0 items-center justify-center border-b border-black/[0.06] px-14">
+            {onBack ? (
+              <button
+                type="button"
+                onClick={onBack}
+                aria-label="Back"
+                className="press absolute top-1/2 left-4 grid size-8 -translate-y-1/2 place-items-center rounded-full bg-black/[0.06] text-neutral-500 transition-colors hover:bg-black/[0.09] hover:text-neutral-900"
+              >
+                <CaretLeft weight="bold" className="size-3.5" />
+              </button>
+            ) : null}
             <Dialog.Title className="truncate text-[17px] font-semibold tracking-[-0.02em]">
               {title}
             </Dialog.Title>

@@ -5,7 +5,7 @@ import {
   useRouter,
 } from "@tanstack/react-router"
 import {
-  House,
+  BookOpen,
   MagicWand,
   SignOut,
   SquaresFour,
@@ -126,8 +126,8 @@ export function AccountButton({ className }: { className?: string }) {
             className={item}
             onClick={() => void navigate({ to: "/dashboard" })}
           >
-            <House weight="regular" />
-            Dashboard
+            <BookOpen weight="regular" />
+            My Sticker Book
           </DropdownMenuItem>
           <DropdownMenuItem
             className={cn(item, "text-red-600")}

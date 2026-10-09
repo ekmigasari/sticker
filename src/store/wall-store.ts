@@ -47,8 +47,14 @@ type WallState = {
   focusNewest: () => void
   focusRandom: () => void
   searchJump: (query: string) => Placement | null
-  /** A paid plot the server just stuck on the wall. */
-  addPlacement: (sticker: Sticker, placement: Placement) => void
+  /** A paid plot the server just stuck on the wall, maybe moved from `replaces`. */
+  addPlacement: (
+    sticker: Sticker,
+    placement: Placement,
+    replaces?: string
+  ) => void
+  /** Plots the server just moved back on top. */
+  restorePlacements: (restored: Placement[]) => void
   getSticker: (id: string) => Sticker | undefined
   getStickerBySlugOrId: (slugOrId: string) => Sticker | undefined
   placementsSorted: () => Placement[]
@@ -218,18 +224,26 @@ export const useWallStore = create<WallState>((set, get) => ({
     return placement
   },
 
-  addPlacement: (sticker, placement) => {
+  addPlacement: (sticker, placement, replaces) => {
     savePlaceSession({ draftSticker: null, placeDraft: null })
     set((s) => ({
       stickers: s.stickers.some((x) => x.id === sticker.id)
         ? s.stickers
         : [...s.stickers, sticker],
-      placements: [...s.placements, placement],
+      placements: [...s.placements.filter((p) => p.id !== replaces), placement],
       placeDraft: null,
       draftSticker: null,
       selectedPlacementId: placement.id,
     }))
     // Plots underneath may have changed coverage; pick that up next visit.
+    wallLoadedAt = 0
+  },
+
+  restorePlacements: (restored) => {
+    const byId = new Map(restored.map((p) => [p.id, p]))
+    set((s) => ({
+      placements: s.placements.map((p) => byId.get(p.id) ?? p),
+    }))
     wallLoadedAt = 0
   },
 

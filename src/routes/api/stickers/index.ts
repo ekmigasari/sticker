@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
 import {
   plotPrice,
-  STICKER_FILTERS,
+  isFilter,
+  isFinish,
   STICKER_STYLES,
-  type StickerFilter,
   type StickerStyle,
 } from "@/domain/types"
 import { auth } from "@/lib/auth"
@@ -17,18 +17,10 @@ import {
 } from "@/lib/sticker-api"
 import { prisma } from "@/lib/prisma"
 import { putObject } from "@/lib/s3"
-import {
-  parsePlacementInput,
-  placeOnWall,
-  type PlacementInput,
-} from "@/lib/wall"
+import { parsePlacementInput, placeOnWall } from "@/lib/wall"
 
 function isStyle(value: string): value is StickerStyle {
   return (STICKER_STYLES as readonly string[]).includes(value)
-}
-
-function isFilter(value: string): value is StickerFilter {
-  return (STICKER_FILTERS as readonly string[]).includes(value)
 }
 
 export const Route = createFileRoute("/api/stickers/")({
@@ -122,6 +114,7 @@ export const Route = createFileRoute("/api/stickers/")({
 
         const styleRaw = String(form.get("style") ?? "classic")
         const filterRaw = String(form.get("filter") ?? "original")
+        const finishRaw = String(form.get("finish") ?? "none")
         const outlineColor = String(form.get("outlineColor") ?? "#FFFFFF")
         const outlineThickness = Number(form.get("outlineThickness") ?? 16)
 
@@ -131,9 +124,9 @@ export const Route = createFileRoute("/api/stickers/")({
             { status: 400 }
           )
         }
-        if (!isFilter(filterRaw)) {
+        if (!isFilter(filterRaw) || !isFinish(finishRaw)) {
           return Response.json(
-            { error: "Invalid sticker filter." },
+            { error: "Invalid sticker filter or finish." },
             { status: 400 }
           )
         }
@@ -154,17 +147,15 @@ export const Route = createFileRoute("/api/stickers/")({
           )
         }
 
-        let plot: PlacementInput | null = null
-        if (form.has("unitsW") || form.has("unitsH")) {
-          plot = parsePlacementInput(form)
-          if (!plot) {
-            return Response.json(
-              { error: "Invalid wall plot." },
-              { status: 400 }
-            )
-          }
+        // Every sticker starts with a spot on the wall.
+        const plot = parsePlacementInput(form)
+        if (!plot) {
+          return Response.json(
+            { error: "Pick a spot on the wall for your sticker." },
+            { status: 400 }
+          )
         }
-        const totalSpent = plot ? plotPrice(plot.unitsW, plot.unitsH) : 0
+        const totalSpent = plotPrice(plot.unitsW, plot.unitsH)
 
         const uploadId = crypto.randomUUID()
         const stickerId = crypto.randomUUID()
@@ -195,6 +186,7 @@ export const Route = createFileRoute("/api/stickers/")({
               uploadId,
               style: styleRaw,
               filter: filterRaw,
+              finish: finishRaw,
               outlineColor: outlineColor.slice(0, 32),
               outlineThickness: Math.round(outlineThickness),
               totalSpent,
@@ -202,7 +194,7 @@ export const Route = createFileRoute("/api/stickers/")({
           })
           return {
             sticker: created,
-            placement: plot ? await placeOnWall(tx, stickerId, plot) : null,
+            placement: await placeOnWall(tx, stickerId, plot),
           }
         })
 

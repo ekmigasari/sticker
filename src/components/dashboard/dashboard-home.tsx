@@ -8,6 +8,7 @@ import {
 } from "react"
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import {
+  ArrowUp,
   CaretLeft,
   CaretRight,
   CurrencyDollar,
@@ -15,6 +16,7 @@ import {
   Plus,
   SquaresFour,
   Sticker as StickerIcon,
+  X,
   type Icon,
 } from "@phosphor-icons/react"
 import {
@@ -28,8 +30,17 @@ import {
 } from "motion/react"
 import { ProfileAvatar } from "@/components/profile-avatar"
 import { PeelToVisit } from "@/components/stickers/peel-to-visit"
+import { useMoveSpot } from "@/components/place/use-move-spot"
+import { RestoreSheet } from "@/components/stickers/restore-sheet"
+import { needsRestore, wallStatus } from "@/components/stickers/wall-status"
+import {
+  isHoloFinish,
+  RESTORE_MIN_PRICE,
+  type RestoreQuote,
+} from "@/domain/types"
 import type { MySticker } from "@/lib/stickers"
 import { cn } from "@/lib/utils"
+import { FormSheet } from "./form-sheet"
 import { ProfileSheet, type Profile } from "./profile-sheet"
 
 type Tab = "book" | "wall" | "archived"
@@ -185,6 +196,27 @@ export function DashboardHome({
   const spots = stickers.reduce((sum, s) => sum + s.onWall, 0)
   const spent = stickers.reduce((sum, s) => sum + s.totalSpent, 0)
 
+  const restorable = live.flatMap(({ sticker }): BookRestore[] =>
+    sticker.restore ? [{ sticker, quote: sticker.restore }] : []
+  )
+  const covered = restorable.filter(({ sticker }) =>
+    needsRestore(sticker.visibleShare)
+  )
+  const [picking, setPicking] = useState<BookRestore[] | null>(null)
+  const [restoring, setRestoring] = useState<BookRestore | null>(null)
+  const { moveSpot } = useMoveSpot()
+  const restoringIds = restoring?.quote.placementIds
+  const restoringSpot =
+    restoringIds?.length === 1
+      ? restoring?.sticker.spots.find((s) => s.id === restoringIds[0])
+      : undefined
+
+  /** One choice skips the picker and goes straight to checkout. */
+  function startRestore(choices: BookRestore[]) {
+    if (choices.length === 1) setRestoring(choices[0])
+    else setPicking(choices)
+  }
+
   function turn(delta: 1 | -1) {
     const next = spreadIndex + delta
     if (next < 0 || next >= spreads.length) return
@@ -259,6 +291,11 @@ export function DashboardHome({
         </dl>
       </BookCover>
 
+      <CoveredBanner
+        covered={covered.map((t) => t.sticker)}
+        onRestore={() => startRestore(covered)}
+      />
+
       {live.length || archived.length ? (
         <div className="mt-8 flex justify-center sm:mt-10 sm:justify-start">
           <Segmented
@@ -309,7 +346,205 @@ export function DashboardHome({
         onOpenChange={setEditingProfile}
         profile={user}
       />
+      <RestorePicker
+        choices={picking}
+        onOpenChange={(open) => {
+          if (!open) setPicking(null)
+        }}
+        onPick={(target) => {
+          setPicking(null)
+          setRestoring(target)
+        }}
+      />
+      <RestoreSheet
+        target={restoring}
+        onOpenChange={(open) => {
+          if (!open) setRestoring(null)
+        }}
+        onMove={
+          restoring && restoringSpot
+            ? () => {
+                setRestoring(null)
+                void moveSpot(restoring.sticker, restoringSpot)
+              }
+            : undefined
+        }
+      />
     </div>
+  )
+}
+
+type BookRestore = { sticker: MySticker; quote: RestoreQuote }
+
+/** Most covered first: those lose the most if nobody acts. */
+function byNeed(a: BookRestore, b: BookRestore) {
+  return (
+    (a.sticker.visibleShare ?? 0) - (b.sticker.visibleShare ?? 0) ||
+    b.quote.price - a.quote.price
+  )
+}
+
+function RestorePicker({
+  choices,
+  onOpenChange,
+  onPick,
+}: {
+  choices: BookRestore[] | null
+  onOpenChange: (open: boolean) => void
+  onPick: (target: BookRestore) => void
+}) {
+  // Keep the list while the sheet animates closed.
+  const [shown, setShown] = useState(choices)
+  if (choices && choices !== shown) setShown(choices)
+  const sorted = [...(choices ?? shown ?? [])].sort(byNeed)
+
+  return (
+    <FormSheet
+      open={choices != null}
+      onOpenChange={onOpenChange}
+      title="Restore to top"
+    >
+      <p className="text-[14px] leading-snug tracking-[-0.01em] text-neutral-500">
+        Same spot, same size, back on top. You only pay for the covered units,
+        at least ${RESTORE_MIN_PRICE} a spot.
+      </p>
+      <ul className="-mx-2 mt-3">
+        {sorted.map((target) => {
+          const { sticker, quote } = target
+          const status = wallStatus(sticker.visibleShare)
+          return (
+            <li key={sticker.id}>
+              <button
+                type="button"
+                onClick={() => onPick(target)}
+                className="press flex w-full items-center gap-3 rounded-[16px] px-2 py-2.5 text-left transition-colors hover:bg-black/[0.04]"
+              >
+                <img
+                  src={sticker.imageUrl}
+                  alt=""
+                  className="size-12 shrink-0 object-contain drop-shadow-[0_3px_6px_rgba(0,0,0,0.14)]"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">
+                    {sticker.name}
+                  </span>
+                  <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-neutral-500">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "size-1.5 shrink-0 rounded-full",
+                        status.dot
+                      )}
+                    />
+                    <span className="truncate">{status.label}</span>
+                  </span>
+                </span>
+                <span className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-neutral-900 px-3.5 text-[13px] font-semibold tracking-[-0.01em] text-white tabular-nums">
+                  Restore
+                  <span className="font-medium text-white/60">
+                    ${quote.price.toLocaleString("en-US")}
+                  </span>
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </FormSheet>
+  )
+}
+
+const DISMISSED_KEY = "sticker-covered-dismissed"
+const noSubscribe = () => () => {}
+
+/**
+ * Nudge when stickers slip under newer ones. Dismissing hides it for this
+ * session until a different set of stickers gets covered.
+ */
+function CoveredBanner({
+  covered,
+  onRestore,
+}: {
+  covered: MySticker[]
+  onRestore: () => void
+}) {
+  const signature = covered
+    .map((s) => s.id)
+    .sort()
+    .join(",")
+  /** Undefined on the server, so the banner only ever renders client-side. */
+  const stored = useSyncExternalStore(
+    noSubscribe,
+    () => sessionStorage.getItem(DISMISSED_KEY),
+    () => undefined
+  )
+  const [dismissedNow, setDismissedNow] = useState<string | null>(null)
+
+  if (
+    !covered.length ||
+    stored === undefined ||
+    stored === signature ||
+    dismissedNow === signature
+  ) {
+    return null
+  }
+
+  const count = covered.length
+  const title =
+    count === 1
+      ? `${covered[0].name} is getting covered`
+      : `${count} stickers are getting covered`
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+      aria-label="Covered stickers"
+      className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-[22px] bg-[#fff5e6] p-4 ring-1 ring-[#ff9f0a]/20 sm:mt-10 sm:flex-nowrap sm:pr-3"
+    >
+      <div className="flex shrink-0 -space-x-3">
+        {covered.slice(0, 3).map((s, i) => (
+          <img
+            key={s.id}
+            src={s.imageUrl}
+            alt=""
+            style={{ rotate: `${(i - 1) * 8}deg` }}
+            className="size-11 object-contain drop-shadow-[0_3px_6px_rgba(0,0,0,0.18)]"
+          />
+        ))}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">
+          {title}
+        </p>
+        <p className="text-[13px] leading-snug text-[#8c6a2f]">
+          Put {count === 1 ? "it" : "them"} back on top before{" "}
+          {count === 1 ? "it disappears" : "they disappear"}.
+        </p>
+      </div>
+      <div className="flex w-full items-center gap-2 sm:w-auto">
+        <button
+          type="button"
+          onClick={onRestore}
+          className="nk-btn flex-1 sm:flex-none"
+        >
+          <ArrowUp weight="bold" className="size-4" />
+          Restore
+        </button>
+        <button
+          type="button"
+          aria-label="Dismiss"
+          onClick={() => {
+            sessionStorage.setItem(DISMISSED_KEY, signature)
+            setDismissedNow(signature)
+          }}
+          className="press grid size-11 shrink-0 place-items-center rounded-full text-[#8c6a2f] transition-colors hover:bg-[#ff9f0a]/10"
+        >
+          <X weight="bold" className="size-4" />
+        </button>
+      </div>
+    </motion.section>
   )
 }
 
@@ -401,18 +636,22 @@ function BookCover({
         {children}
       </div>
 
-      <div className="flex shrink-0 gap-2 sm:col-start-2 lg:col-start-3">
-        <button
-          type="button"
-          onClick={onEditProfile}
-          className="nk-btn-secondary"
-        >
-          Edit profile
-        </button>
-        <Link to="/make" className="nk-btn">
-          <Plus weight="bold" className="size-4" />
-          Make a sticker
-        </Link>
+      <div className="flex shrink-0 flex-col items-center gap-2 sm:col-start-2 sm:items-start lg:col-start-3 lg:items-end">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onEditProfile}
+            aria-label="Edit profile"
+            title="Edit profile"
+            className="press grid size-11 shrink-0 place-items-center rounded-full bg-black/[0.06] text-neutral-900 transition-colors hover:bg-black/[0.09]"
+          >
+            <PencilSimple weight="bold" className="size-[18px]" />
+          </button>
+          <Link to="/make" className="nk-btn">
+            <Plus weight="bold" className="size-4" />
+            Make a sticker
+          </Link>
+        </div>
       </div>
     </header>
   )
@@ -774,6 +1013,14 @@ function StickerSlot({
   const [boxRef, width] = useWidth<HTMLDivElement>()
   const art = Math.round(width * (1 - 2 * ART_INSET))
   const params = { id: sticker.id }
+  const status = wallStatus(sticker.visibleShare)
+  /** Covered plots replace the category so the book shows who needs help. */
+  const coverage =
+    sticker.archivedAt ||
+    status.status === "visible" ||
+    status.status === "none"
+      ? null
+      : status
 
   return (
     <li
@@ -806,9 +1053,7 @@ function StickerSlot({
               src={sticker.imageUrl}
               name={sticker.name}
               url={sticker.url}
-              holo={
-                sticker.filter === "glitter" || sticker.filter === "hologram"
-              }
+              holo={isHoloFinish(sticker.finish)}
               displayPx={art}
               hitPad={Math.floor(width * ART_INSET)}
               floating={false}
@@ -835,13 +1080,25 @@ function StickerSlot({
         </span>
         {/* One line, like the blank slots, so every page keeps the same height. */}
         <span className="mt-0.5 flex max-w-full items-center gap-1.5 text-[12px] text-[#8c7a5b]">
-          {sticker.onWall > 0 && !sticker.archivedAt ? (
-            <span
-              aria-label="On the wall"
-              className="size-1.5 shrink-0 rounded-full bg-[#34c759]"
-            />
-          ) : null}
-          <span className="truncate">{sticker.category}</span>
+          {coverage ? (
+            <>
+              <span
+                aria-hidden
+                className={cn("size-1.5 shrink-0 rounded-full", coverage.dot)}
+              />
+              <span className="truncate">{coverage.label}</span>
+            </>
+          ) : (
+            <>
+              {sticker.onWall > 0 && !sticker.archivedAt ? (
+                <span
+                  aria-label="On the wall"
+                  className="size-1.5 shrink-0 rounded-full bg-[#34c759]"
+                />
+              ) : null}
+              <span className="truncate">{sticker.category}</span>
+            </>
+          )}
         </span>
       </Link>
     </li>

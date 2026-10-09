@@ -9,7 +9,7 @@ type Props = {
 }
 
 /** Floating glass controls, shared by the wall overlay and regular pages. */
-function TopBar({ wall }: { wall: boolean }) {
+export function TopBar({ wall = false }: { wall?: boolean }) {
   return (
     <header
       data-ui-chrome

@@ -4,11 +4,16 @@ import {
   CATEGORIES,
   isCategory,
   normalizeCategory,
+  restoreQuote,
+  visibleAreaShare,
   type Category,
+  type MoveSpot,
+  type RestoreQuote,
 } from "@/domain/types"
-import { Prisma } from "@/generated/prisma/client"
+import type { Prisma } from "@/generated/prisma/client"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { ranksFor, type StickerRankPair } from "@/lib/ranks"
 import {
   findStickerBySlugOrId,
   serializeSticker,
@@ -28,8 +33,14 @@ async function requireUser() {
 }
 
 export type MySticker = StickerDTO & {
-  /** Plots with at least part of the sticker still showing. */
+  /** Plots on the wall, fully covered ones included: they keep their spot. */
   onWall: number
+  /** Share of all units bought that still shows; null when never placed. */
+  visibleShare: number | null
+  /** Cost to put every covered plot back on top; null when none is covered. */
+  restore: RestoreQuote | null
+  /** Most covered first, so a move picks the plot that needs it most. */
+  spots: MoveSpot[]
 }
 
 export const listMyStickers = createServerFn({ method: "GET" }).handler(
@@ -39,14 +50,35 @@ export const listMyStickers = createServerFn({ method: "GET" }).handler(
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
       include: {
-        _count: {
-          select: { placements: { where: { visibleShare: { gt: 0 } } } },
+        placements: {
+          select: {
+            id: true,
+            visibleShare: true,
+            unitsW: true,
+            unitsH: true,
+            stickerScale: true,
+            rotation: true,
+            offsetX: true,
+            offsetY: true,
+          },
+          orderBy: { visibleShare: "asc" },
         },
       },
     })
-    return stickers.map(({ _count, ...s }) => ({
+    return stickers.map(({ placements, ...s }) => ({
       ...serializeSticker(s),
-      onWall: _count.placements,
+      onWall: placements.length,
+      visibleShare: visibleAreaShare(placements),
+      restore: restoreQuote(placements),
+      spots: placements.map((p) => ({
+        id: p.id,
+        unitsW: p.unitsW,
+        unitsH: p.unitsH,
+        stickerScale: p.stickerScale,
+        rotation: p.rotation,
+        stickerOffsetX: p.offsetX,
+        stickerOffsetY: p.offsetY,
+      })),
     }))
   }
 )
@@ -99,7 +131,7 @@ export type StickerListQuery = {
 
 export type StickerListItem = StickerDTO & {
   /** Leaderboard position; absent until the sticker has paid for a plot. */
-  rank?: { overall: number; category: number }
+  rank?: StickerRankPair
 }
 
 export type StickerListPage = {
@@ -112,32 +144,6 @@ export type StickerListPage = {
   stickerCount: number
   /** Current top three, for the page header. */
   featured: StickerDTO[]
-}
-
-/** Ranks are derived from `totalSpent` at read time, never stored. */
-async function ranksFor(ids: string[]) {
-  if (!ids.length)
-    return new Map<string, { overall: number; category: number }>()
-  const rows = await prisma.$queryRaw<
-    { id: string; overall: bigint; category_rank: bigint }[]
-  >`
-    SELECT id, overall, category_rank FROM (
-      SELECT id,
-        ROW_NUMBER() OVER (ORDER BY "totalSpent" DESC, "createdAt" ASC, id ASC) AS overall,
-        ROW_NUMBER() OVER (
-          PARTITION BY category ORDER BY "totalSpent" DESC, "createdAt" ASC, id ASC
-        ) AS category_rank
-      FROM sticker
-      WHERE "totalSpent" > 0 AND "archivedAt" IS NULL
-    ) ranked
-    WHERE id IN (${Prisma.join(ids)})
-  `
-  return new Map(
-    rows.map((r) => [
-      r.id,
-      { overall: Number(r.overall), category: Number(r.category_rank) },
-    ])
-  )
 }
 
 export const listStickerPage = createServerFn({ method: "GET" })

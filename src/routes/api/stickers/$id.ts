@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
 import {
-  STICKER_FILTERS,
+  isFilter,
+  isFinish,
   STICKER_STYLES,
-  type StickerFilter,
   type StickerStyle,
 } from "@/domain/types"
 import { auth } from "@/lib/auth"
@@ -13,10 +13,6 @@ import { putObject } from "@/lib/s3"
 
 function isStyle(value: string): value is StickerStyle {
   return (STICKER_STYLES as readonly string[]).includes(value)
-}
-
-function isFilter(value: string): value is StickerFilter {
-  return (STICKER_FILTERS as readonly string[]).includes(value)
 }
 
 export const Route = createFileRoute("/api/stickers/$id")({
@@ -72,6 +68,7 @@ export const Route = createFileRoute("/api/stickers/$id")({
 
           const styleRaw = String(form.get("style") ?? existing.style)
           const filterRaw = String(form.get("filter") ?? existing.filter)
+          const finishRaw = String(form.get("finish") ?? existing.finish)
           const outlineColor = String(
             form.get("outlineColor") ?? existing.outlineColor
           )
@@ -79,9 +76,13 @@ export const Route = createFileRoute("/api/stickers/$id")({
             form.get("outlineThickness") ?? existing.outlineThickness
           )
 
-          if (!isStyle(styleRaw) || !isFilter(filterRaw)) {
+          if (
+            !isStyle(styleRaw) ||
+            !isFilter(filterRaw) ||
+            !isFinish(finishRaw)
+          ) {
             return Response.json(
-              { error: "Invalid sticker style or filter." },
+              { error: "Invalid sticker style, filter or finish." },
               { status: 400 }
             )
           }
@@ -111,6 +112,7 @@ export const Route = createFileRoute("/api/stickers/$id")({
                 uploadId,
                 style: styleRaw,
                 filter: filterRaw,
+                finish: finishRaw,
                 outlineColor: outlineColor.slice(0, 32),
                 outlineThickness: Math.round(outlineThickness),
               },

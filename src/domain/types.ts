@@ -217,6 +217,84 @@ export function plotPrice(w: number, h: number): number {
   return plotArea(w, h)
 }
 
+/** A restore never costs less than the smallest plot. */
+export const RESTORE_MIN_PRICE = plotPrice(PLOT_MIN, PLOT_MIN)
+
+/** Units of a plot hidden under newer plots, rounded up to whole units. */
+export function coveredUnits(
+  unitsW: number,
+  unitsH: number,
+  visibleShare: number
+): number {
+  if (visibleShare >= 0.999) return 0
+  // Shares are floats: 100 × 0.2 must stay 20, not round up to 21.
+  return Math.ceil(plotArea(unitsW, unitsH) * (1 - visibleShare) - 1e-6)
+}
+
+/**
+ * Price to put a plot back on top at the same spot and size: the plot rate
+ * for its covered units only, with a floor. 0 when nothing is covered.
+ */
+export function restorePrice(
+  unitsW: number,
+  unitsH: number,
+  visibleShare: number
+): number {
+  const covered = coveredUnits(unitsW, unitsH, visibleShare)
+  return covered ? Math.max(RESTORE_MIN_PRICE, covered) : 0
+}
+
+/** What restoring every covered plot of a sticker would cost right now. */
+export type RestoreQuote = {
+  placementIds: string[]
+  price: number
+  coveredUnits: number
+  /** Units across the plots being restored. */
+  totalUnits: number
+}
+
+export function restoreQuote(
+  plots: ReadonlyArray<{
+    id: string
+    unitsW: number
+    unitsH: number
+    visibleShare: number
+  }>
+): RestoreQuote | null {
+  const covered = plots.filter((p) =>
+    restorePrice(p.unitsW, p.unitsH, p.visibleShare)
+  )
+  if (!covered.length) return null
+  return {
+    placementIds: covered.map((p) => p.id),
+    price: covered.reduce(
+      (sum, p) => sum + restorePrice(p.unitsW, p.unitsH, p.visibleShare),
+      0
+    ),
+    coveredUnits: covered.reduce(
+      (sum, p) => sum + coveredUnits(p.unitsW, p.unitsH, p.visibleShare),
+      0
+    ),
+    totalUnits: covered.reduce(
+      (sum, p) => sum + plotArea(p.unitsW, p.unitsH),
+      0
+    ),
+  }
+}
+
+/** Share of every unit bought that still shows; null when never placed. */
+export function visibleAreaShare(
+  plots: ReadonlyArray<{ unitsW: number; unitsH: number; visibleShare: number }>
+): number | null {
+  const total = plots.reduce((sum, p) => sum + plotArea(p.unitsW, p.unitsH), 0)
+  if (!total) return null
+  const shown = plots.reduce(
+    (sum, p) => sum + plotArea(p.unitsW, p.unitsH) * p.visibleShare,
+    0
+  )
+  return shown / total
+}
+
 export function unitsToPx(units: number): number {
   return units * UNIT_SCALE
 }
@@ -416,25 +494,50 @@ export const STICKER_STYLES = [
 ] as const
 export type StickerStyle = (typeof STICKER_STYLES)[number]
 
+/** Colour grades. They apply to the artwork only, never the outline. */
 export const STICKER_FILTERS = [
   "original",
-  "glitter",
-  "hologram",
-  "aurora",
-  "sunset",
-  "ocean",
-  "glow",
   "vivid",
   "warm",
   "cool",
   "mono",
-  "noir",
+  "aurora",
+  "sunset",
+  "ocean",
+  "cosmic",
+  "cyberpunk",
+  "vapor",
+  "synth",
+  "glitch",
   "red",
   "blue",
   "green",
   "yellow",
 ] as const
 export type StickerFilter = (typeof STICKER_FILTERS)[number]
+
+/** Sticker material. Covers the whole sticker, outline included. */
+export const STICKER_FINISHES = [
+  "none",
+  "matte",
+  "gloss",
+  "glitter",
+  "hologram",
+] as const
+export type StickerFinish = (typeof STICKER_FINISHES)[number]
+
+export function isFilter(value: string): value is StickerFilter {
+  return (STICKER_FILTERS as readonly string[]).includes(value)
+}
+
+export function isFinish(value: string): value is StickerFinish {
+  return (STICKER_FINISHES as readonly string[]).includes(value)
+}
+
+/** Foil finishes get the tilting shine treatment wherever stickers render. */
+export function isHoloFinish(finish: string): boolean {
+  return finish === "glitter" || finish === "hologram"
+}
 
 /** Print DPI used when converting sticker pixels ↔ millimetres. */
 export const STICKER_PRINT_DPI = 300
@@ -447,10 +550,23 @@ export function mmToPx(mm: number, dpi = STICKER_PRINT_DPI): number {
   return (mm * dpi) / 25.4
 }
 
+/** A plot being moved; the new one starts at its size and look. */
+export type MoveSpot = Pick<
+  Placement,
+  | "id"
+  | "unitsW"
+  | "unitsH"
+  | "stickerScale"
+  | "rotation"
+  | "stickerOffsetX"
+  | "stickerOffsetY"
+>
+
 export type DraftSticker = {
   imageDataUrl: string
   style: StickerStyle
   filter: StickerFilter
+  finish: StickerFinish
   outlineColor: string
   outlineThickness: number
   /** Intrinsic pixel size of `imageDataUrl` (for resolution + aspect). */
@@ -458,6 +574,20 @@ export type DraftSticker = {
   heightPx?: number
   /** Print size chosen in Make (mm, longest side). Drives default wall size. */
   sizeMm?: number
+  /**
+   * Set when buying a listed sticker a new plot: skips details, frees the old
+   * plot. No `placementId` (or `from`) when the sticker has no plot yet.
+   */
+  move?: {
+    stickerId: string
+    slug: string
+    name: string
+    placementId?: string
+    /** Size of the plot being given up, for checkout. */
+    from?: { unitsW: number; unitsH: number }
+    /** Total spent before this purchase. */
+    spent: number
+  }
 }
 
 export type StickerDetails = {

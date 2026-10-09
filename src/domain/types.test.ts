@@ -28,6 +28,10 @@ import {
   plotSideBounds,
   plotUnitsForSticker,
   plotUnitsWithFloor,
+  RESTORE_MIN_PRICE,
+  coveredUnits,
+  restorePrice,
+  visibleAreaShare,
   resizePlotFromCorner,
   resizePlotFromHandle,
   sizeParamFromContentUnits,
@@ -349,5 +353,39 @@ describe("uncoveredPlacements", () => {
     const top = { x: 0, y: 0, width: 50, height: 50, zIndex: 2 }
     const under = { x: 0, y: 0, width: 100, height: 100, zIndex: 1 }
     expect(uncoveredPlacements([top, under])).toEqual([top, under])
+  })
+})
+
+describe("restorePrice", () => {
+  it("charges only for the covered units", () => {
+    expect(restorePrice(10, 10, 0.8)).toBe(20)
+    expect(restorePrice(10, 10, 0)).toBe(100)
+  })
+
+  it("never goes below the smallest plot", () => {
+    expect(RESTORE_MIN_PRICE).toBe(9)
+    expect(restorePrice(10, 10, 0.97)).toBe(9)
+  })
+
+  it("is free when nothing is covered", () => {
+    expect(restorePrice(10, 10, 1)).toBe(0)
+    expect(restorePrice(10, 10, 0.9995)).toBe(0)
+  })
+
+  it("rounds partial units up without float drift", () => {
+    expect(coveredUnits(10, 10, 0.8)).toBe(20)
+    expect(coveredUnits(10, 10, 0.795)).toBe(21)
+  })
+})
+
+describe("visibleAreaShare", () => {
+  it("weights each plot by its size", () => {
+    const big = { unitsW: 10, unitsH: 10, visibleShare: 0 }
+    const small = { unitsW: 3, unitsH: 3, visibleShare: 1 }
+    expect(visibleAreaShare([big, small])).toBeCloseTo(9 / 109)
+  })
+
+  it("is null before anything is placed", () => {
+    expect(visibleAreaShare([])).toBeNull()
   })
 })

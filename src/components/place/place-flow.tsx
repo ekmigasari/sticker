@@ -21,13 +21,16 @@ import {
   FolderSimple,
   GridFour,
   LinkSimple,
+  MapPinPlus,
   Minus,
+  MinusCircle,
   Plus,
-  PushPin,
   Sticker as StickerIcon,
   Tag,
   TextAlignLeft,
   Ticket,
+  TrendUp,
+  X,
 } from "@phosphor-icons/react"
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 import {
@@ -41,6 +44,7 @@ import {
   STICKER_SIZE_MIN,
   UNIT_SCALE,
   type Category,
+  type DraftSticker,
   clampPlotOrigin,
   clampRotationInPlot,
   clampStickerInPlot,
@@ -85,7 +89,9 @@ import {
 } from "@/components/sticker-fields"
 import { AppChrome } from "@/components/layout/app-chrome"
 import { cn } from "@/lib/utils"
-import { publishPlaceListing } from "@/lib/place-publish"
+import { publishMove, publishPlaceListing } from "@/lib/place-publish"
+import type { RankChange } from "@/lib/restore"
+import { RankMove } from "@/components/stickers/restore-sheet"
 import { wallStickerFromDTO } from "@/lib/wall-sticker"
 import { isValidStickerUrl, normalizeStickerUrl } from "@/lib/sticker-meta"
 import { probeImageSize } from "@/lib/sticker-process"
@@ -393,6 +399,55 @@ function IconWell({
   )
 }
 
+/** Spells out what a new spot costs, so paying again never surprises. */
+function NewSpotTerms({
+  move,
+  price,
+}: {
+  move: NonNullable<DraftSticker["move"]>
+  price: number
+}) {
+  const items = [
+    {
+      icon: MapPinPlus,
+      title: "Paid as a new spot",
+      body: `$${price.toLocaleString("en-US")} at $1 per unit, the same as any spot on the wall.`,
+    },
+    move.from
+      ? {
+          icon: MinusCircle,
+          title: "Your old spot is removed",
+          body: `The ${formatPlot(move.from.unitsW, move.from.unitsH)} spot comes off the wall. What you paid for it stays in your total.`,
+        }
+      : null,
+    {
+      icon: TrendUp,
+      title: "Your spend adds up",
+      body: `Total spent goes from $${move.spent.toLocaleString("en-US")} to $${(move.spent + price).toLocaleString("en-US")}, and your rank follows.`,
+    },
+  ].filter((item) => item != null)
+
+  return (
+    <ul className="flex flex-col gap-3.5 rounded-[22px] bg-[#f5f5f7] p-4">
+      {items.map(({ icon: Icon, title, body }) => (
+        <li key={title} className="flex gap-3">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white text-neutral-700 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+            <Icon weight="bold" className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[14px] font-semibold tracking-[-0.01em] text-neutral-900">
+              {title}
+            </p>
+            <p className="mt-0.5 text-[13px] leading-snug text-neutral-500">
+              {body}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function PlotPreview({
   src,
   w,
@@ -495,6 +550,8 @@ export function PlaceFlow() {
     placeDraft?.y != null &&
     Number.isFinite(placeDraft.x) &&
     Number.isFinite(placeDraft.y)
+  /** Already listed: skip the details form and only buy the new plot. */
+  const move = draftSticker?.move
 
   const contentAspect = contentAspectRatio(
     draftSticker?.widthPx,
@@ -533,7 +590,9 @@ export function PlaceFlow() {
     return { w: needed.unitsW, h: needed.unitsH }
   })()
 
-  const [step, setStep] = useState<Step>(() => (hasSpot ? "details" : "place"))
+  const [step, setStep] = useState<Step>(() =>
+    hasSpot ? (move ? "pay" : "details") : "place"
+  )
   const [widthRaw, setWidthRaw] = useState(() =>
     String(initialPlotFromSticker.w)
   )
@@ -578,7 +637,12 @@ export function PlaceFlow() {
   const [paying, setPaying] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [savedSlug, setSavedSlug] = useState<string | null>(null)
+  const [saved, setSaved] = useState<{
+    slug: string
+    category: Category
+    moved: boolean
+    rank: RankChange | null
+  } | null>(null)
   const [pendingSpot, setPendingSpot] = useState<{
     x: number
     y: number
@@ -802,7 +866,35 @@ export function PlaceFlow() {
       void navigate({ to: "/sign-in", search: { next: "/place" } })
       return
     }
-    setStep("details")
+    setStep(move ? "pay" : "details")
+  }
+
+  /** Clear the pinned spot so the wall place step can be used again. */
+  function backToWall() {
+    if (placeDraft) {
+      setPlaceDraft({
+        ...placeDraft,
+        x: undefined,
+        y: undefined,
+      })
+    }
+    setStep("place")
+  }
+
+  const backFromPay = move ? backToWall : () => setStep("details")
+
+  /** A new sticker keeps its draft for Make; a new spot is dropped. */
+  async function leavePlace() {
+    if (!move) {
+      void navigate({ to: "/make" })
+      return
+    }
+    await navigate({
+      to: "/dashboard/stickers/$id",
+      params: { id: move.stickerId },
+    })
+    setDraftSticker(null)
+    setPlaceDraft(null)
   }
 
   function currentStickerCenter(): { x: number; y: number } | null {
@@ -1175,8 +1267,10 @@ export function PlaceFlow() {
   async function finalizePlacement() {
     if (!draftSticker || saving) return
     const draft = useWallStore.getState().placeDraft
+    const details = draft?.details
     if (
-      !draft?.details ||
+      !draft ||
+      (!move && !details) ||
       draft.x == null ||
       draft.y == null ||
       !Number.isFinite(draft.x) ||
@@ -1190,29 +1284,46 @@ export function PlaceFlow() {
     setSaving(true)
     setSaveError(null)
     try {
-      const published = await publishPlaceListing({
-        details: draft.details,
-        sticker: draft.sticker,
-        plot: {
-          x: draft.x,
-          y: draft.y,
-          unitsW: draft.unitsW,
-          unitsH: draft.unitsH,
-          stickerScale: draft.stickerScale ?? 1,
-          rotation: draft.rotation ?? 0,
-          offsetX: draft.stickerOffsetX ?? 0,
-          offsetY: draft.stickerOffsetY ?? 0,
-        },
-      })
+      const plot = {
+        x: draft.x,
+        y: draft.y,
+        unitsW: draft.unitsW,
+        unitsH: draft.unitsH,
+        stickerScale: draft.stickerScale ?? 1,
+        rotation: draft.rotation ?? 0,
+        offsetX: draft.stickerOffsetX ?? 0,
+        offsetY: draft.stickerOffsetY ?? 0,
+      }
+      const published = move
+        ? await publishMove({
+            stickerId: move.stickerId,
+            placementId: move.placementId,
+            plot,
+          })
+        : {
+            ...(await publishPlaceListing({
+              details: details!,
+              sticker: draft.sticker,
+              plot,
+            })),
+            movedFrom: undefined,
+            rank: null,
+          }
       addPlacement(
         {
           ...wallStickerFromDTO(published.sticker),
           widthPx: draft.sticker.widthPx,
           heightPx: draft.sticker.heightPx,
         },
-        published.placement
+        published.placement,
+        published.movedFrom ?? undefined
       )
-      setSavedSlug(published.sticker.slug)
+      setSaved({
+        slug: published.sticker.slug,
+        category: published.sticker.category,
+        moved: !!published.movedFrom,
+        rank: published.rank,
+      })
       setStep("done")
     } catch (err) {
       setSaveError(
@@ -1234,19 +1345,22 @@ export function PlaceFlow() {
 
   if (step === "done") {
     return (
-      <PlaceShell title="Placed">
+      <PlaceShell title={saved?.moved ? "New spot" : "Placed"}>
         <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 px-6 pb-16 text-center">
           <IconWell tone="success">
             <CheckCircle weight="fill" className="size-8" />
           </IconWell>
           <h2 className="text-[32px] font-semibold tracking-[-0.03em] text-neutral-900 sm:text-[36px]">
-            You&apos;re on the wall
+            {saved?.moved ? "In its new spot" : "You\u2019re on the wall"}
           </h2>
           <p className="max-w-sm text-[15px] leading-relaxed text-neutral-500">
-            Your placement is permanent. Newer stickers can cover it —
-            that&apos;s the game. Your sticker stays listed in Stickers either
-            way.
+            {saved?.moved
+              ? "Your sticker sits on top of everything in its new spot. The old spot is gone, and what you paid adds to your total. Newer stickers can still cover it."
+              : "Your placement is permanent. Newer stickers can cover it \u2014 that\u2019s the game. Your sticker stays listed in Stickers either way."}
           </p>
+          {saved?.rank ? (
+            <RankMove rank={saved.rank} category={saved.category} />
+          ) : null}
           <div className="flex flex-wrap justify-center gap-2.5">
             <button
               type="button"
@@ -1258,10 +1372,10 @@ export function PlaceFlow() {
             >
               See the wall
             </button>
-            {savedSlug ? (
+            {saved ? (
               <Link
                 to="/stickers/$slug"
-                params={{ slug: savedSlug }}
+                params={{ slug: saved.slug }}
                 className="press inline-flex h-11 items-center rounded-full bg-black/[0.06] px-6 text-[15px] font-semibold text-neutral-900"
                 onClick={() => setDraftSticker(null)}
               >
@@ -1290,23 +1404,39 @@ export function PlaceFlow() {
         <div className="relative h-[100dvh] font-ui">
           <div className="pointer-events-none absolute top-[calc(env(safe-area-inset-top)+4rem)] right-3 left-3 z-30 flex justify-center sm:top-[calc(env(safe-area-inset-top)+4.5rem)]">
             <div className="pointer-events-auto flex max-w-md items-center gap-3 rounded-full border border-black/[0.06] bg-white/85 py-2.5 pr-5 pl-2.5 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
-              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-neutral-900 text-white">
-                <PushPin weight="fill" className="size-4" />
-              </span>
+              <button
+                type="button"
+                onClick={() => void leavePlace()}
+                aria-label={move ? "Cancel" : "Back to make"}
+                title={move ? "Cancel" : "Back to make"}
+                className="press grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.06] text-neutral-900 transition-colors hover:bg-black/[0.1]"
+              >
+                {move ? (
+                  <X weight="bold" className="size-4" />
+                ) : (
+                  <CaretLeft weight="bold" className="size-4" />
+                )}
+              </button>
               <div className="min-w-0">
                 <p className="truncate text-[14px] font-semibold tracking-[-0.01em] text-neutral-900">
                   {pendingSpot
                     ? areaMode
                       ? "Edit Area"
                       : "Edit Sticker"
-                    : "Tap the wall to place your sticker"}
+                    : move
+                      ? move.from
+                        ? `Pick a new spot for ${move.name}`
+                        : `Tap the wall to place ${move.name}`
+                      : "Tap the wall to place your sticker"}
                 </p>
                 <p className="truncate text-[12px] text-neutral-500">
                   {pendingSpot
                     ? areaMode
                       ? "Resize or move the area, or drag the sticker inside"
                       : "Move, size, or rotate sticker"
-                    : "Drag to pan · pinch or scroll to zoom"}
+                    : move?.from
+                      ? "Paid as a new spot · your old spot is removed"
+                      : "Drag to pan · pinch or scroll to zoom"}
                 </p>
               </div>
             </div>
@@ -1314,6 +1444,7 @@ export function PlaceFlow() {
 
           <StickerWall
             placeMode
+            hidePlacementId={move?.placementId}
             hideControls
             showPlaceZoom
             showPlotChrome={areaMode}
@@ -1599,22 +1730,8 @@ export function PlaceFlow() {
   return (
     <PlaceShell
       title={step === "pay" ? "Checkout" : "Place sticker"}
-      onBack={
-        step === "pay"
-          ? () => setStep("details")
-          : () => {
-              // Clear spot so the wall place step can be used again.
-              if (placeDraft) {
-                setPlaceDraft({
-                  ...placeDraft,
-                  x: undefined,
-                  y: undefined,
-                })
-              }
-              setStep("place")
-            }
-      }
-      backLabel={step === "pay" ? "Back to details" : "Back to wall"}
+      onBack={step === "pay" ? backFromPay : backToWall}
+      backLabel={step === "pay" && !move ? "Back to details" : "Back to wall"}
       trailing={
         step === "details" && price != null ? (
           <span className="rounded-full bg-black/[0.045] px-3 py-1.5 text-[13px] font-semibold tracking-[-0.01em] text-neutral-800 tabular-nums">
@@ -1906,10 +2023,17 @@ export function PlaceFlow() {
                     {plotValid ? formatPlot(unitsW!, unitsH!) : "—"}
                   </strong>{" "}
                   plot — ${price} for {plotValid ? unitsW! * unitsH! : 0} units
-                  of wall. After pay, your sticker stays where you pinned it.
+                  of wall.{" "}
+                  {move
+                    ? "It goes on top of everything."
+                    : "After pay, your sticker stays where you pinned it."}{" "}
                   Mock payment for this prototype.
                 </p>
               </div>
+
+              {move && price != null ? (
+                <NewSpotTerms move={move} price={price} />
+              ) : null}
 
               <div className="w-full rounded-[22px] bg-[#f5f5f7] p-4 text-[14px]">
                 <div className="flex items-center justify-between text-neutral-600">
@@ -1918,7 +2042,9 @@ export function PlaceFlow() {
                       weight="fill"
                       className="size-4 shrink-0 text-neutral-400"
                     />
-                    <span className="truncate">{name || "Your sticker"}</span>
+                    <span className="truncate">
+                      {move?.name || name || "Your sticker"}
+                    </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-1 tabular-nums">
                     <GridFour weight="bold" className="size-3.5" />
@@ -1949,7 +2075,7 @@ export function PlaceFlow() {
                   type="button"
                   className="nk-btn-secondary"
                   disabled={paying || saving}
-                  onClick={() => setStep("details")}
+                  onClick={backFromPay}
                 >
                   Back
                 </button>

@@ -1,4 +1,5 @@
 import type { DraftSticker, Placement } from "@/domain/types"
+import type { RankChange } from "@/lib/restore"
 import type { StickerDTO } from "@/lib/sticker-api"
 
 export type PlaceStickerInput = {
@@ -28,20 +29,22 @@ async function readError(response: Response) {
   return payload?.error ?? "Request failed."
 }
 
+export type PlotInput = {
+  x: number
+  y: number
+  unitsW: number
+  unitsH: number
+  stickerScale: number
+  rotation: number
+  offsetX: number
+  offsetY: number
+}
+
 /** Create a listed sticker (details + artwork) and stick its plot on the wall. */
 export async function publishPlaceListing(input: {
   details: PlaceStickerInput
   sticker: DraftSticker
-  plot: {
-    x: number
-    y: number
-    unitsW: number
-    unitsH: number
-    stickerScale: number
-    rotation: number
-    offsetX: number
-    offsetY: number
-  }
+  plot: PlotInput
 }): Promise<{ sticker: StickerDTO; placement: Placement }> {
   const file = dataUrlToFile(
     input.sticker.imageDataUrl,
@@ -63,6 +66,7 @@ export async function publishPlaceListing(input: {
   }
   form.set("style", input.sticker.style)
   form.set("filter", input.sticker.filter)
+  form.set("finish", input.sticker.finish)
   form.set("outlineColor", input.sticker.outlineColor)
   form.set("outlineThickness", String(input.sticker.outlineThickness))
   for (const [key, value] of Object.entries(input.plot)) {
@@ -86,4 +90,31 @@ export async function publishPlaceListing(input: {
   if (!payload.placement)
     throw new Error("Could not place sticker on the wall.")
   return { sticker: payload.sticker, placement: payload.placement }
+}
+
+/** Move a listed sticker's plot to a new spot; the new plot is paid in full. */
+export async function publishMove(input: {
+  stickerId: string
+  placementId?: string
+  plot: PlotInput
+}): Promise<{
+  sticker: StickerDTO
+  placement: Placement
+  movedFrom: string | null
+  rank: RankChange | null
+}> {
+  const form = new FormData()
+  if (input.placementId) form.set("placementId", input.placementId)
+  for (const [key, value] of Object.entries(input.plot)) {
+    form.set(key, String(value))
+  }
+  const response = await fetch(`/api/stickers/${input.stickerId}/move`, {
+    method: "POST",
+    body: form,
+  })
+  if (!response.ok) {
+    if (response.status === 401) throw new Error("Sign in to move it.")
+    throw new Error(await readError(response))
+  }
+  return response.json()
 }

@@ -6,26 +6,41 @@ import {
   useRouter,
 } from "@tanstack/react-router"
 import {
+  ArrowUp,
   ArrowUpRight,
   CaretLeft,
   Check,
   Crown,
   Export,
   MapPin,
+  MapPinPlus,
   Sticker as StickerIcon,
   Trophy,
 } from "@phosphor-icons/react"
 import { CategoryTag } from "@/components/category-icon"
+import {
+  VISIBILITY,
+  formatPercent,
+  wallStatus,
+} from "@/components/stickers/wall-status"
 import { PeelToVisit } from "@/components/stickers/peel-to-visit"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { StickerPromo } from "@/components/sticker-promo"
 import { StickerRow } from "@/components/sticker-row"
 import {
+  PLOT_MIN,
+  coveredUnits,
   formatPlot,
+  isHoloFinish,
+  plotArea,
+  plotPrice,
   plotVisibility,
+  restoreQuote,
+  visibleAreaShare,
   type Category,
+  type MoveSpot,
   type Placement,
-  type PlotVisibility,
+  type RestoreQuote,
 } from "@/domain/types"
 import { rankStickers, type StickerRank } from "@/domain/ranking"
 import { cn } from "@/lib/utils"
@@ -51,26 +66,6 @@ function formatListedDate(iso: string): string {
   })
 }
 
-/** Never round a sliver of coverage up to 100% or down to 0%. */
-function formatPercent(share: number): string {
-  if (share >= 0.999) return "100"
-  if (share <= 0.001) return "0"
-  const pct = share * 100
-  if (pct < 1) return "<1"
-  if (pct > 99) return ">99"
-  return String(Math.round(pct))
-}
-
-const VISIBILITY: Record<
-  PlotVisibility,
-  { label: string; dot: string; bar: string }
-> = {
-  visible: { label: "Fully visible", dot: "bg-[#34c759]", bar: "bg-[#34c759]" },
-  partly: { label: "Partly covered", dot: "bg-[#ff9f0a]", bar: "bg-[#ff9f0a]" },
-  mostly: { label: "Mostly covered", dot: "bg-[#ff453a]", bar: "bg-[#ff453a]" },
-  hidden: { label: "Covered", dot: "bg-neutral-400", bar: "bg-neutral-400" },
-}
-
 type PoolSticker = {
   id: string
   slug: string
@@ -94,6 +89,17 @@ type Props = {
   action?: React.ReactNode
   /** Above the artwork, e.g. an archived notice. */
   notice?: React.ReactNode
+  /** Owner only: restoring covered plots becomes the page's main action. */
+  onRestore?: (quote: RestoreQuote) => void
+  /** Owner only: pick a new spot and size for a plot. */
+  move?: MoveAction
+}
+
+type MoveAction = {
+  /** Null spot: the sticker has no plot yet, so this buys its first. */
+  onMove: (spot: MoveSpot | null) => void
+  pending: boolean
+  error: string | null
 }
 
 export function StickerDetail({
@@ -102,10 +108,13 @@ export function StickerDetail({
   back,
   action,
   notice,
+  onRestore,
+  move,
 }: Props) {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const focusPlacement = useWallStore((s) => s.focusPlacement)
+  const heroRef = useRef<HTMLButtonElement>(null)
 
   const stickerKey = dbSticker?.id
   const wallItems = useMemo(
@@ -172,6 +181,16 @@ export function StickerDetail({
 
   const sticker = dbSticker
   const domain = hostname(sticker.url)
+  const plots = wallItems.map(({ placement, visible }) => ({
+    id: placement.id,
+    unitsW: placement.unitsW,
+    unitsH: placement.unitsH,
+    visibleShare: visible,
+  }))
+  const summary = summarizeWall(plots)
+  const quote = onRestore ? restoreQuote(plots) : null
+  /** With several plots, each card carries its own Move instead. */
+  const heroSpot = wallItems.length === 1 ? wallItems[0].placement : null
 
   function viewOnWall(placement: Placement) {
     focusPlacement(placement)
@@ -191,7 +210,7 @@ export function StickerDetail({
             src={sticker.imageUrl}
             name={sticker.name}
             url={sticker.url}
-            holo={sticker.filter === "glitter" || sticker.filter === "hologram"}
+            holo={isHoloFinish(sticker.finish)}
             displayPx={isMobile ? 224 : 288}
           />
         ) : (
@@ -217,22 +236,47 @@ export function StickerDetail({
         ) : null}
       </header>
 
-      <div className="mt-6 flex items-center gap-2.5">
-        <a
-          href={sticker.url}
-          target="_blank"
-          rel="noreferrer"
-          className="press inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-neutral-900 px-5 text-[16px] font-semibold tracking-[-0.01em] text-white"
-        >
-          <span className="truncate">Visit website</span>
-          <ArrowUpRight weight="bold" className="size-4 shrink-0" />
-        </a>
+      {onRestore ? <WallStatusLine summary={summary} /> : null}
+      <div
+        className={cn("flex items-center gap-2.5", onRestore ? "mt-3" : "mt-6")}
+      >
+        {quote && onRestore ? (
+          <RestoreButton
+            ref={heroRef}
+            quote={quote}
+            onClick={() => onRestore(quote)}
+            className="h-12 flex-1 text-[16px]"
+          />
+        ) : (
+          <a
+            href={sticker.url}
+            target="_blank"
+            rel="noreferrer"
+            className="press inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-neutral-900 px-5 text-[16px] font-semibold tracking-[-0.01em] text-white"
+          >
+            <span className="truncate">Visit website</span>
+            <ArrowUpRight weight="bold" className="size-4 shrink-0" />
+          </a>
+        )}
+        {move && (heroSpot || !wallItems.length) ? (
+          <NewSpotButton
+            first={!heroSpot}
+            pending={move.pending}
+            onClick={() => move.onMove(heroSpot)}
+            className="h-12 px-4 text-[16px]"
+          />
+        ) : null}
         <ShareButton
           title={sticker.name}
           text={sticker.oneLiner}
           path={`/stickers/${sticker.slug}`}
         />
       </div>
+      {move?.error ? (
+        <p role="alert" className="mt-2 text-[13px] font-medium text-[#ff3b30]">
+          {move.error}
+        </p>
+      ) : null}
 
       <RankStrip
         rank={stickerKey ? ranks.get(stickerKey) : undefined}
@@ -258,29 +302,59 @@ export function StickerDetail({
       <Section title="On the wall">
         {wallItems.length ? (
           <ul className="space-y-2.5">
-            {wallItems.map((item) => (
-              <WallPlacementCard
-                key={item.placement.id}
-                placement={item.placement}
-                visible={item.visible}
-                coveredBy={item.coveredBy}
-                onView={() => viewOnWall(item.placement)}
-              />
-            ))}
+            {wallItems.map((item, i) => {
+              const plotQuote = onRestore ? restoreQuote([plots[i]]) : null
+              return (
+                <WallPlacementCard
+                  key={item.placement.id}
+                  placement={item.placement}
+                  visible={item.visible}
+                  coveredBy={item.coveredBy}
+                  onView={() => viewOnWall(item.placement)}
+                  restorePrice={plotQuote?.price}
+                  onRestore={
+                    plotQuote && onRestore
+                      ? () => onRestore(plotQuote)
+                      : undefined
+                  }
+                  move={
+                    move
+                      ? {
+                          onClick: () => move.onMove(item.placement),
+                          pending: move.pending,
+                        }
+                      : undefined
+                  }
+                />
+              )
+            })}
           </ul>
         ) : (
           <div className="flex items-center gap-3 rounded-[20px] bg-[#f5f5f7] p-4">
             <div className="grid size-10 shrink-0 place-items-center rounded-full bg-white text-neutral-400">
               <MapPin weight="fill" className="size-[18px]" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-[15px] font-medium tracking-[-0.01em] text-neutral-900">
                 Not on the wall yet
               </p>
               <p className="mt-0.5 text-[13px] text-neutral-500">
-                Once placed, you'll see how much of it is still visible.
+                {move
+                  ? `Pick a spot and size. Plots start at $${plotPrice(PLOT_MIN, PLOT_MIN)}.`
+                  : "Once placed, you'll see how much of it is still visible."}
               </p>
             </div>
+            {move ? (
+              <button
+                type="button"
+                disabled={move.pending}
+                onClick={() => move.onMove(null)}
+                className={cardButton}
+              >
+                <MapPinPlus weight="bold" className="size-3.5" />
+                Place
+              </button>
+            ) : null}
           </div>
         )}
       </Section>
@@ -353,7 +427,185 @@ export function StickerDetail({
           </p>
         )}
       </Section>
+
+      {quote && onRestore ? (
+        <>
+          {/* Room for the pinned bar so it never hides the last section. */}
+          <div aria-hidden className="h-20 sm:hidden" />
+          <PinnedRestoreBar
+            target={heroRef}
+            quote={quote}
+            onClick={() => onRestore(quote)}
+            summary={summary}
+          />
+        </>
+      ) : null}
     </article>
+  )
+}
+
+type WallSummary = ReturnType<typeof wallStatus> & { long: string }
+
+/** Measured by area across every plot, so one small visible plot can't hide a big covered one. */
+function summarizeWall(
+  plots: { unitsW: number; unitsH: number; visibleShare: number }[]
+): WallSummary {
+  const status = wallStatus(visibleAreaShare(plots))
+  if (status.status === "none") {
+    return { ...status, long: "Not on the wall yet." }
+  }
+  if (status.status === "visible") {
+    return { ...status, long: "Fully visible on the wall. Nothing on top yet." }
+  }
+  if (status.status === "hidden") {
+    return {
+      ...status,
+      long: "100% covered. It keeps its spot but isn\u2019t drawn on the wall until you restore or move it.",
+    }
+  }
+  const covered = plots.reduce(
+    (sum, p) => sum + coveredUnits(p.unitsW, p.unitsH, p.visibleShare),
+    0
+  )
+  const total = plots.reduce((sum, p) => sum + plotArea(p.unitsW, p.unitsH), 0)
+  return {
+    ...status,
+    long: `${status.label} · ${covered.toLocaleString("en-US")} of ${total.toLocaleString("en-US")} units covered.`,
+  }
+}
+
+function WallStatusLine({ summary }: { summary: WallSummary }) {
+  return (
+    <p className="mt-6 flex items-start gap-2 text-[14px] leading-snug tracking-[-0.01em] text-neutral-600">
+      <span
+        aria-hidden
+        className={cn("mt-[5px] size-2 shrink-0 rounded-full", summary.dot)}
+      />
+      {summary.long}
+    </p>
+  )
+}
+
+function RestoreButton({
+  ref,
+  quote,
+  onClick,
+  className,
+}: {
+  ref?: React.Ref<HTMLButtonElement>
+  quote: RestoreQuote
+  onClick: () => void
+  className?: string
+}) {
+  const spots = quote.placementIds.length
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "press inline-flex min-w-0 items-center justify-center gap-2 rounded-full bg-neutral-900 px-5 font-semibold tracking-[-0.01em] text-white",
+        className
+      )}
+    >
+      <ArrowUp weight="bold" className="size-[18px] shrink-0" />
+      <span className="truncate">
+        {spots === 1 ? (
+          <>
+            Restore<span className="max-sm:hidden"> to top</span>
+          </>
+        ) : (
+          `Restore ${spots} spots`
+        )}
+      </span>
+      <span className="shrink-0 font-medium text-white/60 tabular-nums">
+        ${quote.price.toLocaleString("en-US")}
+      </span>
+    </button>
+  )
+}
+
+const NEW_SPOT_HINT = "Buy a new spot at any size. The old spot is removed."
+
+function NewSpotButton({
+  onClick,
+  pending,
+  first,
+  className,
+}: {
+  onClick: () => void
+  pending: boolean
+  /** No plot yet, so this buys its first rather than replacing one. */
+  first: boolean
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={onClick}
+      title={first ? undefined : NEW_SPOT_HINT}
+      className={cn(
+        "press inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-black/[0.06] font-semibold tracking-[-0.01em] text-neutral-900 transition-colors hover:bg-black/[0.09] disabled:opacity-60",
+        className
+      )}
+    >
+      <MapPinPlus weight="bold" className="size-4 shrink-0" />
+      {pending ? "Loading…" : first ? "Place on wall" : "New spot"}
+    </button>
+  )
+}
+
+/** Phones: keeps Restore in reach once the main button scrolls away. */
+function PinnedRestoreBar({
+  target,
+  quote,
+  onClick,
+  summary,
+}: {
+  target: React.RefObject<HTMLElement | null>
+  quote: RestoreQuote
+  onClick: () => void
+  summary: WallSummary
+}) {
+  const [show, setShow] = useState(false)
+
+  useEffect(() => {
+    const el = target.current
+    if (!el) return
+    const observer = new IntersectionObserver(([entry]) =>
+      setShow(!entry.isIntersecting && entry.boundingClientRect.top < 0)
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [target])
+
+  return (
+    <div
+      data-ui-chrome
+      inert={!show}
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(12px,env(safe-area-inset-bottom))] transition-[translate,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none sm:hidden",
+        show
+          ? "translate-y-0 opacity-100"
+          : "pointer-events-none translate-y-full opacity-0"
+      )}
+    >
+      <div className="flex items-center gap-3 rounded-full border border-white/70 bg-white/80 py-1.5 pr-1.5 pl-4 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.3),0_0_0_0.5px_rgba(0,0,0,0.08)] backdrop-blur-2xl backdrop-saturate-[1.8]">
+        <span className="flex min-w-0 items-center gap-2 text-[13px] font-medium tracking-[-0.01em] text-neutral-700">
+          <span
+            aria-hidden
+            className={cn("size-2 shrink-0 rounded-full", summary.dot)}
+          />
+          <span className="truncate">{summary.label}</span>
+        </span>
+        <RestoreButton
+          quote={quote}
+          onClick={onClick}
+          className="ml-auto h-11 shrink-0 px-4 text-[15px]"
+        />
+      </div>
+    </div>
   )
 }
 
@@ -481,19 +733,32 @@ function BackButton({ fallback }: { fallback: BackTarget }) {
   )
 }
 
+const cardButton =
+  "press inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-white px-3.5 text-[14px] font-semibold tracking-[-0.01em] text-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-black/[0.06] transition-colors hover:bg-neutral-50 disabled:opacity-60"
+
 function WallPlacementCard({
   placement,
   visible,
   coveredBy,
   onView,
+  restorePrice,
+  onRestore,
+  move,
 }: {
   placement: Placement
   visible: number
   coveredBy: number
   onView: () => void
+  /** Owner only, on covered plots: put this one back on top. */
+  restorePrice?: number
+  onRestore?: () => void
+  /** Owner only: pick a new spot and size for this plot. */
+  move?: { onClick: () => void; pending: boolean }
 }) {
-  const status = VISIBILITY[plotVisibility(visible)]
+  const level = plotVisibility(visible)
+  const status = VISIBILITY[level]
   const hidden = 1 - visible
+  const gone = level === "hidden"
 
   return (
     <li className="rounded-[20px] bg-[#f5f5f7] p-4">
@@ -510,20 +775,32 @@ function WallPlacementCard({
       <div className="mt-3 flex items-end justify-between gap-3">
         <p className="leading-none">
           <span className="text-[34px] font-semibold tracking-[-0.03em] text-neutral-900 tabular-nums">
-            {formatPercent(visible)}%
+            {gone ? "100" : formatPercent(visible)}%
           </span>
-          <span className="ml-1.5 text-[15px] text-neutral-500">visible</span>
+          <span className="ml-1.5 text-[15px] text-neutral-500">
+            {gone ? "covered" : "visible"}
+          </span>
         </p>
-        {visible > 0 ? (
-          <button
-            type="button"
-            onClick={onView}
-            className="press inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-white px-3.5 text-[14px] font-semibold tracking-[-0.01em] text-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-black/[0.06] transition-colors hover:bg-neutral-50"
-          >
-            <MapPin weight="fill" className="size-3.5" />
-            View
-          </button>
-        ) : null}
+        <div className="flex shrink-0 gap-2">
+          {move ? (
+            <button
+              type="button"
+              disabled={move.pending}
+              onClick={move.onClick}
+              title={NEW_SPOT_HINT}
+              className={cardButton}
+            >
+              <MapPinPlus weight="bold" className="size-3.5" />
+              New spot
+            </button>
+          ) : null}
+          {gone ? null : (
+            <button type="button" onClick={onView} className={cardButton}>
+              <MapPin weight="fill" className="size-3.5" />
+              View
+            </button>
+          )}
+        </div>
       </div>
 
       <div
@@ -543,11 +820,28 @@ function WallPlacementCard({
         />
       </div>
 
-      <p className="mt-2.5 text-[13px] leading-snug text-neutral-500">
-        {coveredBy
-          ? `${formatPercent(hidden)}% under ${coveredBy} newer ${coveredBy === 1 ? "sticker" : "stickers"}`
-          : "Nothing placed on top"}
-      </p>
+      <div className="mt-2.5 flex items-center justify-between gap-3">
+        <p className="min-w-0 text-[13px] leading-snug text-neutral-500">
+          {gone
+            ? "Keeps its spot, but isn\u2019t drawn on the wall"
+            : coveredBy
+              ? `${formatPercent(hidden)}% under ${coveredBy} newer ${coveredBy === 1 ? "sticker" : "stickers"}`
+              : "Nothing placed on top"}
+        </p>
+        {onRestore && restorePrice ? (
+          <button
+            type="button"
+            onClick={onRestore}
+            className="press inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-neutral-900 px-3 text-[13px] font-semibold tracking-[-0.01em] text-white"
+          >
+            <ArrowUp weight="bold" className="size-3.5" />
+            Restore
+            <span className="font-medium text-white/60 tabular-nums">
+              ${restorePrice.toLocaleString("en-US")}
+            </span>
+          </button>
+        ) : null}
+      </div>
     </li>
   )
 }

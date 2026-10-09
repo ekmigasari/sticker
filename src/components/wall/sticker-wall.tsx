@@ -131,6 +131,8 @@ type Props = {
   hideControls?: boolean
   clearHeroZone?: boolean
   showPlaceZoom?: boolean
+  /** Left off the wall, e.g. the plot being moved. */
+  hidePlacementId?: string
 }
 
 const TAP_SLOP_MOUSE = 3
@@ -527,6 +529,7 @@ export function StickerWall({
   hideControls,
   clearHeroZone,
   showPlaceZoom,
+  hidePlacementId,
 }: Props) {
   const placeW = ghostW ?? ghostSize
   const placeH = ghostH ?? ghostSize
@@ -617,8 +620,11 @@ export function StickerWall({
   const getSticker = useWallStore((s) => s.getSticker)
 
   const placements = useMemo(
-    () => [...rawPlacements].sort((a, b) => a.zIndex - b.zIndex),
-    [rawPlacements]
+    () =>
+      rawPlacements
+        .filter((p) => p.id !== hidePlacementId)
+        .sort((a, b) => a.zIndex - b.zIndex),
+    [rawPlacements, hidePlacementId]
   )
 
   const visiblePlacements = useMemo(() => {

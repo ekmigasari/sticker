@@ -1,8 +1,14 @@
-import type { StickerFilter, StickerStyle } from "@/domain/types"
+import type { StickerFilter, StickerFinish, StickerStyle } from "@/domain/types"
 
 export type RenderOptions = {
   style: StickerStyle
   filter: StickerFilter
+  /** How much of the filter to apply, 0–1. Defaults to 1. */
+  filterStrength?: number
+  /** Sticker material; defaults to none. */
+  finish?: StickerFinish
+  /** How much of the finish to apply, 0–1. Defaults to 1. */
+  finishStrength?: number
   outlineColor: string
   /** Outline / paper margin, expressed at the 640px baseline. */
   outlineThickness: number
@@ -489,15 +495,75 @@ function clamp255(v: number) {
   return v < 0 ? 0 : v > 255 ? 255 : v
 }
 
+type Rgb = [number, number, number]
+
+/** Shadow → ink → highlight ramps; highlights stay light so detail survives. */
+const DUOTONES: Record<"red" | "blue" | "green" | "yellow", Rgb[]> = {
+  red: [
+    [42, 4, 14],
+    [228, 38, 52],
+    [255, 232, 226],
+  ],
+  blue: [
+    [8, 16, 54],
+    [28, 108, 236],
+    [226, 238, 255],
+  ],
+  green: [
+    [6, 40, 24],
+    [36, 172, 88],
+    [226, 252, 228],
+  ],
+  yellow: [
+    [62, 38, 0],
+    [246, 188, 18],
+    [255, 250, 220],
+  ],
+}
+
+/** Neon split-tones, mixed 85% over the artwork so some detail survives. */
+const NEON: Record<"cyberpunk" | "vapor" | "synth", Rgb[]> = {
+  // Violet shadows, hot pink mids, cyan highlights.
+  cyberpunk: [
+    [28, 6, 58],
+    [255, 36, 170],
+    [70, 240, 255],
+  ],
+  // Pastel vaporwave: teal shadows, lavender mids, pink highlights.
+  vapor: [
+    [36, 104, 128],
+    [150, 140, 232],
+    [255, 192, 226],
+  ],
+  // Synthwave: purple shadows, magenta mids, gold highlights.
+  synth: [
+    [36, 8, 72],
+    [234, 40, 120],
+    [255, 198, 72],
+  ],
+}
+
+function duotone(gray: number, ramp: Rgb[]): Rgb {
+  const t = Math.min(1, Math.max(0, (gray / 255 - 0.5) * 1.1 + 0.5))
+  const pos = t * (ramp.length - 1)
+  const i = Math.min(ramp.length - 2, Math.floor(pos))
+  const f = pos - i
+  const [a, b] = [ramp[i], ramp[i + 1]]
+  return [
+    a[0] + (b[0] - a[0]) * f,
+    a[1] + (b[1] - a[1]) * f,
+    a[2] + (b[2] - a[2]) * f,
+  ]
+}
+
 function toneFilter(c: Canvas, filter: StickerFilter) {
   if (
     filter === "original" ||
-    filter === "glitter" ||
-    filter === "hologram" ||
     filter === "aurora" ||
     filter === "sunset" ||
     filter === "ocean" ||
-    filter === "glow"
+    filter === "cosmic" ||
+    filter === "glitch"
   ) {
     return
   }
@@ -527,40 +593,70 @@ function toneFilter(c: Canvas, filter: StickerFilter) {
         b = b * 0.86
         break
       case "cool":
-        r = r * 0.9
-        g = g * 1.0 + 2
-        b = b * 1.06 + 10
+        r = r * 0.88
+        g = g * 0.99 + 2
+        b = b * 1.08 + 12
         break
       case "mono":
-        r = g = b = (gray - 128) * 1.04 + 128
+        r = g = b = (gray - 128) * 1.25 + 124
         break
-      case "noir":
-        r = g = b = (gray - 128) * 1.55 + 118
+      case "cyberpunk":
+      case "vapor":
+      case "synth": {
+        const [nr, ng, nb] = duotone(gray, NEON[filter])
+        r = r * 0.15 + nr * 0.85
+        g = g * 0.15 + ng * 0.85
+        b = b * 0.15 + nb * 0.85
         break
+      }
       case "red":
-        r = gray * 1.15 + 40
-        g = gray * 0.25
-        b = gray * 0.2
-        break
       case "blue":
-        r = gray * 0.2
-        g = gray * 0.45
-        b = gray * 1.2 + 35
-        break
       case "green":
-        r = gray * 0.25
-        g = gray * 1.15 + 30
-        b = gray * 0.35
-        break
       case "yellow":
-        r = gray * 1.1 + 45
-        g = gray * 1.05 + 35
-        b = gray * 0.25
+        ;[r, g, b] = duotone(gray, DUOTONES[filter])
         break
     }
     data[i] = clamp255(r)
     data[i + 1] = clamp255(g)
     data[i + 2] = clamp255(b)
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
+/**
+ * Digital glitch: RGB channels pulled apart, a few bands of rows torn
+ * sideways, faint scanlines. Alpha is untouched so the outline still fits.
+ */
+function glitch(c: Canvas) {
+  const { width: w, height: h } = c
+  const ctx = ctx2d(c)
+  const img = ctx.getImageData(0, 0, w, h)
+  const src = new Uint8ClampedArray(img.data)
+  const { data } = img
+  const rand = mulberry32(7)
+  const split = Math.max(2, Math.round(w * 0.012))
+  const tear = Math.max(4, Math.round(w * 0.04))
+  const shifts = new Int16Array(h)
+  for (let y = 0; y < h;) {
+    const band = 4 + Math.floor(rand() * Math.max(6, h * 0.05))
+    const shift = rand() < 0.22 ? Math.round((rand() * 2 - 1) * tear) : 0
+    for (let k = 0; k < band && y < h; k++, y++) shifts[y] = shift
+  }
+  const sample = (x: number, y: number, ch: number, own: number) => {
+    if (x < 0 || x >= w) return own
+    const o = (y * w + x) * 4
+    return src[o + 3] === 0 ? own : src[o + ch]
+  }
+  for (let y = 0; y < h; y++) {
+    const s = shifts[y]
+    const dim = y % 3 === 0 ? 0.86 : 1
+    for (let x = 0; x < w; x++) {
+      const o = (y * w + x) * 4
+      if (src[o + 3] === 0) continue
+      data[o] = sample(x - split - s, y, 0, src[o]) * dim
+      data[o + 1] = sample(x - s, y, 1, src[o + 1]) * dim
+      data[o + 2] = sample(x + split - s, y, 2, src[o + 2]) * dim
+    }
   }
   ctx.putImageData(img, 0, 0)
 }
@@ -680,28 +776,41 @@ function hologram(c: Canvas) {
  * Smooth colour gradation wash (no flakes). Variants sweep different hues
  * across the sticker surface while preserving subject luminance.
  */
-function colourGradation(c: Canvas, variant: "aurora" | "sunset" | "ocean") {
-  const stops =
-    variant === "aurora"
-      ? [
-          [168, 0.85, 0.58],
-          [195, 0.8, 0.56],
-          [280, 0.75, 0.58],
-          [320, 0.7, 0.6],
-        ]
-      : variant === "sunset"
-        ? [
-            [18, 0.92, 0.58],
-            [38, 0.9, 0.55],
-            [330, 0.78, 0.58],
-            [280, 0.7, 0.52],
-          ]
-        : [
-            [195, 0.75, 0.42],
-            [175, 0.8, 0.5],
-            [210, 0.7, 0.55],
-            [230, 0.65, 0.48],
-          ]
+type Gradient = "aurora" | "sunset" | "ocean" | "cosmic"
+
+/** Hue, saturation, lightness stops swept diagonally across the sticker. */
+const GRADIENT_STOPS: Record<Gradient, [number, number, number][]> = {
+  // Northern lights: green into violet.
+  aurora: [
+    [135, 0.8, 0.52],
+    [155, 0.85, 0.55],
+    [265, 0.7, 0.6],
+    [295, 0.65, 0.62],
+  ],
+  sunset: [
+    [18, 0.92, 0.58],
+    [38, 0.9, 0.55],
+    [330, 0.78, 0.58],
+    [280, 0.7, 0.52],
+  ],
+  // Deep sea blues, no teal.
+  ocean: [
+    [212, 0.9, 0.36],
+    [220, 0.92, 0.48],
+    [228, 0.88, 0.42],
+    [236, 0.85, 0.32],
+  ],
+  // Night sky: indigo, violet, nebula magenta.
+  cosmic: [
+    [245, 0.75, 0.3],
+    [270, 0.8, 0.42],
+    [310, 0.8, 0.5],
+    [255, 0.75, 0.34],
+  ],
+}
+
+function colourGradation(c: Canvas, variant: Gradient) {
+  const stops = GRADIENT_STOPS[variant]
 
   const ctx = ctx2d(c)
   const img = ctx.getImageData(0, 0, c.width, c.height)
@@ -739,13 +848,54 @@ function colourGradation(c: Canvas, variant: "aurora" | "sunset" | "ocean") {
     }
   }
   ctx.putImageData(img, 0, 0)
+  if (variant === "cosmic") stars(c)
+}
+
+/** Sparse starfield over the artwork, deterministic per sticker size. */
+function stars(c: Canvas) {
+  const ctx = ctx2d(c)
+  const img = ctx.getImageData(0, 0, c.width, c.height)
+  const { data } = img
+  const rand = mulberry32(42)
+  for (let o = 0; o < data.length; o += 4) {
+    const roll = rand()
+    if (data[o + 3] === 0 || roll > 0.004) continue
+    const glow = 0.55 + rand() * 0.45
+    data[o] += (255 - data[o]) * glow
+    data[o + 1] += (255 - data[o + 1]) * glow
+    data[o + 2] += (255 - data[o + 2]) * glow
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
+/**
+ * Matte vinyl: no shine, softer contrast, lifted blacks and a fine paper
+ * tooth, like uncoated sticker stock.
+ */
+function matte(c: Canvas) {
+  const ctx = ctx2d(c)
+  const img = ctx.getImageData(0, 0, c.width, c.height)
+  const { data } = img
+  const rand = mulberry32(7)
+  for (let o = 0; o < data.length; o += 4) {
+    const tooth = (rand() - 0.5) * 7
+    if (data[o + 3] === 0) continue
+    const r = data[o]
+    const g = data[o + 1]
+    const b = data[o + 2]
+    const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    data[o] = clamp255((gray + (r - gray) * 0.88) * 0.9 + 16 + tooth)
+    data[o + 1] = clamp255((gray + (g - gray) * 0.88) * 0.9 + 16 + tooth)
+    data[o + 2] = clamp255((gray + (b - gray) * 0.88) * 0.9 + 16 + tooth)
+  }
+  ctx.putImageData(img, 0, 0)
 }
 
 /**
  * Glossy vinyl sheen: soft specular highlights + slight contrast lift so the
  * sticker reads like laminated sticker stock.
  */
-function glow(c: Canvas) {
+function gloss(c: Canvas) {
   const ctx = ctx2d(c)
   const img = ctx.getImageData(0, 0, c.width, c.height)
   const { data, width: w, height: h } = img
@@ -768,10 +918,10 @@ function glow(c: Canvas) {
 
       const dist = Math.hypot(x - cx, y - cy) / radius
       const sheen = Math.max(0, 1 - dist)
-      const gloss = sheen * sheen * 0.42
-      r += (255 - r) * gloss
-      g += (255 - g) * gloss
-      b += (255 - b) * gloss
+      const shine = sheen * sheen * 0.42
+      r += (255 - r) * shine
+      g += (255 - g) * shine
+      b += (255 - b) * shine
 
       // Secondary rim light from the opposite corner.
       const rim = Math.max(0, (x / w + y / h) * 0.5 - 0.55) * 0.25
@@ -791,12 +941,66 @@ function glow(c: Canvas) {
 /* Public API                                                         */
 /* ------------------------------------------------------------------ */
 
+/** Per-pixel lerp from `base` to `target` (in place), so edges keep their alpha. */
+function mixInto(target: Canvas, base: Canvas, amount: number) {
+  const tctx = ctx2d(target)
+  const img = tctx.getImageData(0, 0, target.width, target.height)
+  const from = ctx2d(base).getImageData(0, 0, base.width, base.height).data
+  const to = img.data
+  for (let i = 0; i < to.length; i += 1) {
+    to[i] = from[i] + (to[i] - from[i]) * amount
+  }
+  tctx.putImageData(img, 0, 0)
+}
+
+function copyCanvas(c: Canvas): Canvas {
+  const copy = makeCanvas(c.width, c.height)
+  ctx2d(copy).drawImage(c, 0, 0)
+  return copy
+}
+
+/** Applies `filter` to `c` in place, blended toward the original by `strength`. */
+function applyFilter(c: Canvas, filter: StickerFilter, strength: number) {
+  if (filter === "original" || strength <= 0) return
+  const before = strength < 1 ? copyCanvas(c) : null
+  toneFilter(c, filter)
+  if (
+    filter === "aurora" ||
+    filter === "sunset" ||
+    filter === "ocean" ||
+    filter === "cosmic"
+  ) {
+    colourGradation(c, filter)
+  }
+  if (filter === "glitch") glitch(c)
+  if (before) mixInto(c, before, strength)
+}
+
+function applyFinish(c: Canvas, finish: StickerFinish, strength: number) {
+  if (finish === "none" || strength <= 0) return
+  const before = strength < 1 ? copyCanvas(c) : null
+  if (finish === "matte") matte(c)
+  if (finish === "gloss") gloss(c)
+  if (finish === "glitter") glitter(c)
+  if (finish === "hologram") hologram(c)
+  if (before) mixInto(c, before, strength)
+}
+
+function unit(value: number | undefined): number {
+  return Math.min(1, Math.max(0, value ?? 1))
+}
+
 export async function renderSticker(
   source: string,
   options: RenderOptions
 ): Promise<string> {
   const maxSide = options.maxSide ?? BASELINE
-  const subject = await prepareSubject(source, maxSide)
+  const prepared = await prepareSubject(source, maxSide)
+  // Colour filters grade the artwork only, so the outline keeps its chosen
+  // colour. The cached subject must not be mutated.
+  const subject =
+    options.filter === "original" ? prepared : copyCanvas(prepared)
+  applyFilter(subject, options.filter, unit(options.filterStrength))
   const t = options.outlineThickness * (maxSide / BASELINE)
   const color = options.outlineColor
 
@@ -858,17 +1062,8 @@ export async function renderSticker(
     }
   }
 
-  toneFilter(out, options.filter)
-  if (options.filter === "glitter") glitter(out)
-  if (options.filter === "hologram") hologram(out)
-  if (
-    options.filter === "aurora" ||
-    options.filter === "sunset" ||
-    options.filter === "ocean"
-  ) {
-    colourGradation(out, options.filter)
-  }
-  if (options.filter === "glow") glow(out)
+  // Finishes are the sticker material itself, so they cover the outline too.
+  applyFinish(out, options.finish ?? "none", unit(options.finishStrength))
 
   if (options.format === "webp") {
     const webp = out.toDataURL("image/webp", 0.9)

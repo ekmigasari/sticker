@@ -10,8 +10,14 @@ import {
   WarningCircle,
 } from "@phosphor-icons/react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import type { StickerFilter, StickerStyle } from "@/domain/types"
-import { mmToPx, STICKER_STYLES } from "@/domain/types"
+import type { StickerFilter, StickerFinish, StickerStyle } from "@/domain/types"
+import {
+  isHoloFinish,
+  mmToPx,
+  STICKER_FILTERS,
+  STICKER_FINISHES,
+  STICKER_STYLES,
+} from "@/domain/types"
 import { cn } from "@/lib/utils"
 import {
   downloadDataUrl,
@@ -25,6 +31,7 @@ import {
   SIZE_MIN_MM,
 } from "@/lib/sticker-process"
 import { useWallStore } from "@/store/wall-store"
+import { TopBar } from "@/components/layout/app-chrome"
 import { firePeelConfetti } from "./confetti"
 import { EditorToolbar, type EditorTab } from "./editor-toolbar"
 import { FloatingSticker } from "./floating-sticker"
@@ -60,6 +67,11 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   const [sourceMaxSide, setSourceMaxSide] = useState<number | null>(null)
   const [style, setStyle] = useState<StickerStyle>("classic")
   const [filter, setFilter] = useState<StickerFilter>("original")
+  const [filterStrength, setFilterStrength] = useState(100)
+  const [finish, setFinish] = useState<StickerFinish>("none")
+  const [finishStrength, setFinishStrength] = useState(100)
+  /** Width ÷ height of the rendered sticker, outline included. */
+  const [aspect, setAspect] = useState(1)
   const [outlineColor, setOutlineColor] = useState("#FFFFFF")
   const [thickness, setThickness] = useState(16)
   const [sizeMm, setSizeMm] = useState(SIZE_DEFAULT_MM)
@@ -75,7 +87,12 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   const [styleThumbs, setStyleThumbs] = useState<
     Partial<Record<StickerStyle, string>>
   >({})
-  const [filterThumb, setFilterThumb] = useState<string | null>(null)
+  const [filterThumbs, setFilterThumbs] = useState<
+    Partial<Record<StickerFilter, string>>
+  >({})
+  const [finishThumbs, setFinishThumbs] = useState<
+    Partial<Record<StickerFinish, string>>
+  >({})
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -114,6 +131,9 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
       renderSticker(source, {
         style,
         filter,
+        filterStrength: filterStrength / 100,
+        finish,
+        finishStrength: finishStrength / 100,
         outlineColor,
         outlineThickness: thickness,
         maxSide: PREVIEW_MAX_SIDE,
@@ -122,6 +142,9 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
           if (cancelled) return
           setPreview(url)
           setError(null)
+          void probeImageSize(url).then(({ width, height }) => {
+            if (!cancelled && width > 0 && height > 0) setAspect(width / height)
+          })
           if (uploadingRef.current) {
             // Hold until one full print cycle (~8s) so the scene can finish.
             const elapsed = performance.now() - uploadStartedAt.current
@@ -146,7 +169,16 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [source, style, filter, outlineColor, thickness])
+  }, [
+    source,
+    style,
+    filter,
+    filterStrength,
+    finish,
+    finishStrength,
+    outlineColor,
+    thickness,
+  ])
 
   useEffect(() => {
     if (!source) return
@@ -157,6 +189,9 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
           renderSticker(source, {
             style: s,
             filter,
+            filterStrength: filterStrength / 100,
+            finish,
+            finishStrength: finishStrength / 100,
             outlineColor,
             outlineThickness: thickness,
             maxSide: 128,
@@ -165,21 +200,73 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
       ).then((entries) => {
         if (!cancelled) setStyleThumbs(Object.fromEntries(entries))
       })
-      void renderSticker(source, {
-        style,
-        filter: "original",
-        outlineColor,
-        outlineThickness: thickness,
-        maxSide: 128,
-      }).then((url) => {
-        if (!cancelled) setFilterThumb(url)
+    }, 180)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [
+    source,
+    filter,
+    filterStrength,
+    finish,
+    finishStrength,
+    outlineColor,
+    thickness,
+  ])
+
+  // Filter and finish thumbnails are real renders, not CSS lookalikes.
+  useEffect(() => {
+    if (!source) return
+    let cancelled = false
+    const t = window.setTimeout(() => {
+      void Promise.all(
+        STICKER_FILTERS.map((f) =>
+          renderSticker(source, {
+            style,
+            filter: f,
+            finish,
+            finishStrength: finishStrength / 100,
+            outlineColor,
+            outlineThickness: thickness,
+            maxSide: 128,
+          }).then((url) => [f, url] as const)
+        )
+      ).then((entries) => {
+        if (!cancelled) setFilterThumbs(Object.fromEntries(entries))
       })
     }, 180)
     return () => {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [source, style, filter, outlineColor, thickness])
+  }, [source, style, finish, finishStrength, outlineColor, thickness])
+
+  useEffect(() => {
+    if (!source) return
+    let cancelled = false
+    const t = window.setTimeout(() => {
+      void Promise.all(
+        STICKER_FINISHES.map((f) =>
+          renderSticker(source, {
+            style,
+            filter,
+            filterStrength: filterStrength / 100,
+            finish: f,
+            outlineColor,
+            outlineThickness: thickness,
+            maxSide: 128,
+          }).then((url) => [f, url] as const)
+        )
+      ).then((entries) => {
+        if (!cancelled) setFinishThumbs(Object.fromEntries(entries))
+      })
+    }, 180)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [source, style, filter, filterStrength, outlineColor, thickness])
 
   function onFile(file: File | undefined) {
     if (!file) return
@@ -201,7 +288,8 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
     setError(null)
     setPreview(null)
     setStyleThumbs({})
-    setFilterThumb(null)
+    setFilterThumbs({})
+    setFinishThumbs({})
     setZoom(1)
     setPeelDone(false)
     const reader = new FileReader()
@@ -238,6 +326,9 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
     setSourceMaxSide(null)
     setStyle("classic")
     setFilter("original")
+    setFilterStrength(100)
+    setFinish("none")
+    setFinishStrength(100)
     setOutlineColor("#FFFFFF")
     setThickness(16)
     setSizeMm(SIZE_DEFAULT_MM)
@@ -245,7 +336,8 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
     setTab("style")
     setPreview(null)
     setStyleThumbs({})
-    setFilterThumb(null)
+    setFilterThumbs({})
+    setFinishThumbs({})
     setError(null)
     setActionsOpen(false)
     setConfirmNewOpen(false)
@@ -275,6 +367,9 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
       const url = await renderSticker(source, {
         style,
         filter,
+        filterStrength: filterStrength / 100,
+        finish,
+        finishStrength: finishStrength / 100,
         outlineColor,
         outlineThickness: thickness,
         maxSide: Math.round(mmToPx(sizeMm)),
@@ -294,6 +389,9 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
       const url = await renderSticker(source, {
         style,
         filter,
+        filterStrength: filterStrength / 100,
+        finish,
+        finishStrength: finishStrength / 100,
         outlineColor,
         outlineThickness: thickness,
         // Wall stickers are zoomable, so always export at the storage cap
@@ -306,6 +404,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         imageDataUrl: url,
         style,
         filter,
+        finish,
         outlineColor,
         outlineThickness: thickness,
         widthPx: width,
@@ -353,6 +452,9 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
       const url = await renderSticker(source, {
         style,
         filter,
+        filterStrength: filterStrength / 100,
+        finish,
+        finishStrength: finishStrength / 100,
         outlineColor,
         outlineThickness: thickness,
         maxSide: 1200,
@@ -362,6 +464,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
       form.set("file", file)
       form.set("style", style)
       form.set("filter", filter)
+      form.set("finish", finish)
       form.set("outlineColor", outlineColor)
       form.set("outlineThickness", String(thickness))
 
@@ -412,36 +515,30 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         onFile(e.dataTransfer.files?.[0])
       }}
     >
-      <header className="relative z-20 flex h-14 shrink-0 items-center justify-between px-3 pt-[env(safe-area-inset-top)] sm:px-5">
-        {replacingArtwork && stickerId ? (
-          <Link
-            to="/dashboard/stickers/$id"
-            params={{ id: stickerId }}
-            aria-label="Back to sticker"
-            className="press grid size-10 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07] active:scale-[0.97]"
-          >
-            <CaretLeft weight="bold" className="size-[18px]" />
-          </Link>
-        ) : (
-          <Link
-            to="/"
-            aria-label="Back to wall"
-            className="press grid size-10 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07] active:scale-[0.97]"
-          >
-            <CaretLeft weight="bold" className="size-[18px]" />
-          </Link>
-        )}
+      <TopBar />
 
-        <h1
-          className={cn(
-            "pointer-events-none absolute left-1/2 -translate-x-1/2 text-[15px] font-semibold tracking-[-0.01em]",
-            source && "hidden sm:block"
+      <div className="relative z-20 flex h-12 shrink-0 items-center justify-between gap-3 px-3 sm:px-5">
+        <div className="flex min-w-0 items-center gap-2">
+          {replacingArtwork && stickerId ? (
+            <Link
+              to="/dashboard/stickers/$id"
+              params={{ id: stickerId }}
+              aria-label="Back to sticker"
+              className="press grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07] active:scale-[0.97]"
+            >
+              <CaretLeft weight="bold" className="size-4" />
+            </Link>
+          ) : null}
+          {replacingArtwork ? (
+            <h1 className="truncate text-[17px] font-semibold tracking-[-0.02em]">
+              Replace artwork
+            </h1>
+          ) : (
+            <h1 className="sr-only">Make a sticker</h1>
           )}
-        >
-          {replacingArtwork ? "Replace artwork" : "New Sticker"}
-        </h1>
+        </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {source && !replacingArtwork ? (
             <>
               <button
@@ -455,9 +552,10 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
                 type="button"
                 disabled={!ready || exporting}
                 onClick={() => void handlePlace()}
-                className="press h-10 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity active:scale-[0.97] disabled:opacity-35"
+                className="press inline-flex h-10 items-center gap-1.5 rounded-full bg-neutral-900 px-4 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity active:scale-[0.97] disabled:opacity-35"
               >
-                {exporting ? "…" : "Place"}
+                <PushPin weight="fill" className="size-4" />
+                {exporting ? "Preparing…" : "Put on wall"}
               </button>
             </>
           ) : null}
@@ -473,7 +571,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
             </button>
           ) : null}
         </div>
-      </header>
+      </div>
 
       <main className="relative min-h-0 flex-1 overflow-auto overscroll-contain pb-[220px]">
         <div className="flex min-h-full min-w-full items-center justify-center p-8">
@@ -483,7 +581,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
                 <FloatingSticker
                   key={`${sourceId}-${peelSession}`}
                   src={preview}
-                  holo={filter === "glitter" || filter === "hologram"}
+                  holo={isHoloFinish(finish)}
                   displayPx={displayPx}
                   appearKey={`${sourceId}-${peelSession}`}
                   onFullyPeeled={() => {
@@ -518,7 +616,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
       </main>
 
       {source ? (
-        <div className="pointer-events-none absolute top-[calc(3.5rem+env(safe-area-inset-top)+8px)] right-3 z-20 flex flex-col items-end gap-1.5 sm:right-5">
+        <div className="pointer-events-none absolute top-[calc(6.5rem+env(safe-area-inset-top)+8px)] right-3 z-20 flex flex-col items-end gap-1.5 sm:right-5">
           <ZoomButton
             label="Zoom in"
             disabled={zoom >= ZOOM_MAX}
@@ -577,7 +675,15 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
           styleThumbs={styleThumbs}
           filter={filter}
           onFilterChange={setFilter}
-          filterThumb={filterThumb}
+          filterStrength={filterStrength}
+          onFilterStrengthChange={setFilterStrength}
+          filterThumbs={filterThumbs}
+          finish={finish}
+          onFinishChange={setFinish}
+          finishThumbs={finishThumbs}
+          finishStrength={finishStrength}
+          onFinishStrengthChange={setFinishStrength}
+          aspect={aspect}
           outlineColor={outlineColor}
           onOutlineColorChange={setOutlineColor}
           thickness={thickness}
@@ -930,7 +1036,7 @@ function EmptyState({ inputId }: { inputId: string }) {
         Add an image
       </span>
       <span className="mt-1.5 max-w-[260px] text-[15px] leading-snug text-neutral-500">
-        Logo, product, or artwork. Pick a style, filter, and print size.
+        Logo, product, or artwork. Pick a style, finish, and print size.
       </span>
       <span className="mt-6 inline-flex h-11 items-center rounded-full bg-neutral-900 px-6 text-[15px] font-semibold text-white transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] group-active:scale-[0.97]">
         Choose Photo

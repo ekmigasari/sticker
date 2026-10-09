@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { Fragment, useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 import {
@@ -11,17 +11,14 @@ import {
   PushPin,
   Ruler,
   SlidersHorizontal,
+  Sparkle,
 } from "@phosphor-icons/react"
-import type { StickerFilter, StickerStyle } from "@/domain/types"
-import { mmToPx, STICKER_FILTERS, STICKER_STYLES } from "@/domain/types"
-import {
-  SIZE_DEFAULT_MM,
-  SIZE_MAX_MM,
-  SIZE_MIN_MM,
-} from "@/lib/sticker-process"
+import type { StickerFilter, StickerFinish, StickerStyle } from "@/domain/types"
+import { mmToPx, STICKER_FINISHES, STICKER_STYLES } from "@/domain/types"
+import { SIZE_MAX_MM, SIZE_MIN_MM } from "@/lib/sticker-process"
 import { cn } from "@/lib/utils"
 
-export type EditorTab = "style" | "outline" | "filter" | "size"
+export type EditorTab = "style" | "outline" | "finish" | "filter" | "size"
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const
 const EASE_IN_OUT = [0.77, 0, 0.175, 1] as const
@@ -33,6 +30,7 @@ const TABS: {
 }[] = [
   { id: "style", label: "Style", Icon: PaintBrush },
   { id: "outline", label: "Outline", Icon: CircleDashed },
+  { id: "finish", label: "Finish", Icon: Sparkle },
   { id: "filter", label: "Filter", Icon: Palette },
   { id: "size", label: "Size", Icon: Ruler },
 ]
@@ -49,54 +47,39 @@ const STYLE_LABELS: Record<StickerStyle, string> = {
 
 const FILTER_LABELS: Record<StickerFilter, string> = {
   original: "Original",
-  glitter: "Glitter",
-  hologram: "Hologram",
-  aurora: "Aurora",
-  sunset: "Sunset",
-  ocean: "Ocean",
-  glow: "Glow",
   vivid: "Vivid",
   warm: "Warm",
   cool: "Cool",
   mono: "Mono",
-  noir: "Noir",
+  aurora: "Aurora",
+  sunset: "Sunset",
+  ocean: "Ocean",
+  cosmic: "Cosmic",
+  cyberpunk: "Cyber",
+  vapor: "Vapor",
+  synth: "Synth",
+  glitch: "Glitch",
   red: "Red",
   blue: "Blue",
   green: "Green",
   yellow: "Yellow",
 }
 
-/** CSS approximations of the canvas filters, used only for thumbnails. */
-const FILTER_PREVIEW_CSS: Record<StickerFilter, string> = {
-  original: "none",
-  glitter: "saturate(1.25) brightness(1.04)",
-  hologram: "saturate(1.3) brightness(1.05) contrast(1.04)",
-  aurora: "saturate(1.2) hue-rotate(40deg) brightness(1.05)",
-  sunset: "saturate(1.25) hue-rotate(-25deg) brightness(1.04)",
-  ocean: "saturate(1.15) hue-rotate(160deg) brightness(0.98)",
-  glow: "contrast(1.12) brightness(1.08)",
-  vivid: "saturate(1.5) contrast(1.08)",
-  warm: "sepia(0.22) saturate(1.2) hue-rotate(-8deg)",
-  cool: "saturate(1.05) hue-rotate(14deg) brightness(1.03)",
-  mono: "grayscale(1)",
-  noir: "grayscale(1) contrast(1.55)",
-  red: "grayscale(1) sepia(1) hue-rotate(-50deg) saturate(6) brightness(0.95)",
-  blue: "grayscale(1) sepia(1) hue-rotate(180deg) saturate(6) brightness(0.9)",
-  green: "grayscale(1) sepia(1) hue-rotate(70deg) saturate(5) brightness(0.95)",
-  yellow: "grayscale(1) sepia(1) hue-rotate(5deg) saturate(8) brightness(1.05)",
-}
+/** Original, colour grades, gradients, neon, duotones. */
+const FILTER_GROUPS: StickerFilter[][] = [
+  ["original"],
+  ["vivid", "warm", "cool", "mono"],
+  ["aurora", "sunset", "ocean", "cosmic"],
+  ["cyberpunk", "vapor", "synth", "glitch"],
+  ["red", "blue", "green", "yellow"],
+]
 
-const GRADATION_OVERLAY: Partial<Record<StickerFilter, string>> = {
-  glitter:
-    "linear-gradient(120deg, rgba(255,110,220,0.8), rgba(110,220,255,0.8), rgba(255,245,140,0.75))",
-  hologram:
-    "linear-gradient(120deg, rgba(255,110,220,0.75), rgba(110,220,255,0.75), rgba(255,245,140,0.7))",
-  aurora:
-    "linear-gradient(125deg, rgba(120,255,210,0.75), rgba(110,180,255,0.8), rgba(200,120,255,0.75))",
-  sunset:
-    "linear-gradient(125deg, rgba(255,140,60,0.8), rgba(255,90,140,0.75), rgba(180,80,220,0.7))",
-  ocean:
-    "linear-gradient(125deg, rgba(20,90,140,0.75), rgba(40,180,190,0.8), rgba(80,140,220,0.7))",
+const FINISH_LABELS: Record<StickerFinish, string> = {
+  none: "None",
+  matte: "Matte",
+  gloss: "Gloss",
+  glitter: "Glitter",
+  hologram: "Holo",
 }
 
 export const OUTLINE_COLORS = [
@@ -120,7 +103,18 @@ type Props = {
   styleThumbs: Partial<Record<StickerStyle, string>>
   filter: StickerFilter
   onFilterChange: (f: StickerFilter) => void
-  filterThumb: string | null
+  /** 0–100 */
+  filterStrength: number
+  onFilterStrengthChange: (n: number) => void
+  filterThumbs: Partial<Record<StickerFilter, string>>
+  finish: StickerFinish
+  onFinishChange: (f: StickerFinish) => void
+  finishThumbs: Partial<Record<StickerFinish, string>>
+  /** 0–100 */
+  finishStrength: number
+  onFinishStrengthChange: (n: number) => void
+  /** Width ÷ height of the rendered sticker. */
+  aspect: number
   outlineColor: string
   onOutlineColorChange: (c: string) => void
   thickness: number
@@ -234,6 +228,7 @@ export function EditorToolbar(props: Props) {
               >
                 {tab === "style" ? <StylePanel {...props} /> : null}
                 {tab === "outline" ? <OutlinePanel {...props} /> : null}
+                {tab === "finish" ? <FinishPanel {...props} /> : null}
                 {tab === "filter" ? <FilterPanel {...props} /> : null}
                 {tab === "size" ? <SizePanel {...props} /> : null}
               </motion.div>
@@ -245,7 +240,7 @@ export function EditorToolbar(props: Props) {
       <div className="flex items-stretch gap-1.5 px-2 py-1.5">
         <div
           role="tablist"
-          className="grid min-w-0 flex-1 grid-cols-4 gap-0.5 rounded-[14px] bg-black/[0.04] p-0.5"
+          className="grid min-w-0 flex-1 grid-cols-5 gap-0.5 rounded-[14px] bg-black/[0.04] p-0.5"
         >
           {TABS.map((t) => {
             const active = panelOpen && t.id === tab
@@ -498,24 +493,14 @@ function OutlinePanel({
             <span className="w-[68px] text-[12px] font-medium text-neutral-500">
               {sizeLabel}
             </span>
-            <SliderPrimitive.Root
+            <PanelSlider
               className="flex-1"
               value={thickness}
               min={4}
               max={30}
-              step={1}
-              onValueChange={(v) =>
-                onThicknessChange(Array.isArray(v) ? v[0] : Number(v))
-              }
-              aria-label={sizeLabel}
-            >
-              <SliderPrimitive.Control className="flex h-8 w-full touch-none items-center select-none">
-                <SliderPrimitive.Track className="relative h-[5px] w-full rounded-full bg-black/[0.08]">
-                  <SliderPrimitive.Indicator className="h-full rounded-full bg-neutral-900" />
-                  <SliderPrimitive.Thumb className="size-[26px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.08)] transition-transform duration-150 outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:scale-110" />
-                </SliderPrimitive.Track>
-              </SliderPrimitive.Control>
-            </SliderPrimitive.Root>
+              onChange={onThicknessChange}
+              label={sizeLabel}
+            />
             <span className="w-7 text-right text-[12px] font-medium text-neutral-900 tabular-nums">
               {thickness}
             </span>
@@ -523,6 +508,44 @@ function OutlinePanel({
         </>
       )}
     </div>
+  )
+}
+
+function PanelSlider({
+  value,
+  min,
+  max,
+  onChange,
+  label,
+  disabled,
+  className,
+}: {
+  value: number
+  min: number
+  max: number
+  onChange: (n: number) => void
+  label: string
+  disabled?: boolean
+  className?: string
+}) {
+  return (
+    <SliderPrimitive.Root
+      className={cn(className, disabled && "opacity-40")}
+      value={value}
+      min={min}
+      max={max}
+      step={1}
+      disabled={disabled}
+      onValueChange={(v) => onChange(Array.isArray(v) ? v[0] : Number(v))}
+      aria-label={label}
+    >
+      <SliderPrimitive.Control className="flex h-8 w-full touch-none items-center select-none">
+        <SliderPrimitive.Track className="relative h-[5px] w-full rounded-full bg-black/[0.08]">
+          <SliderPrimitive.Indicator className="h-full rounded-full bg-neutral-900" />
+          <SliderPrimitive.Thumb className="size-[26px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.08)] transition-transform duration-150 outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:scale-110" />
+        </SliderPrimitive.Track>
+      </SliderPrimitive.Control>
+    </SliderPrimitive.Root>
   )
 }
 
@@ -553,139 +576,304 @@ function Swatch({
   )
 }
 
-function FilterPanel({ filter, onFilterChange, filterThumb }: Props) {
+function ThumbTile({
+  active,
+  thumb,
+  label,
+  onClick,
+}: {
+  active: boolean
+  thumb: string | undefined
+  label: string
+  onClick: () => void
+}) {
   return (
-    <div className="no-scrollbar flex h-full items-center gap-3 overflow-x-auto px-5">
-      {STICKER_FILTERS.map((f) => {
-        const active = f === filter
-        const overlay = GRADATION_OVERLAY[f]
-        return (
-          <button
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className="press flex w-[54px] shrink-0 flex-col items-center gap-1 active:scale-[0.97]"
+    >
+      <span
+        className={cn(
+          "relative grid size-[54px] place-items-center overflow-hidden rounded-[16px] bg-black/[0.035] transition-shadow duration-150",
+          active && "shadow-[inset_0_0_0_2px_#1c1c1e]"
+        )}
+      >
+        {thumb ? (
+          <img src={thumb} alt="" className="max-h-[40px] max-w-[40px]" />
+        ) : (
+          <span className="size-9 animate-pulse rounded-lg bg-black/[0.06]" />
+        )}
+        {active ? (
+          <span className="absolute top-1 right-1 grid size-4 place-items-center rounded-full bg-neutral-900 text-white">
+            <Check weight="bold" className="size-2.5" />
+          </span>
+        ) : null}
+      </span>
+      <span
+        className={cn(
+          "text-[11px] tracking-[-0.01em]",
+          active
+            ? "font-semibold text-neutral-900"
+            : "font-medium text-neutral-500"
+        )}
+      >
+        {label}
+      </span>
+    </button>
+  )
+}
+
+function FinishPanel({
+  finish,
+  onFinishChange,
+  finishThumbs,
+  finishStrength,
+  onFinishStrengthChange,
+}: Props) {
+  return (
+    <div className="flex h-full flex-col justify-center gap-1.5">
+      <div className="no-scrollbar flex items-center gap-3 overflow-x-auto px-5">
+        {STICKER_FINISHES.map((f) => (
+          <ThumbTile
             key={f}
-            type="button"
-            onClick={() => onFilterChange(f)}
-            aria-pressed={active}
-            className="press flex w-[62px] shrink-0 flex-col items-center gap-1.5 active:scale-[0.97]"
-          >
-            <span
-              className={cn(
-                "relative grid size-[62px] place-items-center overflow-hidden rounded-[18px] bg-black/[0.035] transition-shadow duration-150",
-                active && "shadow-[inset_0_0_0_2px_#1c1c1e]"
-              )}
-            >
-              {filterThumb ? (
-                <span className="relative">
-                  <img
-                    src={filterThumb}
-                    alt=""
-                    className="max-h-[46px] max-w-[46px]"
-                    style={{ filter: FILTER_PREVIEW_CSS[f] }}
-                  />
-                  {overlay ? (
-                    <span
-                      aria-hidden
-                      className="absolute inset-0 mix-blend-color-dodge"
-                      style={{
-                        WebkitMaskImage: `url(${filterThumb})`,
-                        maskImage: `url(${filterThumb})`,
-                        WebkitMaskSize: "100% 100%",
-                        maskSize: "100% 100%",
-                        backgroundImage: overlay,
-                      }}
-                    />
-                  ) : null}
-                  {f === "glow" ? (
-                    <span
-                      aria-hidden
-                      className="absolute inset-0 mix-blend-soft-light"
-                      style={{
-                        WebkitMaskImage: `url(${filterThumb})`,
-                        maskImage: `url(${filterThumb})`,
-                        WebkitMaskSize: "100% 100%",
-                        maskSize: "100% 100%",
-                        backgroundImage:
-                          "radial-gradient(circle at 30% 25%, rgba(255,255,255,0.95), transparent 55%)",
-                      }}
-                    />
-                  ) : null}
-                </span>
-              ) : (
-                <span className="size-9 animate-pulse rounded-lg bg-black/[0.06]" />
-              )}
-              {active ? (
-                <span className="absolute top-1 right-1 grid size-4 place-items-center rounded-full bg-neutral-900 text-white">
-                  <Check weight="bold" className="size-2.5" />
-                </span>
-              ) : null}
-            </span>
-            <span
-              className={cn(
-                "text-[11px] tracking-[-0.01em]",
-                active
-                  ? "font-semibold text-neutral-900"
-                  : "font-medium text-neutral-500"
-              )}
-            >
-              {FILTER_LABELS[f]}
-            </span>
-          </button>
-        )
-      })}
+            active={f === finish}
+            thumb={finishThumbs[f]}
+            label={FINISH_LABELS[f]}
+            onClick={() => onFinishChange(f)}
+          />
+        ))}
+      </div>
+      <StrengthRow
+        label="Finish intensity"
+        value={finishStrength}
+        onChange={onFinishStrengthChange}
+        disabled={finish === "none"}
+      />
     </div>
   )
 }
 
-function SizePanel({ sizeMm, onSizeMmChange }: Props) {
-  const px = Math.round(mmToPx(sizeMm))
+function StrengthRow({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string
+  value: number
+  onChange: (n: number) => void
+  disabled: boolean
+}) {
+  return (
+    <div className="flex items-center gap-3 px-5">
+      <span className="w-[68px] text-[12px] font-medium text-neutral-500">
+        Intensity
+      </span>
+      <PanelSlider
+        className="flex-1"
+        value={value}
+        min={0}
+        max={100}
+        onChange={onChange}
+        label={label}
+        disabled={disabled}
+      />
+      <span
+        className={cn(
+          "w-9 text-right text-[12px] font-medium tabular-nums",
+          disabled ? "text-neutral-400" : "text-neutral-900"
+        )}
+      >
+        {value}%
+      </span>
+    </div>
+  )
+}
 
-  function update(next: number) {
-    onSizeMmChange(Math.min(SIZE_MAX_MM, Math.max(SIZE_MIN_MM, next)))
+function FilterPanel({
+  filter,
+  onFilterChange,
+  filterStrength,
+  onFilterStrengthChange,
+  filterThumbs,
+}: Props) {
+  const original = filter === "original"
+  return (
+    <div className="flex h-full flex-col justify-center gap-1.5">
+      <div className="no-scrollbar flex items-center gap-3 overflow-x-auto px-5">
+        {FILTER_GROUPS.map((group, gi) => (
+          <Fragment key={group[0]}>
+            {gi > 0 ? (
+              <span
+                aria-hidden
+                className="h-10 w-px shrink-0 -translate-y-2 bg-black/[0.08]"
+              />
+            ) : null}
+            {group.map((f) => (
+              <ThumbTile
+                key={f}
+                active={f === filter}
+                thumb={filterThumbs[f]}
+                label={FILTER_LABELS[f]}
+                onClick={() => onFilterChange(f)}
+              />
+            ))}
+          </Fragment>
+        ))}
+      </div>
+
+      <StrengthRow
+        label="Filter intensity"
+        value={filterStrength}
+        onChange={onFilterStrengthChange}
+        disabled={original}
+      />
+    </div>
+  )
+}
+
+type Dimension = "w" | "h"
+
+function formatMm(mm: number): string {
+  return mm < 100 ? mm.toFixed(1) : String(Math.round(mm))
+}
+
+/**
+ * Width and height stay locked to the sticker's aspect ratio. The slider drives
+ * whichever side is active (width by default); `sizeMm` is the longest side.
+ */
+function SizePanel({ sizeMm, onSizeMmChange, aspect }: Props) {
+  const [active, setActive] = useState<Dimension>("w")
+  const share: Record<Dimension, number> = {
+    w: aspect >= 1 ? 1 : aspect,
+    h: aspect >= 1 ? 1 / aspect : 1,
+  }
+  const mm: Record<Dimension, number> = {
+    w: sizeMm * share.w,
+    h: sizeMm * share.h,
+  }
+  const min = SIZE_MIN_MM * share[active]
+  const max = SIZE_MAX_MM * share[active]
+
+  function setSide(side: Dimension, next: number) {
+    if (!Number.isFinite(next) || next <= 0) return
+    onSizeMmChange(
+      Math.min(SIZE_MAX_MM, Math.max(SIZE_MIN_MM, next / share[side]))
+    )
   }
 
   return (
-    <div className="flex h-full flex-col justify-center gap-3 px-5">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="text-[12px] font-medium text-neutral-500">Print size</p>
-          <p className="mt-0.5 text-[22px] font-semibold tracking-[-0.03em] text-neutral-900 tabular-nums">
-            {sizeMm < 100 ? sizeMm.toFixed(1) : Math.round(sizeMm)}
-            <span className="ml-1 text-[13px] font-medium text-neutral-400">
-              mm
-            </span>
-          </p>
-        </div>
-        <p className="pb-1 text-right text-[11px] font-medium text-neutral-400 tabular-nums">
-          {px} px
-          <span className="mx-1 text-neutral-300">·</span>
+    <div className="flex h-full flex-col justify-center gap-2.5 px-5">
+      <div className="flex items-center gap-2">
+        <DimensionField
+          label="W"
+          name="Width"
+          value={mm.w}
+          active={active === "w"}
+          onActivate={() => setActive("w")}
+          onCommit={(next) => setSide("w", next)}
+        />
+        <span aria-hidden className="text-[13px] text-neutral-300">
+          ×
+        </span>
+        <DimensionField
+          label="H"
+          name="Height"
+          value={mm.h}
+          active={active === "h"}
+          onActivate={() => setActive("h")}
+          onCommit={(next) => setSide("h", next)}
+        />
+        <p className="ml-auto text-right text-[11px] leading-tight font-medium text-neutral-400 tabular-nums">
+          {Math.round(mmToPx(mm.w))} × {Math.round(mmToPx(mm.h))} px
+          <br />
           300 DPI
         </p>
       </div>
 
-      <SliderPrimitive.Root
+      {/* Live-updates while dragging — size is CSS-only, so it's cheap. */}
+      <PanelSlider
         className="w-full"
-        value={sizeMm}
-        min={SIZE_MIN_MM}
-        max={SIZE_MAX_MM}
-        step={1}
-        onValueChange={(v) => {
-          // Live-update preview while dragging — size is CSS-only, so it's cheap.
-          update(Array.isArray(v) ? v[0] : Number(v))
-        }}
-        aria-label="Sticker size in millimetres"
-      >
-        <SliderPrimitive.Control className="flex h-8 w-full touch-none items-center select-none">
-          <SliderPrimitive.Track className="relative h-[5px] w-full rounded-full bg-black/[0.08]">
-            <SliderPrimitive.Indicator className="h-full rounded-full bg-neutral-900" />
-            <SliderPrimitive.Thumb className="size-[26px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.08)] transition-transform duration-150 outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:scale-110" />
-          </SliderPrimitive.Track>
-        </SliderPrimitive.Control>
-      </SliderPrimitive.Root>
+        value={mm[active]}
+        min={min}
+        max={max}
+        onChange={(next) => setSide(active, next)}
+        label={active === "w" ? "Sticker width in mm" : "Sticker height in mm"}
+      />
 
-      <div className="flex items-center justify-between text-[11px] font-medium text-neutral-400">
-        <span>{SIZE_MIN_MM} mm</span>
-        <span>{SIZE_DEFAULT_MM} mm</span>
-        <span>{SIZE_MAX_MM} mm</span>
+      <div className="flex items-center justify-between text-[11px] font-medium text-neutral-400 tabular-nums">
+        <span>{formatMm(min)} mm</span>
+        <span>{formatMm(max)} mm</span>
       </div>
     </div>
+  )
+}
+
+function DimensionField({
+  label,
+  name,
+  value,
+  active,
+  onActivate,
+  onCommit,
+}: {
+  label: string
+  name: string
+  value: number
+  active: boolean
+  onActivate: () => void
+  onCommit: (mm: number) => void
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const cancelled = useRef(false)
+
+  function commit() {
+    if (draft !== null && !cancelled.current) {
+      onCommit(Number(draft.replace(",", ".")))
+    }
+    cancelled.current = false
+    setDraft(null)
+  }
+
+  return (
+    <label
+      className={cn(
+        "flex h-10 w-[108px] cursor-text items-center gap-1.5 rounded-[12px] px-2.5 transition-[background-color,box-shadow] duration-150",
+        active
+          ? "bg-white shadow-[inset_0_0_0_2px_#1c1c1e]"
+          : "bg-black/[0.04] hover:bg-black/[0.06]"
+      )}
+    >
+      <span
+        className={cn(
+          "text-[12px] font-semibold",
+          active ? "text-neutral-900" : "text-neutral-400"
+        )}
+      >
+        {label}
+      </span>
+      <input
+        inputMode="decimal"
+        aria-label={`${name} in millimetres`}
+        value={draft ?? formatMm(value)}
+        onFocus={(e) => {
+          onActivate()
+          e.currentTarget.select()
+        }}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur()
+          if (e.key === "Escape") {
+            cancelled.current = true
+            e.currentTarget.blur()
+          }
+        }}
+        className="w-full min-w-0 bg-transparent text-[15px] font-semibold tracking-[-0.02em] text-neutral-900 tabular-nums outline-none"
+      />
+      <span className="text-[11px] font-medium text-neutral-400">mm</span>
+    </label>
   )
 }

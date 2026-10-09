@@ -110,6 +110,8 @@ model Sticker {
   upload           Upload   @relation(fields: [uploadId], references: [id], onDelete: Restrict)
   style            String
   filter           String   @default("original")
+  /// Sticker material (none, matte, gloss, glitter, hologram).
+  finish           String   @default("none")
   outlineColor     String
   outlineThickness Int
   /// Whole dollars paid for wall placements. Ranks are derived from this at read time.

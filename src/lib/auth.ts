@@ -17,6 +17,11 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  user: {
+    // No email sender is configured, so a change applies immediately (only
+    // possible while the account's email is unverified).
+    changeEmail: { enabled: true, updateEmailWithoutVerification: true },
+  },
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
