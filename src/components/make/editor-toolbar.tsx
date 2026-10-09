@@ -2,9 +2,12 @@ import { Fragment, useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Slider as SliderPrimitive } from "@base-ui/react/slider"
 import {
+  ArrowCounterClockwise,
   Check,
   CircleDashed,
+  Crop,
   DownloadSimple,
+  FlipHorizontal,
   PaintBrush,
   Palette,
   Plus,
@@ -16,9 +19,21 @@ import {
 import type { StickerFilter, StickerFinish, StickerStyle } from "@/domain/types"
 import { mmToPx, STICKER_FINISHES, STICKER_STYLES } from "@/domain/types"
 import { SIZE_MAX_MM, SIZE_MIN_MM } from "@/lib/sticker-process"
+import {
+  CROP_ASPECTS,
+  STRAIGHTEN_MAX,
+  type CropAspect,
+  type ImageEdit,
+} from "@/lib/image-edit"
 import { cn } from "@/lib/utils"
 
-export type EditorTab = "style" | "outline" | "finish" | "filter" | "size"
+export type EditorTab =
+  | "image"
+  | "style"
+  | "outline"
+  | "finish"
+  | "filter"
+  | "size"
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const
 const EASE_IN_OUT = [0.77, 0, 0.175, 1] as const
@@ -28,6 +43,7 @@ const TABS: {
   label: string
   Icon: typeof PaintBrush
 }[] = [
+  { id: "image", label: "Image", Icon: Crop },
   { id: "style", label: "Style", Icon: PaintBrush },
   { id: "outline", label: "Outline", Icon: CircleDashed },
   { id: "finish", label: "Finish", Icon: Sparkle },
@@ -97,7 +113,15 @@ export const OUTLINE_COLORS = [
 type Props = {
   tab: EditorTab
   onTabChange: (tab: EditorTab) => void
+  panelOpen: boolean
+  onPanelOpenChange: (open: boolean) => void
   disabled: boolean
+  edit: ImageEdit
+  onAspectChange: (aspect: CropAspect) => void
+  onRotateLeft: () => void
+  onFlip: () => void
+  onStraightenChange: (degrees: number) => void
+  onResetEdit: () => void
   style: StickerStyle
   onStyleChange: (s: StickerStyle) => void
   styleThumbs: Partial<Record<StickerStyle, string>>
@@ -135,6 +159,7 @@ export function EditorToolbar(props: Props) {
   const {
     tab,
     onTabChange,
+    onPanelOpenChange,
     disabled,
     actionsOpen,
     onActionsOpenChange,
@@ -144,10 +169,9 @@ export function EditorToolbar(props: Props) {
     placeLabel,
     exporting,
   } = props
-  const [open, setOpen] = useState(false)
   const actionsRef = useRef<HTMLDivElement>(null)
   // Keep panel closed while disabled without syncing state in an effect.
-  const panelOpen = open && !disabled
+  const panelOpen = props.panelOpen && !disabled
 
   // Dismiss on outside press or Escape. A fixed-position overlay cannot work
   // here: the toolbar root's backdrop-filter makes it the containing block.
@@ -171,11 +195,11 @@ export function EditorToolbar(props: Props) {
 
   function selectTab(id: EditorTab) {
     if (panelOpen && tab === id) {
-      setOpen(false)
+      onPanelOpenChange(false)
       return
     }
     onTabChange(id)
-    setOpen(true)
+    onPanelOpenChange(true)
   }
 
   return (
@@ -226,6 +250,7 @@ export function EditorToolbar(props: Props) {
                 }}
                 transition={{ duration: 0.18, ease: EASE_OUT }}
               >
+                {tab === "image" ? <ImagePanel {...props} /> : null}
                 {tab === "style" ? <StylePanel {...props} /> : null}
                 {tab === "outline" ? <OutlinePanel {...props} /> : null}
                 {tab === "finish" ? <FinishPanel {...props} /> : null}
@@ -240,7 +265,7 @@ export function EditorToolbar(props: Props) {
       <div className="flex items-stretch gap-1.5 px-2 py-1.5">
         <div
           role="tablist"
-          className="grid min-w-0 flex-1 grid-cols-5 gap-0.5 rounded-[14px] bg-black/[0.04] p-0.5"
+          className="grid min-w-0 flex-1 grid-cols-6 gap-0.5 rounded-[14px] bg-black/[0.04] p-0.5"
         >
           {TABS.map((t) => {
             const active = panelOpen && t.id === tab
@@ -355,6 +380,111 @@ function ToolbarAction({
     >
       <Icon weight="bold" className="size-4 text-neutral-500" />
       {label}
+    </button>
+  )
+}
+
+function ImagePanel({
+  edit,
+  onAspectChange,
+  onRotateLeft,
+  onFlip,
+  onStraightenChange,
+  onResetEdit,
+}: Props) {
+  const untouched =
+    edit.quarter === 0 &&
+    edit.straighten === 0 &&
+    !edit.flipX &&
+    edit.aspect === "free" &&
+    edit.crop.w === 1 &&
+    edit.crop.h === 1
+  return (
+    <div className="flex h-full flex-col justify-center gap-3">
+      <div className="flex items-center gap-2 px-5">
+        <div
+          role="radiogroup"
+          aria-label="Crop shape"
+          className="flex gap-0.5 rounded-full bg-black/[0.045] p-0.5"
+        >
+          {CROP_ASPECTS.map((a) => {
+            const active = a.id === edit.aspect
+            return (
+              <button
+                key={a.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => onAspectChange(a.id)}
+                className={cn(
+                  "press h-8 rounded-full px-3 text-[12px] font-semibold tracking-[-0.01em] transition-[background-color,color,box-shadow] duration-150 active:scale-[0.97]",
+                  active
+                    ? "bg-white text-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.1)]"
+                    : "text-neutral-500"
+                )}
+              >
+                {a.label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="ml-auto flex items-center gap-1.5">
+          <IconButton label="Rotate left" onClick={onRotateLeft}>
+            <ArrowCounterClockwise weight="bold" className="size-4" />
+          </IconButton>
+          <IconButton label="Flip horizontally" onClick={onFlip}>
+            <FlipHorizontal weight="bold" className="size-4" />
+          </IconButton>
+          <button
+            type="button"
+            disabled={untouched}
+            onClick={onResetEdit}
+            className="press h-9 rounded-full px-3 text-[12px] font-semibold text-neutral-900 transition-opacity active:scale-[0.97] disabled:opacity-35"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 px-5">
+        <span className="w-[68px] text-[12px] font-medium text-neutral-500">
+          Straighten
+        </span>
+        <PanelSlider
+          className="flex-1"
+          value={edit.straighten}
+          min={-STRAIGHTEN_MAX}
+          max={STRAIGHTEN_MAX}
+          onChange={onStraightenChange}
+          label="Straighten"
+          centered
+        />
+        <span className="w-9 text-right text-[12px] font-medium text-neutral-900 tabular-nums">
+          {edit.straighten}°
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function IconButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="press grid size-9 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07] active:scale-[0.97]"
+    >
+      {children}
     </button>
   )
 }
@@ -518,6 +648,7 @@ function PanelSlider({
   onChange,
   label,
   disabled,
+  centered,
   className,
 }: {
   value: number
@@ -526,6 +657,8 @@ function PanelSlider({
   onChange: (n: number) => void
   label: string
   disabled?: boolean
+  /** Zero sits mid-track, so show a centre tick instead of a fill. */
+  centered?: boolean
   className?: string
 }) {
   return (
@@ -541,7 +674,11 @@ function PanelSlider({
     >
       <SliderPrimitive.Control className="flex h-8 w-full touch-none items-center select-none">
         <SliderPrimitive.Track className="relative h-[5px] w-full rounded-full bg-black/[0.08]">
-          <SliderPrimitive.Indicator className="h-full rounded-full bg-neutral-900" />
+          {centered ? (
+            <span className="absolute top-1/2 left-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/25" />
+          ) : (
+            <SliderPrimitive.Indicator className="h-full rounded-full bg-neutral-900" />
+          )}
           <SliderPrimitive.Thumb className="size-[26px] rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.18),0_0_0_0.5px_rgba(0,0,0,0.08)] transition-transform duration-150 outline-none focus-visible:ring-4 focus-visible:ring-black/10 active:scale-110" />
         </SliderPrimitive.Track>
       </SliderPrimitive.Control>

@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
+  ArrowUUpLeft,
+  ArrowUUpRight,
   CaretLeft,
   MagnifyingGlassMinus,
   MagnifyingGlassPlus,
@@ -30,12 +32,24 @@ import {
   SIZE_MAX_MM,
   SIZE_MIN_MM,
 } from "@/lib/sticker-process"
+import {
+  DEFAULT_EDIT,
+  flipHorizontal,
+  isDefaultEdit,
+  renderEdited,
+  rotateLeft,
+  setCropAspect,
+  type ImageEdit,
+  type Size,
+} from "@/lib/image-edit"
 import { useWallStore } from "@/store/wall-store"
 import { TopBar } from "@/components/layout/app-chrome"
 import { firePeelConfetti } from "./confetti"
+import { CropStage } from "./crop-stage"
 import { EditorToolbar, type EditorTab } from "./editor-toolbar"
 import { FloatingSticker } from "./floating-sticker"
 import { PrintLoadingCanvas, PRINT_LOOP_S } from "./print-loading-canvas"
+import { useEditHistory } from "./use-edit-history"
 
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 const ZOOM_MIN = 0.35
@@ -45,6 +59,36 @@ const EASE_OUT = [0.23, 1, 0.32, 1] as const
 
 /** Screen pixels per millimetre for the editor preview (not print DPI). */
 const PREVIEW_PX_PER_MM = 2.2
+
+/** Everything undo / redo covers. */
+type Look = {
+  style: StickerStyle
+  filter: StickerFilter
+  /** 0–100 */
+  filterStrength: number
+  finish: StickerFinish
+  /** 0–100 */
+  finishStrength: number
+  outlineColor: string
+  thickness: number
+  sizeMm: number
+  edit: ImageEdit
+}
+
+const DEFAULT_LOOK: Look = {
+  style: "classic",
+  filter: "original",
+  filterStrength: 100,
+  finish: "none",
+  finishStrength: 100,
+  outlineColor: "#FFFFFF",
+  thickness: 16,
+  sizeMm: SIZE_DEFAULT_MM,
+  edit: DEFAULT_EDIT,
+}
+
+/** Old edit renders may still be loading in another effect; free them later. */
+const REVOKE_DELAY_MS = 10_000
 
 function dataUrlToFile(dataUrl: string, fileName: string) {
   const [header, data] = dataUrl.split(",")
@@ -62,21 +106,41 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   const setDraftSticker = useWallStore((s) => s.setDraftSticker)
   const setPlaceDraft = useWallStore((s) => s.setPlaceDraft)
 
-  const [source, setSource] = useState<string | null>(null)
+  /** The uploaded photo, before crop and rotation. */
+  const [original, setOriginal] = useState<string | null>(null)
+  const [originalSize, setOriginalSize] = useState<Size | null>(null)
+  const [edited, setEdited] = useState<{
+    original: string
+    url: string
+  } | null>(null)
+  const editedUrl = useRef<string | null>(null)
   const [sourceId, setSourceId] = useState(0)
   const [sourceMaxSide, setSourceMaxSide] = useState<number | null>(null)
-  const [style, setStyle] = useState<StickerStyle>("classic")
-  const [filter, setFilter] = useState<StickerFilter>("original")
-  const [filterStrength, setFilterStrength] = useState(100)
-  const [finish, setFinish] = useState<StickerFinish>("none")
-  const [finishStrength, setFinishStrength] = useState(100)
+  const {
+    state: look,
+    update,
+    undo,
+    redo,
+    reset,
+    canUndo,
+    canRedo,
+  } = useEditHistory(DEFAULT_LOOK)
+  const {
+    style,
+    filter,
+    filterStrength,
+    finish,
+    finishStrength,
+    outlineColor,
+    thickness,
+    sizeMm,
+    edit,
+  } = look
   /** Width ÷ height of the rendered sticker, outline included. */
   const [aspect, setAspect] = useState(1)
-  const [outlineColor, setOutlineColor] = useState("#FFFFFF")
-  const [thickness, setThickness] = useState(16)
-  const [sizeMm, setSizeMm] = useState(SIZE_DEFAULT_MM)
   const [zoom, setZoom] = useState(1)
   const [tab, setTab] = useState<EditorTab>("style")
+  const [panelOpen, setPanelOpen] = useState(false)
   const [actionsOpen, setActionsOpen] = useState(false)
   const [confirmNewOpen, setConfirmNewOpen] = useState(false)
   const [confirmPlaceOpen, setConfirmPlaceOpen] = useState(false)
@@ -102,6 +166,74 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   const uploadStartedAt = useRef(0)
   const finishTimer = useRef<number | null>(null)
   const replacingArtwork = Boolean(stickerId)
+
+  /** The photo every render starts from: the upload with crop and rotation. */
+  const source = !original
+    ? null
+    : isDefaultEdit(edit)
+      ? original
+      : edited?.original === original
+        ? edited.url
+        : original
+
+  useEffect(() => {
+    if (!original || isDefaultEdit(edit)) return
+    let cancelled = false
+    const t = window.setTimeout(() => {
+      renderEdited(original, edit)
+        .then((url) => {
+          if (cancelled) {
+            URL.revokeObjectURL(url)
+            return
+          }
+          const previous = editedUrl.current
+          editedUrl.current = url
+          if (previous) {
+            window.setTimeout(
+              () => URL.revokeObjectURL(previous),
+              REVOKE_DELAY_MS
+            )
+          }
+          setEdited({ original, url })
+        })
+        .catch(() => {
+          if (!cancelled) setError("That edit couldn't be applied.")
+        })
+    }, 160)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [original, edit])
+
+  useEffect(() => {
+    if (!source) return
+    let cancelled = false
+    void getSourceMaxSide(source).then((max) => {
+      if (!cancelled) setSourceMaxSide(max)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [source])
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+      const target = e.target as HTMLElement | null
+      if (target?.closest("input, textarea, [contenteditable='true']")) return
+      const key = e.key.toLowerCase()
+      if (key === "z" && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+      } else if (key === "y" || (key === "z" && e.shiftKey)) {
+        e.preventDefault()
+        redo()
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [undo, redo])
 
   useEffect(() => {
     uploadingRef.current = uploading
@@ -301,15 +433,19 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
     reader.onload = () => {
       const dataUrl = String(reader.result)
       setUploadProgress((p) => Math.max(p, 52))
-      setSource(dataUrl)
+      setOriginal(dataUrl)
+      setOriginalSize(null)
       setSourceId((n) => n + 1)
-      void getSourceMaxSide(dataUrl).then((max) => {
-        setSourceMaxSide(max)
+      reset((p) => ({ ...p, edit: DEFAULT_EDIT }))
+      void probeImageSize(dataUrl).then((size) => {
+        setOriginalSize(size)
         // Default print size matches the source at 300 DPI, capped to the slider range.
-        const naturalMm = (max * 25.4) / 300
-        setSizeMm(
-          Math.min(SIZE_MAX_MM, Math.max(SIZE_MIN_MM, Math.round(naturalMm)))
+        const naturalMm = (Math.max(size.width, size.height) * 25.4) / 300
+        const naturalSizeMm = Math.min(
+          SIZE_MAX_MM,
+          Math.max(SIZE_MIN_MM, Math.round(naturalMm))
         )
+        reset((p) => ({ ...p, sizeMm: naturalSizeMm }))
       })
     }
     reader.onerror = () => {
@@ -321,19 +457,14 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   }
 
   function resetToNew() {
-    setSource(null)
+    setOriginal(null)
+    setOriginalSize(null)
     setSourceId((n) => n + 1)
     setSourceMaxSide(null)
-    setStyle("classic")
-    setFilter("original")
-    setFilterStrength(100)
-    setFinish("none")
-    setFinishStrength(100)
-    setOutlineColor("#FFFFFF")
-    setThickness(16)
-    setSizeMm(SIZE_DEFAULT_MM)
+    reset(() => DEFAULT_LOOK)
     setZoom(1)
     setTab("style")
+    setPanelOpen(false)
     setPreview(null)
     setStyleThumbs({})
     setFilterThumbs({})
@@ -498,6 +629,8 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   const displayPx = Math.max(48, sizeMm * PREVIEW_PX_PER_MM * zoom)
   const sizePx = Math.round(mmToPx(sizeMm))
   const upscaling = sourceMaxSide != null && sizePx > sourceMaxSide + 0.5
+  const cropping = ready && panelOpen && tab === "image"
+  const photoSize = originalSize ?? { width: 1, height: 1 }
 
   return (
     <div
@@ -536,6 +669,16 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
           ) : (
             <h1 className="sr-only">Make a sticker</h1>
           )}
+          {source ? (
+            <div className="flex shrink-0 items-center gap-1">
+              <HistoryButton label="Undo" disabled={!canUndo} onClick={undo}>
+                <ArrowUUpLeft weight="bold" className="size-4" />
+              </HistoryButton>
+              <HistoryButton label="Redo" disabled={!canRedo} onClick={redo}>
+                <ArrowUUpRight weight="bold" className="size-4" />
+              </HistoryButton>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -578,18 +721,30 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
           <AnimatePresence mode="wait">
             {source ? (
               preview && !uploading ? (
-                <FloatingSticker
-                  key={`${sourceId}-${peelSession}`}
-                  src={preview}
-                  holo={isHoloFinish(finish)}
-                  displayPx={displayPx}
-                  appearKey={`${sourceId}-${peelSession}`}
-                  onFullyPeeled={() => {
-                    if (replacingArtwork) return
-                    setActionsOpen(false)
-                    setPeelDone(true)
-                  }}
-                />
+                cropping && original && originalSize ? (
+                  <CropStage
+                    key="crop"
+                    src={original}
+                    size={originalSize}
+                    edit={edit}
+                    onCropChange={(crop, options) =>
+                      update({ edit: { ...edit, crop } }, options)
+                    }
+                  />
+                ) : (
+                  <FloatingSticker
+                    key={`${sourceId}-${peelSession}`}
+                    src={preview}
+                    holo={isHoloFinish(finish)}
+                    displayPx={displayPx}
+                    appearKey={`${sourceId}-${peelSession}`}
+                    onFullyPeeled={() => {
+                      if (replacingArtwork) return
+                      setActionsOpen(false)
+                      setPeelDone(true)
+                    }}
+                  />
+                )
               ) : (
                 <UploadLoading
                   key="processing"
@@ -615,7 +770,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         ) : null}
       </main>
 
-      {source ? (
+      {source && !cropping ? (
         <div className="pointer-events-none absolute top-[calc(6.5rem+env(safe-area-inset-top)+8px)] right-3 z-20 flex flex-col items-end gap-1.5 sm:right-5">
           <ZoomButton
             label="Zoom in"
@@ -669,27 +824,43 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         <EditorToolbar
           tab={tab}
           onTabChange={setTab}
+          panelOpen={panelOpen}
+          onPanelOpenChange={setPanelOpen}
           disabled={!ready}
+          edit={edit}
+          onAspectChange={(a) =>
+            update({ edit: setCropAspect(edit, a, photoSize) })
+          }
+          onRotateLeft={() => update({ edit: rotateLeft(edit, photoSize) })}
+          onFlip={() => update({ edit: flipHorizontal(edit) })}
+          onStraightenChange={(straighten) =>
+            update({ edit: { ...edit, straighten } }, { merge: true })
+          }
+          onResetEdit={() => update({ edit: DEFAULT_EDIT })}
           style={style}
-          onStyleChange={setStyle}
+          onStyleChange={(next) => update({ style: next })}
           styleThumbs={styleThumbs}
           filter={filter}
-          onFilterChange={setFilter}
+          onFilterChange={(next) => update({ filter: next })}
           filterStrength={filterStrength}
-          onFilterStrengthChange={setFilterStrength}
+          onFilterStrengthChange={(n) =>
+            update({ filterStrength: n }, { merge: true })
+          }
           filterThumbs={filterThumbs}
           finish={finish}
-          onFinishChange={setFinish}
+          onFinishChange={(next) => update({ finish: next })}
           finishThumbs={finishThumbs}
           finishStrength={finishStrength}
-          onFinishStrengthChange={setFinishStrength}
+          onFinishStrengthChange={(n) =>
+            update({ finishStrength: n }, { merge: true })
+          }
           aspect={aspect}
           outlineColor={outlineColor}
-          onOutlineColorChange={setOutlineColor}
+          onOutlineColorChange={(c) => update({ outlineColor: c })}
           thickness={thickness}
-          onThicknessChange={setThickness}
+          onThicknessChange={(n) => update({ thickness: n }, { merge: true })}
           sizeMm={sizeMm}
-          onSizeMmChange={setSizeMm}
+          onSizeMmChange={(n) => update({ sizeMm: n }, { merge: true })}
           sourceMaxSide={sourceMaxSide}
           actionsOpen={actionsOpen}
           onActionsOpenChange={setActionsOpen}
@@ -986,6 +1157,31 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         )}
       />
     </div>
+  )
+}
+
+function HistoryButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string
+  disabled: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="press grid size-9 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-[background-color,opacity,transform] duration-150 hover:bg-black/[0.07] active:scale-[0.97] disabled:opacity-30"
+    >
+      {children}
+    </button>
   )
 }
 
