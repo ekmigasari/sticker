@@ -3,7 +3,7 @@
 ## Scope
 
 - Framework and styling approach: React 19 + TanStack Router/Start, Vite, TypeScript. Tailwind CSS v4 with `@tailwindcss/vite`, `tw-animate-css`, and `class-variance-authority`. UI primitives from `@base-ui/react`. shadcn components under `src/components/ui/`.
-- Visual language: **Netkraft Apple** — white canvas, near-black ink, soft gray surfaces (`#f5f5f7`), pill CTAs, SF/Geist UI stack. Reference surface: `/make`.
+- Visual language: **CoolThingsOnTheInternet** — white canvas, near-black ink, soft gray surfaces (`#f5f5f7`), pill CTAs, SF/Geist UI stack. Reference surface: `/make`.
 - Themes: Light (`:root`) primary; dark (`.dark`) supported via tokens.
 - Index status: observed (aligned to Make / dashboard / directory, 2026-03)
 
@@ -39,8 +39,9 @@ Product UI also uses Tailwind neutrals (`neutral-900`, `neutral-500`, `black/[0.
 | UI / body | `--font-ui` / `--font-sans` | SF Pro / Geist Variable / system-ui |
 | Heading | `--font-heading` | SF Pro Display / Geist Variable |
 | Mono | `--font-mono` | Geist Variable / ui-monospace |
+| Brand / page titles | `--font-hand` (`font-hand`) | Caveat Variable / Bradley Hand / cursive |
 
-Default `html` uses `font-ui`. Titles: ~40–48px semibold, tracking `-0.035em`. Body support: 15–17px, `neutral-500`.
+Default `html` uses `font-ui`. Wordmark and page titles (`.nk-title`, sticker name, profile name, auth, 404): `font-hand` bold, ~46–64px, default tracking. Sheet, toolbar and section headings stay `font-ui` semibold. Body support: 15–17px, `neutral-500`.
 
 ### Style
 
@@ -64,7 +65,7 @@ Default `html` uses `font-ui`. Titles: ~40–48px semibold, tracking `-0.035em`.
 
 ## Components
 
-Prefer existing `@/components/ui/*` for primitives. For Netkraft product surfaces (dashboard, directory, auth, place details), compose with `.nk-*` helpers rather than kraft/editorial card chrome.
+Prefer existing `@/components/ui/*` for primitives. For CoolThingsOnTheInternet product surfaces (dashboard, directory, auth, place details), compose with `.nk-*` helpers rather than kraft/editorial card chrome.
 
 ## Do / Don’t
 

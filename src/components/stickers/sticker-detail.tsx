@@ -226,7 +226,7 @@ export function StickerDetail({
         >
           <CategoryTag category={sticker.category} iconClassName="size-4" />
         </Link>
-        <h1 className="mt-1.5 text-[34px] leading-[1.05] font-semibold tracking-[-0.035em] break-words text-neutral-900 sm:text-[40px]">
+        <h1 className="mt-1.5 font-hand text-[46px] leading-[0.95] font-bold break-words text-neutral-900 sm:text-[56px]">
           {sticker.name}
         </h1>
         {sticker.oneLiner ? (

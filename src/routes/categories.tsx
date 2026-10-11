@@ -7,7 +7,7 @@ import { listCategorySummaries, type CategorySummary } from "@/lib/stickers"
 
 export const Route = createFileRoute("/categories")({
   loader: () => listCategorySummaries(),
-  head: () => ({ meta: [{ title: "Categories · Netkraft" }] }),
+  head: () => ({ meta: [{ title: "Categories · CoolThingsOnTheInternet" }] }),
   component: CategoriesPage,
 })
 

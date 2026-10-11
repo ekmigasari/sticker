@@ -84,7 +84,8 @@ describe("sticker wall sizing", () => {
     expect(isValidPlot(PLOT_MAX, PLOT_MAX)).toBe(true)
     expect(isValidPlot(16, 9)).toBe(true)
     expect(isValidPlot(9, 16)).toBe(true)
-    expect(isValidPlot(2, 3)).toBe(false)
+    expect(isValidPlot(2, 2)).toBe(true)
+    expect(isValidPlot(1, 2)).toBe(false)
     expect(isValidPlot(1, 100)).toBe(false)
     expect(isValidPlot(100, 1)).toBe(false)
     expect(isValidPlot(101, 101)).toBe(false)
@@ -98,7 +99,7 @@ describe("sticker wall sizing", () => {
   it("computes side bounds from the other dimension", () => {
     expect(plotSideBounds(100).min).toBe(57)
     expect(plotSideBounds(100).max).toBe(100)
-    expect(plotSideBounds(3).min).toBe(3)
+    expect(plotSideBounds(2).min).toBe(2)
     expect(fieldWarning(50, 100, "width")).toMatch(/Minimum is 57/)
     expect(fieldWarning(101, 5, "height")).toMatch(/Maximum is 100/)
   })
@@ -155,7 +156,7 @@ describe("sticker wall sizing", () => {
   })
 
   it("maps the sticker size slider to the longest side", () => {
-    expect(STICKER_SIZE_MIN).toBe(3)
+    expect(STICKER_SIZE_MIN).toBe(2)
     expect(STICKER_SIZE_MAX).toBe(100)
 
     const sq = stickerContentUnits(40, 1)
@@ -167,7 +168,7 @@ describe("sticker wall sizing", () => {
 
     const tall = stickerContentUnits(STICKER_SIZE_MIN, 0.5)
     expect(tall.unitsH).toBeCloseTo(PLOT_MIN)
-    expect(tall.unitsW).toBeCloseTo(1.5)
+    expect(tall.unitsW).toBeCloseTo(1)
 
     const maxWide = stickerContentUnits(500, 2)
     expect(maxWide.unitsW).toBeCloseTo(PLOT_MAX)
@@ -363,8 +364,8 @@ describe("restorePrice", () => {
   })
 
   it("never goes below the smallest plot", () => {
-    expect(RESTORE_MIN_PRICE).toBe(9)
-    expect(restorePrice(10, 10, 0.97)).toBe(9)
+    expect(RESTORE_MIN_PRICE).toBe(4)
+    expect(restorePrice(10, 10, 0.99)).toBe(4)
   })
 
   it("is free when nothing is covered", () => {

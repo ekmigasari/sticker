@@ -7,6 +7,7 @@ import {
 import {
   BookOpen,
   MagicWand,
+  Scroll,
   SignOut,
   SquaresFour,
   Sticker,
@@ -27,6 +28,7 @@ const publicLinks = [
   { to: "/", label: "Wall", icon: SquaresFour },
   { to: "/make", label: "Make", icon: MagicWand },
   { to: "/stickers", label: "Stickers", icon: Sticker },
+  { to: "/rules", label: "Rules", icon: Scroll },
 ] as const
 
 /** Apple-style glass capsule shared by the nav and account controls. */
@@ -50,7 +52,7 @@ export function SiteNav({ className }: { className?: string }) {
           activeOptions={{ exact: to === "/" }}
           className="press flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium tracking-[-0.01em] text-neutral-500 transition-colors hover:text-neutral-900 max-[399px]:gap-1 max-[399px]:px-2.5 sm:px-3.5 [&.active]:bg-black/[0.07] [&.active]:font-semibold [&.active]:text-neutral-900"
         >
-          <Icon weight="bold" className="size-3.5 max-[359px]:hidden" />
+          <Icon weight="bold" className="size-3.5 max-sm:hidden" />
           {label}
         </Link>
       ))}
@@ -152,6 +154,7 @@ export function BrandMark({
   return (
     <Link
       to="/"
+      aria-label={compact ? "CoolThingsOnTheInternet" : undefined}
       className={cn(
         "group flex items-center gap-2.5 font-ui text-neutral-900",
         className
@@ -159,13 +162,13 @@ export function BrandMark({
     >
       <span
         aria-hidden
-        className="grid size-8 place-items-center rounded-[10px] bg-neutral-900 text-[13px] font-semibold tracking-[-0.02em] text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:scale-[1.04]"
+        className="grid size-8 place-items-center rounded-[10px] bg-neutral-900 pb-0.5 font-hand text-[24px] leading-none font-bold text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:scale-[1.04]"
       >
-        N
+        C
       </span>
       {!compact ? (
-        <span className="text-[17px] font-semibold tracking-[-0.02em]">
-          Netkraft
+        <span className="font-hand text-[25px] leading-none font-bold">
+          CoolThingsOnTheInternet
         </span>
       ) : null}
     </Link>

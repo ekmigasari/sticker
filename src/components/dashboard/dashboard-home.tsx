@@ -630,7 +630,7 @@ function BookCover({
         <p className="text-[12px] font-semibold tracking-[0.14em] text-[#b07a2a] uppercase">
           Sticker Book
         </p>
-        <h1 className="mt-1 truncate text-[36px] leading-[1.05] font-semibold tracking-[-0.04em] text-neutral-900 sm:text-[48px]">
+        <h1 className="mt-1 truncate font-hand text-[48px] leading-[1] font-bold text-neutral-900 sm:text-[64px]">
           {displayName}
         </h1>
         {children}
@@ -1012,7 +1012,7 @@ function StickerSlot({
   const router = useRouter()
   const [boxRef, width] = useWidth<HTMLDivElement>()
   const art = Math.round(width * (1 - 2 * ART_INSET))
-  const params = { id: sticker.id }
+  const params = { slug: sticker.slug }
   const status = wallStatus(sticker.visibleShare)
   /** Covered plots replace the category so the book shows who needs help. */
   const coverage =
@@ -1028,7 +1028,7 @@ function StickerSlot({
       className="relative flex flex-col items-center text-center hover:z-10 active:z-10"
       onPointerEnter={() => {
         router
-          .preloadRoute({ to: "/dashboard/stickers/$id", params })
+          .preloadRoute({ to: "/dashboard/stickers/$slug", params })
           .catch(() => {})
       }}
     >
@@ -1059,7 +1059,9 @@ function StickerSlot({
               floating={false}
               appearOnMount={false}
               touchAction="pan-y"
-              onTap={() => navigate({ to: "/dashboard/stickers/$id", params })}
+              onTap={() =>
+                navigate({ to: "/dashboard/stickers/$slug", params })
+              }
             />
           ) : (
             <img
@@ -1071,7 +1073,7 @@ function StickerSlot({
         </div>
       </motion.div>
       <Link
-        to="/dashboard/stickers/$id"
+        to="/dashboard/stickers/$slug"
         params={params}
         className="mt-1 flex w-full flex-col items-center rounded-lg px-1 outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3]"
       >

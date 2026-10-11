@@ -90,8 +90,8 @@ const PAPER_GRAIN = `url("data:image/svg+xml,${encodeURIComponent(
 )}")`
 
 const LINER_PATTERN = `url("data:image/svg+xml,${encodeURIComponent(
-  `<svg xmlns='http://www.w3.org/2000/svg' width='132' height='52' viewBox='0 0 132 52'>
-    <text x='8' y='32' font-family='ui-sans-serif,system-ui,sans-serif' font-size='12' font-weight='700' letter-spacing='3' fill='rgba(80,80,80,0.28)'>NETKRAF</text>
+  `<svg xmlns='http://www.w3.org/2000/svg' width='164' height='52' viewBox='0 0 164 52'>
+    <text x='8' y='32' font-family='ui-sans-serif,system-ui,sans-serif' font-size='12' font-weight='700' letter-spacing='3' fill='rgba(80,80,80,0.28)'>COOLTHINGS</text>
   </svg>`
 )}")`
 

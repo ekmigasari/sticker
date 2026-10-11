@@ -2,12 +2,13 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource-variable/caveat";
 @import "./typeset.css";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Netkraft Apple — white canvas, near-black ink, soft gray surfaces */
+  /* CoolThingsOnTheInternet — white canvas, near-black ink, soft gray surfaces */
   --background: oklch(1 0 0);
   --foreground: oklch(0.21 0.005 260);
   --card: oklch(1 0 0);
@@ -91,6 +92,8 @@
     -apple-system, BlinkMacSystemFont, "SF Pro Display", "Geist Variable",
     system-ui, sans-serif;
   --font-mono: "Geist Variable", ui-monospace, SFMono-Regular, monospace;
+  /* Brand wordmark and page titles. */
+  --font-hand: "Caveat Variable", "Bradley Hand", cursive;
   --font-ui:
     -apple-system, BlinkMacSystemFont, "SF Pro Text", "Geist Variable",
     system-ui, sans-serif;
@@ -249,7 +252,7 @@
 }
 
 .nk-title {
-  @apply text-[40px] leading-none font-semibold tracking-[-0.035em] text-neutral-900 sm:text-[48px];
+  @apply font-hand text-[52px] leading-[0.9] font-bold text-neutral-900 sm:text-[64px];
 }
 
 .nk-subtitle {

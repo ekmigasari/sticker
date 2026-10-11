@@ -15,8 +15,10 @@ import { Route as CategoriesRouteImport } from './routes/categories'
 import { Route as DirectoryRouteImport } from './routes/directory'
 import { Route as MakeRouteImport } from './routes/make'
 import { Route as PlaceRouteImport } from './routes/place'
+import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dashboard'
 import { Route as ProtectedFilesRouteImport } from './routes/_protected/files'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
@@ -31,7 +33,7 @@ import { Route as ApiStickersIdRouteImport } from './routes/api/stickers/$id'
 import { Route as ApiUploadsIndexRouteImport } from './routes/api/uploads/index'
 import { Route as ApiUploadsIdRouteImport } from './routes/api/uploads/$id'
 import { Route as ProtectedDashboardProductsIdRouteImport } from './routes/_protected/dashboard/products.$id'
-import { Route as ProtectedDashboardStickersIdRouteImport } from './routes/_protected/dashboard/stickers.$id'
+import { Route as ProtectedDashboardStickersSlugRouteImport } from './routes/_protected/dashboard/stickers.$slug'
 import { Route as ApiStickersIdImageRouteImport } from './routes/api/stickers/$id.image'
 import { Route as ApiStickersIdMoveRouteImport } from './routes/api/stickers/$id.move'
 import { Route as ApiStickersIdRestoreRouteImport } from './routes/api/stickers/$id.restore'
@@ -65,6 +67,11 @@ const PlaceRoute = PlaceRouteImport.update({
   path: '/place',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RulesRoute = RulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
@@ -73,6 +80,11 @@ const SignInRoute = SignInRouteImport.update({
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProtectedDashboardRoute = ProtectedDashboardRouteImport.update({
@@ -146,10 +158,10 @@ const ProtectedDashboardProductsIdRoute =
     path: '/products/$id',
     getParentRoute: () => ProtectedDashboardRoute,
   } as any)
-const ProtectedDashboardStickersIdRoute =
-  ProtectedDashboardStickersIdRouteImport.update({
-    id: '/stickers/$id',
-    path: '/stickers/$id',
+const ProtectedDashboardStickersSlugRoute =
+  ProtectedDashboardStickersSlugRouteImport.update({
+    id: '/stickers/$slug',
+    path: '/stickers/$slug',
     getParentRoute: () => ProtectedDashboardRoute,
   } as any)
 const ApiStickersIdImageRoute = ApiStickersIdImageRouteImport.update({
@@ -174,8 +186,10 @@ export interface FileRoutesByFullPath {
   '/directory': typeof DirectoryRoute
   '/make': typeof MakeRoute
   '/place': typeof PlaceRoute
+  '/rules': typeof RulesRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/terms': typeof TermsRoute
   '/dashboard': typeof ProtectedDashboardRouteWithChildren
   '/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
@@ -190,7 +204,7 @@ export interface FileRoutesByFullPath {
   '/api/stickers/': typeof ApiStickersIndexRoute
   '/api/uploads/': typeof ApiUploadsIndexRoute
   '/dashboard/products/$id': typeof ProtectedDashboardProductsIdRoute
-  '/dashboard/stickers/$id': typeof ProtectedDashboardStickersIdRoute
+  '/dashboard/stickers/$slug': typeof ProtectedDashboardStickersSlugRoute
   '/api/stickers/$id/image': typeof ApiStickersIdImageRoute
   '/api/stickers/$id/move': typeof ApiStickersIdMoveRoute
   '/api/stickers/$id/restore': typeof ApiStickersIdRestoreRoute
@@ -201,8 +215,10 @@ export interface FileRoutesByTo {
   '/directory': typeof DirectoryRoute
   '/make': typeof MakeRoute
   '/place': typeof PlaceRoute
+  '/rules': typeof RulesRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/terms': typeof TermsRoute
   '/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
   '/sticker/$slug': typeof StickerSlugRoute
@@ -216,7 +232,7 @@ export interface FileRoutesByTo {
   '/api/stickers': typeof ApiStickersIndexRoute
   '/api/uploads': typeof ApiUploadsIndexRoute
   '/dashboard/products/$id': typeof ProtectedDashboardProductsIdRoute
-  '/dashboard/stickers/$id': typeof ProtectedDashboardStickersIdRoute
+  '/dashboard/stickers/$slug': typeof ProtectedDashboardStickersSlugRoute
   '/api/stickers/$id/image': typeof ApiStickersIdImageRoute
   '/api/stickers/$id/move': typeof ApiStickersIdMoveRoute
   '/api/stickers/$id/restore': typeof ApiStickersIdRestoreRoute
@@ -229,8 +245,10 @@ export interface FileRoutesById {
   '/directory': typeof DirectoryRoute
   '/make': typeof MakeRoute
   '/place': typeof PlaceRoute
+  '/rules': typeof RulesRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/terms': typeof TermsRoute
   '/_protected/dashboard': typeof ProtectedDashboardRouteWithChildren
   '/_protected/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
@@ -245,7 +263,7 @@ export interface FileRoutesById {
   '/api/stickers/': typeof ApiStickersIndexRoute
   '/api/uploads/': typeof ApiUploadsIndexRoute
   '/_protected/dashboard/products/$id': typeof ProtectedDashboardProductsIdRoute
-  '/_protected/dashboard/stickers/$id': typeof ProtectedDashboardStickersIdRoute
+  '/_protected/dashboard/stickers/$slug': typeof ProtectedDashboardStickersSlugRoute
   '/api/stickers/$id/image': typeof ApiStickersIdImageRoute
   '/api/stickers/$id/move': typeof ApiStickersIdMoveRoute
   '/api/stickers/$id/restore': typeof ApiStickersIdRestoreRoute
@@ -258,8 +276,10 @@ export interface FileRouteTypes {
     | '/directory'
     | '/make'
     | '/place'
+    | '/rules'
     | '/sign-in'
     | '/sign-up'
+    | '/terms'
     | '/dashboard'
     | '/files'
     | '/product/$id'
@@ -274,7 +294,7 @@ export interface FileRouteTypes {
     | '/api/stickers/'
     | '/api/uploads/'
     | '/dashboard/products/$id'
-    | '/dashboard/stickers/$id'
+    | '/dashboard/stickers/$slug'
     | '/api/stickers/$id/image'
     | '/api/stickers/$id/move'
     | '/api/stickers/$id/restore'
@@ -285,8 +305,10 @@ export interface FileRouteTypes {
     | '/directory'
     | '/make'
     | '/place'
+    | '/rules'
     | '/sign-in'
     | '/sign-up'
+    | '/terms'
     | '/files'
     | '/product/$id'
     | '/sticker/$slug'
@@ -300,7 +322,7 @@ export interface FileRouteTypes {
     | '/api/stickers'
     | '/api/uploads'
     | '/dashboard/products/$id'
-    | '/dashboard/stickers/$id'
+    | '/dashboard/stickers/$slug'
     | '/api/stickers/$id/image'
     | '/api/stickers/$id/move'
     | '/api/stickers/$id/restore'
@@ -312,8 +334,10 @@ export interface FileRouteTypes {
     | '/directory'
     | '/make'
     | '/place'
+    | '/rules'
     | '/sign-in'
     | '/sign-up'
+    | '/terms'
     | '/_protected/dashboard'
     | '/_protected/files'
     | '/product/$id'
@@ -328,7 +352,7 @@ export interface FileRouteTypes {
     | '/api/stickers/'
     | '/api/uploads/'
     | '/_protected/dashboard/products/$id'
-    | '/_protected/dashboard/stickers/$id'
+    | '/_protected/dashboard/stickers/$slug'
     | '/api/stickers/$id/image'
     | '/api/stickers/$id/move'
     | '/api/stickers/$id/restore'
@@ -341,8 +365,10 @@ export interface RootRouteChildren {
   DirectoryRoute: typeof DirectoryRoute
   MakeRoute: typeof MakeRoute
   PlaceRoute: typeof PlaceRoute
+  RulesRoute: typeof RulesRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  TermsRoute: typeof TermsRoute
   ProductIdRoute: typeof ProductIdRoute
   StickerSlugRoute: typeof StickerSlugRoute
   StickersSlugRoute: typeof StickersSlugRoute
@@ -399,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlaceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rules': {
+      id: '/rules'
+      path: '/rules'
+      fullPath: '/rules'
+      preLoaderRoute: typeof RulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sign-in': {
       id: '/sign-in'
       path: '/sign-in'
@@ -411,6 +444,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-up'
       fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_protected/dashboard': {
@@ -511,11 +551,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedDashboardProductsIdRouteImport
       parentRoute: typeof ProtectedDashboardRoute
     }
-    '/_protected/dashboard/stickers/$id': {
-      id: '/_protected/dashboard/stickers/$id'
-      path: '/stickers/$id'
-      fullPath: '/dashboard/stickers/$id'
-      preLoaderRoute: typeof ProtectedDashboardStickersIdRouteImport
+    '/_protected/dashboard/stickers/$slug': {
+      id: '/_protected/dashboard/stickers/$slug'
+      path: '/stickers/$slug'
+      fullPath: '/dashboard/stickers/$slug'
+      preLoaderRoute: typeof ProtectedDashboardStickersSlugRouteImport
       parentRoute: typeof ProtectedDashboardRoute
     }
     '/api/stickers/$id/image': {
@@ -545,13 +585,13 @@ declare module '@tanstack/react-router' {
 interface ProtectedDashboardRouteChildren {
   ProtectedDashboardIndexRoute: typeof ProtectedDashboardIndexRoute
   ProtectedDashboardProductsIdRoute: typeof ProtectedDashboardProductsIdRoute
-  ProtectedDashboardStickersIdRoute: typeof ProtectedDashboardStickersIdRoute
+  ProtectedDashboardStickersSlugRoute: typeof ProtectedDashboardStickersSlugRoute
 }
 
 const ProtectedDashboardRouteChildren: ProtectedDashboardRouteChildren = {
   ProtectedDashboardIndexRoute: ProtectedDashboardIndexRoute,
   ProtectedDashboardProductsIdRoute: ProtectedDashboardProductsIdRoute,
-  ProtectedDashboardStickersIdRoute: ProtectedDashboardStickersIdRoute,
+  ProtectedDashboardStickersSlugRoute: ProtectedDashboardStickersSlugRoute,
 }
 
 const ProtectedDashboardRouteWithChildren =
@@ -594,8 +634,10 @@ const rootRouteChildren: RootRouteChildren = {
   DirectoryRoute: DirectoryRoute,
   MakeRoute: MakeRoute,
   PlaceRoute: PlaceRoute,
+  RulesRoute: RulesRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  TermsRoute: TermsRoute,
   ProductIdRoute: ProductIdRoute,
   StickerSlugRoute: StickerSlugRoute,
   StickersSlugRoute: StickersSlugRoute,

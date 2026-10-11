@@ -2,11 +2,13 @@ import { useState } from "react"
 import { useRouter } from "@tanstack/react-router"
 import { Archive, Lock } from "@phosphor-icons/react"
 import { useMoveSpot } from "@/components/place/use-move-spot"
+import { NewSpotSheet } from "@/components/stickers/new-spot-sheet"
 import {
   RestoreSheet,
   type RestoreTarget,
 } from "@/components/stickers/restore-sheet"
 import { StickerDetail } from "@/components/stickers/sticker-detail"
+import type { MoveSpot } from "@/domain/types"
 import type { StickerDTO } from "@/lib/sticker-api"
 import type { StickerWithPlacements } from "@/lib/stickers"
 import { FormSheet } from "./form-sheet"
@@ -36,6 +38,7 @@ export function StickerManage({
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [restoring, setRestoring] = useState<RestoreTarget | null>(null)
+  const [replacing, setReplacing] = useState<MoveSpot | null>(null)
   const { moveSpot, pending: movePending, error: moveError } = useMoveSpot()
   const live = sticker && !sticker.archivedAt ? sticker : null
 
@@ -87,7 +90,8 @@ export function StickerManage({
         move={
           live
             ? {
-                onMove: (spot) => void moveSpot(live, spot),
+                onMove: (spot) =>
+                  spot ? setReplacing(spot) : void moveSpot(live, null),
                 pending: movePending,
                 error: moveError,
               }
@@ -103,11 +107,23 @@ export function StickerManage({
           live && restoringSpot
             ? () => {
                 setRestoring(null)
-                void moveSpot(live, restoringSpot)
+                setReplacing(restoringSpot)
               }
             : undefined
         }
       />
+      {live ? (
+        <NewSpotSheet
+          sticker={live}
+          spot={replacing}
+          pending={movePending}
+          error={moveError}
+          onOpenChange={(open) => {
+            if (!open) setReplacing(null)
+          }}
+          onConfirm={(spot) => void moveSpot(live, spot)}
+        />
+      ) : null}
       {sticker ? (
         <EditSheet
           open={editing}

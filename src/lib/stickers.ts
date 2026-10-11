@@ -97,14 +97,16 @@ async function withPlacements(sticker: Parameters<typeof serializeSticker>[0]) {
 export type StickerWithPlacements = Awaited<ReturnType<typeof withPlacements>>
 
 export const getMySticker = createServerFn({ method: "GET" })
-  .validator((id: string) => id)
-  .handler(async ({ data: id }): Promise<StickerWithPlacements | null> => {
-    const user = await requireUser()
-    const sticker = await prisma.sticker.findFirst({
-      where: { id, userId: user.id },
-    })
-    return sticker ? withPlacements(sticker) : null
-  })
+  .validator((slugOrId: string) => slugOrId)
+  .handler(
+    async ({ data: slugOrId }): Promise<StickerWithPlacements | null> => {
+      const user = await requireUser()
+      const sticker = await prisma.sticker.findFirst({
+        where: { userId: user.id, OR: [{ slug: slugOrId }, { id: slugOrId }] },
+      })
+      return sticker ? withPlacements(sticker) : null
+    }
+  )
 
 export const listPublicStickers = createServerFn({ method: "GET" }).handler(
   async (): Promise<StickerDTO[]> => {

@@ -26,10 +26,10 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "Netkraft: cool things made by people on the internet. Make a sticker and put it on the wall.",
+          "CoolThingsOnTheInternet: cool things made by people on the internet. Make a sticker and put it on the wall.",
       },
       {
-        title: "Netkraft",
+        title: "CoolThingsOnTheInternet",
       },
     ],
     links: [
@@ -62,7 +62,7 @@ export const Route = createRootRoute({
   }),
   notFoundComponent: () => (
     <main className="mx-auto max-w-lg px-6 py-24 text-center font-ui">
-      <h1 className="text-[32px] font-semibold tracking-[-0.03em] text-neutral-900">
+      <h1 className="font-hand text-[56px] leading-none font-bold text-neutral-900">
         404
       </h1>
       <p className="mt-2 text-[15px] text-neutral-500">

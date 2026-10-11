@@ -20,6 +20,7 @@ import {
   STICKER_FINISHES,
   STICKER_STYLES,
 } from "@/domain/types"
+import type { StickerDTO } from "@/lib/sticker-api"
 import { cn } from "@/lib/utils"
 import {
   downloadDataUrl,
@@ -616,9 +617,10 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         return
       }
 
+      const { sticker } = (await response.json()) as { sticker: StickerDTO }
       void navigate({
-        to: "/dashboard/stickers/$id",
-        params: { id: stickerId },
+        to: "/dashboard/stickers/$slug",
+        params: { slug: sticker.slug },
       })
     } finally {
       setExporting(false)
@@ -654,8 +656,8 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         <div className="flex min-w-0 items-center gap-2">
           {replacingArtwork && stickerId ? (
             <Link
-              to="/dashboard/stickers/$id"
-              params={{ id: stickerId }}
+              to="/dashboard/stickers/$slug"
+              params={{ slug: stickerId }}
               aria-label="Back to sticker"
               className="press grid size-9 shrink-0 place-items-center rounded-full bg-black/[0.045] text-neutral-900 transition-colors hover:bg-black/[0.07] active:scale-[0.97]"
             >

@@ -12,7 +12,7 @@ const COPY: Record<
   { title: string; subtitle: string; placeSubtitle: string }
 > = {
   "sign-in": {
-    title: "Sign in to Netkraft",
+    title: "Sign in to CoolThingsOnTheInternet",
     subtitle: "Manage your stickers and keep them on the wall.",
     placeSubtitle: "Sign in to finish placing your sticker.",
   },
@@ -31,11 +31,11 @@ export function AuthScreen({ mode, next }: { mode: Mode; next?: string }) {
       <div className="flex w-full max-w-[22rem] flex-col items-center">
         <span
           aria-hidden
-          className="grid size-16 place-items-center rounded-[18px] bg-neutral-900 text-[26px] font-semibold tracking-[-0.03em] text-white shadow-[0_10px_30px_-12px_rgba(0,0,0,0.5)]"
+          className="grid size-16 place-items-center rounded-[18px] bg-neutral-900 pb-1 font-hand text-[44px] leading-none font-bold text-white shadow-[0_10px_30px_-12px_rgba(0,0,0,0.5)]"
         >
-          N
+          C
         </span>
-        <h1 className="mt-5 text-center text-[28px] leading-tight font-semibold tracking-[-0.03em] text-neutral-900">
+        <h1 className="mt-5 text-center font-hand text-[38px] leading-[0.95] font-bold break-words text-neutral-900">
           {copy.title}
         </h1>
         <p className="mt-2 max-w-[18rem] text-center text-[15px] leading-snug text-neutral-500">
@@ -120,16 +120,16 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
     } else if (destination === "/dashboard") {
       await navigate({ to: "/dashboard" })
     } else if (destination.startsWith("/dashboard/stickers/")) {
-      const id = destination.slice("/dashboard/stickers/".length)
+      const slug = destination.slice("/dashboard/stickers/".length)
       await navigate({
-        to: "/dashboard/stickers/$id",
-        params: { id },
+        to: "/dashboard/stickers/$slug",
+        params: { slug },
       })
     } else if (destination.startsWith("/dashboard/products/")) {
-      const id = destination.slice("/dashboard/products/".length)
+      const slug = destination.slice("/dashboard/products/".length)
       await navigate({
-        to: "/dashboard/stickers/$id",
-        params: { id },
+        to: "/dashboard/stickers/$slug",
+        params: { slug },
       })
     } else {
       router.history.push(destination)
@@ -211,8 +211,24 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
         {pending ? "Please wait…" : isSignUp ? "Create Account" : "Sign In"}
       </button>
 
+      {isSignUp ? (
+        <p className="px-2 text-center text-[12px] leading-snug text-neutral-500">
+          By creating an account, you agree to the{" "}
+          <Link
+            to="/terms"
+            target="_blank"
+            className="font-medium text-neutral-900 hover:underline hover:underline-offset-4"
+          >
+            Terms and Conditions
+          </Link>
+          .
+        </p>
+      ) : null}
+
       <p className="mt-2 text-center text-[14px] text-neutral-500">
-        {isSignUp ? "Already have an account?" : "New to Netkraft?"}{" "}
+        {isSignUp
+          ? "Already have an account?"
+          : "New to CoolThingsOnTheInternet?"}{" "}
         <Link
           to={isSignUp ? "/sign-in" : "/sign-up"}
           search={switchSearch}

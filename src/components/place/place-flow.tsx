@@ -572,7 +572,7 @@ export function PlaceFlow() {
       )
       return sizeParamFromContentUnits(box.w / UNIT_SCALE, box.h / UNIT_SCALE)
     }
-    // A fresh sticker starts at the smallest plot (3×3); the user sizes up from there.
+    // A fresh sticker starts at the smallest plot (2×2); the user sizes up from there.
     return STICKER_SIZE_MIN
   })()
 
@@ -890,8 +890,8 @@ export function PlaceFlow() {
       return
     }
     await navigate({
-      to: "/dashboard/stickers/$id",
-      params: { id: move.stickerId },
+      to: "/dashboard/stickers/$slug",
+      params: { slug: move.slug },
     })
     setDraftSticker(null)
     setPlaceDraft(null)

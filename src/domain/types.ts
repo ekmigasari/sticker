@@ -170,7 +170,7 @@ export const DETAIL_LIMITS = {
 } as const
 
 /** Min/max side length for a wall plot (pricing units). */
-export const PLOT_MIN = 3
+export const PLOT_MIN = 2
 export const PLOT_MAX = 100
 /** Longest side ÷ shortest side cannot exceed this (16:9). */
 export const PLOT_MAX_RATIO = 16 / 9
@@ -179,7 +179,7 @@ export type PlotSize = { w: number; h: number }
 
 /**
  * Quick-pick wall plot templates.
- * Price = w × h ($1 per unit²). Examples: 3×3 → $9, 16×10 → $160.
+ * Price = w × h ($1 per unit²). Examples: 2×2 → $4, 16×10 → $160.
  */
 export const PLOT_PRESETS: ReadonlyArray<{
   id: string
@@ -188,7 +188,7 @@ export const PLOT_PRESETS: ReadonlyArray<{
   w: number
   h: number
 }> = [
-  { id: "3x3", label: "3×3", hint: "Mini", w: 3, h: 3 },
+  { id: "2x2", label: "2×2", hint: "Mini", w: 2, h: 2 },
   { id: "5x5", label: "5×5", hint: "Small", w: 5, h: 5 },
   { id: "8x8", label: "8×8", hint: "Medium", w: 8, h: 8 },
   { id: "10x10", label: "10×10", hint: "Large", w: 10, h: 10 },
@@ -212,7 +212,7 @@ export function plotArea(w: number, h: number): number {
   return w * h
 }
 
-/** $1 per square unit — 3×3 → $9, 16×10 → $160, 100×100 → $10,000. */
+/** $1 per square unit — 2×2 → $4, 16×10 → $160, 100×100 → $10,000. */
 export function plotPrice(w: number, h: number): number {
   return plotArea(w, h)
 }

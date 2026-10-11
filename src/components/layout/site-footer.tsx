@@ -4,6 +4,8 @@ const links = [
   { to: "/make", label: "Make" },
   { to: "/", label: "Wall" },
   { to: "/stickers", label: "Stickers" },
+  { to: "/rules", label: "Rules" },
+  { to: "/terms", label: "Terms" },
 ] as const
 
 export function SiteFooter() {
@@ -11,7 +13,10 @@ export function SiteFooter() {
     <footer className="border-t border-black/[0.06] font-ui text-[13px] tracking-[-0.01em] text-neutral-500">
       <div className="mx-auto max-w-lg px-4 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))] text-center">
         <p>
-          Netkraft built by{" "}
+          <span className="font-hand text-[18px] font-bold text-neutral-900">
+            CoolThingsOnTheInternet
+          </span>{" "}
+          built by{" "}
           <a
             href="https://x.com/ekmigasari"
             target="_blank"

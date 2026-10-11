@@ -41,7 +41,9 @@ export function ZoomControls({
   const gridVisible = useWallStore((s) => s.gridVisible)
   const setGridVisible = useWallStore((s) => s.setGridVisible)
   const gridOn = grid ? grid.on : gridVisible
-  const atMin = zoom <= minZoom() + 1e-3
+  // minZoom needs the window size, so wait for hydration to keep SSR markup stable.
+  const hydrated = useWallStore((s) => s.hydrated)
+  const atMin = hydrated && zoom <= minZoom() + 1e-3
   const atMax = zoom >= ZOOM_MAX - 1e-3
   const btn =
     "press grid size-11 place-items-center text-neutral-700 transition-colors hover:bg-black/[0.04] disabled:opacity-30 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-neutral-400"

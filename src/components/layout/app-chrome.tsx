@@ -19,8 +19,8 @@ export function TopBar({ wall = false }: { wall?: boolean }) {
       )}
     >
       <div className="pointer-events-auto justify-self-start">
-        <BrandMark compact className="sm:hidden" />
-        <BrandMark className="hidden sm:flex" />
+        <BrandMark compact className="lg:hidden" />
+        <BrandMark className="hidden lg:flex" />
       </div>
       <SiteNav className="pointer-events-auto" />
       <div className="pointer-events-auto justify-self-end">

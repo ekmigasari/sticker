@@ -18,7 +18,7 @@ export const Route = createFileRoute("/stickers/")({
         page: deps.page ?? 1,
       },
     }),
-  head: () => ({ meta: [{ title: "Wall of Fame · Netkraft" }] }),
+  head: () => ({ meta: [{ title: "Wall of Fame · CoolThingsOnTheInternet" }] }),
   component: StickersPage,
 })
 

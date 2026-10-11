@@ -1,7 +1,7 @@
 {
-  "name": "xmigas FE Prototype",
-  "short_name": "xmigas FE Prototype",
-  "description": "A minimal FE prototype boilerplate built with TanStack Start, React, TypeScript, and shadcn/ui.",
+  "name": "CoolThingsOnTheInternet",
+  "short_name": "CoolThings",
+  "description": "Cool things made by people on the internet. Make a sticker and put it on the wall.",
   "icons": [
     {
       "src": "/icon-192.png",

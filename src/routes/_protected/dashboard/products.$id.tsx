@@ -4,8 +4,8 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 export const Route = createFileRoute("/_protected/dashboard/products/$id")({
   beforeLoad: ({ params }) => {
     throw redirect({
-      to: "/dashboard/stickers/$id",
-      params: { id: params.id },
+      to: "/dashboard/stickers/$slug",
+      params: { slug: params.id },
     })
   },
 })
