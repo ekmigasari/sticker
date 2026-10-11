@@ -16,9 +16,12 @@ import { prisma } from "@/lib/prisma"
 import { ranksFor, type StickerRankPair } from "@/lib/ranks"
 import {
   findStickerBySlugOrId,
+  listedStickerSql,
+  listedStickerWhere,
   serializeSticker,
   stickerImageUrl,
   TOP_STICKER_ORDER,
+  visibleStickerWhere,
   type StickerDTO,
 } from "@/lib/sticker-api"
 import { serializePlacement } from "@/lib/wall"
@@ -111,7 +114,7 @@ export const getMySticker = createServerFn({ method: "GET" })
 export const listPublicStickers = createServerFn({ method: "GET" }).handler(
   async (): Promise<StickerDTO[]> => {
     const stickers = await prisma.sticker.findMany({
-      where: { archivedAt: null },
+      where: listedStickerWhere(),
       orderBy: TOP_STICKER_ORDER,
     })
     return stickers.map(serializeSticker)
@@ -158,8 +161,9 @@ export const listStickerPage = createServerFn({ method: "GET" })
     page: Number.isInteger(input.page) && input.page > 0 ? input.page : 1,
   }))
   .handler(async ({ data }): Promise<StickerListPage> => {
+    const listed = listedStickerWhere()
     const where: Prisma.StickerWhereInput = {
-      archivedAt: null,
+      ...listed,
       ...(data.category ? { category: data.category } : {}),
       ...(data.onWall
         ? { placements: { some: { visibleShare: { gt: 0 } } } }
@@ -175,9 +179,9 @@ export const listStickerPage = createServerFn({ method: "GET" })
     }
     const [total, stickerCount, featured] = await Promise.all([
       prisma.sticker.count({ where }),
-      prisma.sticker.count({ where: { archivedAt: null } }),
+      prisma.sticker.count({ where: listed }),
       prisma.sticker.findMany({
-        where: { archivedAt: null },
+        where: listed,
         orderBy: TOP_STICKER_ORDER,
         take: 3,
       }),
@@ -223,7 +227,7 @@ export const listCategorySummaries = createServerFn({ method: "GET" }).handler(
         SELECT category, COUNT(*)::int AS count,
           COALESCE(SUM("totalSpent"), 0)::int AS spent
         FROM sticker
-        WHERE "archivedAt" IS NULL
+        WHERE ${listedStickerSql()}
         GROUP BY category
       `,
       prisma.$queryRaw<{ id: string; category: string }[]>`
@@ -233,7 +237,7 @@ export const listCategorySummaries = createServerFn({ method: "GET" }).handler(
               PARTITION BY category ORDER BY "totalSpent" DESC, "createdAt" ASC, id ASC
             ) AS position
           FROM sticker
-          WHERE "archivedAt" IS NULL
+          WHERE ${listedStickerSql()}
         ) ranked
         WHERE position <= 3
         ORDER BY category, position
@@ -264,6 +268,6 @@ export const listCategorySummaries = createServerFn({ method: "GET" }).handler(
 export const getPublicSticker = createServerFn({ method: "GET" })
   .validator((slugOrId: string) => slugOrId)
   .handler(async ({ data: slugOrId }) => {
-    const sticker = await findStickerBySlugOrId(slugOrId)
+    const sticker = await findStickerBySlugOrId(slugOrId, visibleStickerWhere())
     return sticker ? withPlacements(sticker) : null
   })

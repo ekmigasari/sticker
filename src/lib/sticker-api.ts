@@ -5,7 +5,7 @@ import {
   normalizeCategory,
   type Category,
 } from "@/domain/types"
-import type { Prisma } from "@/generated/prisma/client"
+import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { normalizeStickerUrl, slugifyName } from "@/lib/sticker-meta"
 
@@ -17,6 +17,43 @@ export const TOP_STICKER_ORDER = [
   { createdAt: "asc" },
   { id: "asc" },
 ] satisfies Prisma.StickerOrderByWithRelationInput[]
+
+/** Stickers anyone may see: not taken down, and the owner isn't banned. */
+export function visibleStickerWhere(): Prisma.StickerWhereInput {
+  return {
+    hiddenAt: null,
+    NOT: {
+      user: {
+        is: {
+          banned: true,
+          OR: [{ banExpires: null }, { banExpires: { gt: new Date() } }],
+        },
+      },
+    },
+  }
+}
+
+/** Stickers in the directory and rankings: visible and not archived. */
+export function listedStickerWhere(): Prisma.StickerWhereInput {
+  return { archivedAt: null, ...visibleStickerWhere() }
+}
+
+/**
+ * `listedStickerWhere` for raw queries over the unaliased `sticker` table.
+ * A function, not a constant: client bundles import this module, and a
+ * top-level `Prisma.sql` call would pull the Prisma runtime into them.
+ */
+export function listedStickerSql(): Prisma.Sql {
+  return Prisma.sql`
+    sticker."archivedAt" IS NULL
+    AND sticker."hiddenAt" IS NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM "user" u
+      WHERE u.id = sticker."userId" AND u.banned
+        AND (u."banExpires" IS NULL OR u."banExpires" > now())
+    )
+  `
+}
 
 export type StickerDTO = {
   id: string
@@ -40,6 +77,9 @@ export type StickerDTO = {
   imageUrl: string
   /** Set while hidden from the directory and rankings. */
   archivedAt?: string
+  /** Set while an admin has taken the sticker down. */
+  hiddenAt?: string
+  hiddenReason?: string
   createdAt: string
   updatedAt: string
 }
@@ -63,6 +103,8 @@ type StickerRecord = {
   outlineThickness: number
   totalSpent: number
   archivedAt: Date | null
+  hiddenAt?: Date | null
+  hiddenReason?: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -92,6 +134,8 @@ export function serializeSticker(sticker: StickerRecord): StickerDTO {
     totalSpent: sticker.totalSpent,
     imageUrl: stickerImageUrl(sticker.id),
     archivedAt: sticker.archivedAt?.toISOString(),
+    hiddenAt: sticker.hiddenAt?.toISOString(),
+    hiddenReason: sticker.hiddenReason ?? undefined,
     createdAt: sticker.createdAt.toISOString(),
     updatedAt: sticker.updatedAt.toISOString(),
   }
@@ -179,8 +223,13 @@ export async function getOwnedSticker(stickerId: string, userId: string) {
   })
 }
 
-export async function findStickerBySlugOrId(slugOrId: string) {
-  const bySlug = await prisma.sticker.findUnique({ where: { slug: slugOrId } })
+export async function findStickerBySlugOrId(
+  slugOrId: string,
+  where: Prisma.StickerWhereInput = {}
+) {
+  const bySlug = await prisma.sticker.findFirst({
+    where: { ...where, slug: slugOrId },
+  })
   if (bySlug) return bySlug
-  return prisma.sticker.findUnique({ where: { id: slugOrId } })
+  return prisma.sticker.findFirst({ where: { ...where, id: slugOrId } })
 }

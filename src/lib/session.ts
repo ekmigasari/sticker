@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start"
 import { getRequest } from "@tanstack/react-start/server"
 import { auth } from "./auth"
 import { prisma } from "./prisma"
+import { isAdminRole } from "./roles"
 
 export const getSession = createServerFn({ method: "GET" }).handler(
   async () => {
@@ -15,6 +16,7 @@ export const getSession = createServerFn({ method: "GET" }).handler(
           name: session.user.name,
           email: session.user.email,
           image: session.user.image ?? null,
+          isAdmin: isAdminRole(session.user.role),
         },
       }
     } catch {

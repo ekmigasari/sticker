@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
+import { listedStickerSql } from "@/lib/sticker-api"
 
 export type StickerRankPair = { overall: number; category: number }
 
@@ -18,7 +19,7 @@ export async function ranksFor(
           PARTITION BY category ORDER BY "totalSpent" DESC, "createdAt" ASC, id ASC
         ) AS category_rank
       FROM sticker
-      WHERE "totalSpent" > 0 AND "archivedAt" IS NULL
+      WHERE "totalSpent" > 0 AND ${listedStickerSql()}
     ) ranked
     WHERE id IN (${Prisma.join(ids)})
   `

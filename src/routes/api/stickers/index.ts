@@ -11,6 +11,7 @@ import { MAX_UPLOAD_BYTES, safeFileName } from "@/lib/files"
 import {
   allocateUniqueSlug,
   isCategory,
+  listedStickerWhere,
   parseStickerDetails,
   serializeSticker,
   TOP_STICKER_ORDER,
@@ -50,7 +51,7 @@ export const Route = createFileRoute("/api/stickers/")({
 
         const stickers = await prisma.sticker.findMany({
           where: {
-            archivedAt: null,
+            ...listedStickerWhere(),
             AND: [
               category && category !== "All" ? { category } : {},
               q

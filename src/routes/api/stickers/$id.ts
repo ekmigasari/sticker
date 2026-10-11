@@ -7,7 +7,11 @@ import {
 } from "@/domain/types"
 import { auth } from "@/lib/auth"
 import { MAX_UPLOAD_BYTES, safeFileName } from "@/lib/files"
-import { parseStickerDetails, serializeSticker } from "@/lib/sticker-api"
+import {
+  parseStickerDetails,
+  serializeSticker,
+  visibleStickerWhere,
+} from "@/lib/sticker-api"
 import { prisma } from "@/lib/prisma"
 import { putObject } from "@/lib/s3"
 
@@ -19,8 +23,8 @@ export const Route = createFileRoute("/api/stickers/$id")({
   server: {
     handlers: {
       GET: async ({ params }) => {
-        const sticker = await prisma.sticker.findUnique({
-          where: { id: params.id },
+        const sticker = await prisma.sticker.findFirst({
+          where: { id: params.id, ...visibleStickerWhere() },
         })
         if (!sticker) {
           return Response.json({ error: "Sticker not found." }, { status: 404 })

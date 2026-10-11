@@ -18,6 +18,13 @@ model User {
   email         String
   emailVerified Boolean   @default(false)
   image         String?
+  /// Better Auth admin plugin: comma-separated roles ("user", "admin").
+  role          String?   @default("user")
+  /// Banned users can't sign in and their stickers leave every public surface.
+  banned        Boolean?  @default(false)
+  banReason     String?
+  /// Null while banned means the ban is permanent.
+  banExpires    DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
@@ -30,15 +37,16 @@ model User {
 }
 
 model Session {
-  id        String   @id
-  expiresAt DateTime
-  token     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  ipAddress String?
-  userAgent String?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id
+  expiresAt      DateTime
+  token          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  impersonatedBy String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([token])
   @@index([userId])
@@ -92,12 +100,14 @@ model Upload {
   @@map("upload")
 }
 
-/** One sticker = one directory listing + primary artwork. */
+/**
+ * One sticker = one directory listing + primary artwork.
+ */
 model Sticker {
-  id               String   @id
+  id               String      @id
   userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  slug             String   @unique
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug             String      @unique
   name             String
   oneLiner         String
   url              String
@@ -105,26 +115,30 @@ model Sticker {
   description      String?
   offer            String?
   offerCode        String?
-  offerExpiresOn   DateTime? @db.Date
+  offerExpiresOn   DateTime?   @db.Date
   uploadId         String
-  upload           Upload   @relation(fields: [uploadId], references: [id], onDelete: Restrict)
+  upload           Upload      @relation(fields: [uploadId], references: [id], onDelete: Restrict)
   style            String
-  filter           String   @default("original")
+  filter           String      @default("original")
   /// Sticker material (none, matte, gloss, glitter, hologram).
-  finish           String   @default("none")
+  finish           String      @default("none")
   outlineColor     String
   outlineThickness Int
   /// Whole dollars paid for wall placements. Ranks are derived from this at read time.
-  totalSpent       Int      @default(0)
+  totalSpent       Int         @default(0)
   /// Archived stickers leave the directory and rankings; their wall plots stay.
   archivedAt       DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  /// Taken down by an admin: off the wall, directory and rankings. Owners can't undo it.
+  hiddenAt         DateTime?
+  hiddenReason     String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
   placements       Placement[]
 
   @@index([userId])
   @@index([category])
   @@index([archivedAt])
+  @@index([hiddenAt])
   @@index([uploadId])
   @@index([totalSpent(sort: Desc), createdAt])
   @@map("sticker")
@@ -132,26 +146,26 @@ model Sticker {
 
 /// One paid plot on the wall. Newer plots stack on top (higher zIndex).
 model Placement {
-  id            String   @id
-  stickerId     String
-  sticker       Sticker  @relation(fields: [stickerId], references: [id], onDelete: Cascade)
+  id           String   @id
+  stickerId    String
+  sticker      Sticker  @relation(fields: [stickerId], references: [id], onDelete: Cascade)
   /// Plot top-left and size in wall px (axis-aligned, snapped to whole units).
-  x             Int
-  y             Int
-  width         Int
-  height        Int
-  unitsW        Int
-  unitsH        Int
-  zIndex        Int      @unique @default(autoincrement())
-  stickerScale  Float    @default(1)
-  rotation      Float    @default(0)
-  offsetX       Float    @default(0)
-  offsetY       Float    @default(0)
+  x            Int
+  y            Int
+  width        Int
+  height       Int
+  unitsW       Int
+  unitsH       Int
+  zIndex       Int      @unique @default(autoincrement())
+  stickerScale Float    @default(1)
+  rotation     Float    @default(0)
+  offsetX      Float    @default(0)
+  offsetY      Float    @default(0)
   /// Share of the plot not covered by newer plots (0–1). 0 = off the wall.
-  visibleShare  Float    @default(1)
+  visibleShare Float    @default(1)
   /// Newer plots overlapping this one.
-  coveredBy     Int      @default(0)
-  createdAt     DateTime @default(now())
+  coveredBy    Int      @default(0)
+  createdAt    DateTime @default(now())
 
   @@index([stickerId])
   @@index([visibleShare])

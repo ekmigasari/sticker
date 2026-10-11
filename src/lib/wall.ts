@@ -12,7 +12,7 @@ import {
 } from "@/domain/types"
 import type { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
-import { serializeSticker } from "@/lib/sticker-api"
+import { serializeSticker, visibleStickerWhere } from "@/lib/sticker-api"
 import { wallStickerFromDTO } from "@/lib/wall-sticker"
 
 /** Any constant works; it only has to be the same for every wall write. */
@@ -64,7 +64,7 @@ export type WallData = { stickers: Sticker[]; placements: Placement[] }
 export const getWall = createServerFn({ method: "GET" }).handler(
   async (): Promise<WallData> => {
     const rows = await prisma.placement.findMany({
-      where: { visibleShare: { gt: 0 } },
+      where: { visibleShare: { gt: 0 }, sticker: visibleStickerWhere() },
       orderBy: { zIndex: "asc" },
       include: { sticker: true },
     })
@@ -213,6 +213,22 @@ export async function moveOnWall(
     return null
   }
   return serializePlacement(await insertOnTop(tx, stickerId, input))
+}
+
+/** Take every plot of these stickers off the wall, uncovering what was under them. */
+export async function clearFromWall(
+  tx: Prisma.TransactionClient,
+  stickerIds: string[]
+): Promise<number> {
+  if (!stickerIds.length) return 0
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${WALL_WRITE_LOCK})`
+  const gone = await tx.$queryRaw<PlacementRecord[]>`
+    DELETE FROM placement
+    WHERE "stickerId" = ANY(${stickerIds})
+    RETURNING *
+  `
+  for (const p of gone) await uncoverUnder(tx, p)
+  return gone.length
 }
 
 async function insertOnTop(

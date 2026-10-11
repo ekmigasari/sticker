@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useRouter } from "@tanstack/react-router"
-import { Archive, Lock } from "@phosphor-icons/react"
+import { Archive, EyeSlash, Lock } from "@phosphor-icons/react"
 import { useMoveSpot } from "@/components/place/use-move-spot"
 import { NewSpotSheet } from "@/components/stickers/new-spot-sheet"
 import {
@@ -40,7 +40,8 @@ export function StickerManage({
   const [restoring, setRestoring] = useState<RestoreTarget | null>(null)
   const [replacing, setReplacing] = useState<MoveSpot | null>(null)
   const { moveSpot, pending: movePending, error: moveError } = useMoveSpot()
-  const live = sticker && !sticker.archivedAt ? sticker : null
+  const live =
+    sticker && !sticker.archivedAt && !sticker.hiddenAt ? sticker : null
 
   const restoringIds = restoring?.quote.placementIds
   const restoringSpot =
@@ -80,7 +81,9 @@ export function StickerManage({
           ) : null
         }
         notice={
-          sticker?.archivedAt ? (
+          sticker?.hiddenAt ? (
+            <TakenDownNotice reason={sticker.hiddenReason} />
+          ) : sticker?.archivedAt ? (
             <ArchivedNotice onUnarchive={() => setArchived(false)} />
           ) : null
         }
@@ -134,6 +137,24 @@ export function StickerManage({
         />
       ) : null}
     </>
+  )
+}
+
+function TakenDownNotice({ reason }: { reason?: string }) {
+  return (
+    <div className="mt-3 flex items-center gap-3 rounded-[18px] bg-[#ff3b30]/[0.07] py-3 pr-3 pl-4">
+      <EyeSlash weight="fill" className="size-5 shrink-0 text-[#ff3b30]" />
+      <div className="min-w-0 flex-1">
+        <p className="text-[15px] font-semibold tracking-[-0.01em] text-neutral-900">
+          Taken down by a moderator
+        </p>
+        <p className="text-[13px] leading-snug text-neutral-500">
+          {reason
+            ? `Reason: ${reason}`
+            : "It's off the wall, the directory and rankings."}
+        </p>
+      </div>
+    </div>
   )
 }
 

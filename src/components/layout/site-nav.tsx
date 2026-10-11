@@ -8,6 +8,7 @@ import {
   BookOpen,
   MagicWand,
   Scroll,
+  ShieldCheck,
   SignOut,
   SquaresFour,
   Sticker,
@@ -80,7 +81,7 @@ export function AccountButton({ className }: { className?: string }) {
     )
   }
 
-  const { name, email, image } = session.user
+  const { name, email, image, isAdmin } = session.user
 
   async function logOut() {
     await authClient.signOut()
@@ -131,6 +132,15 @@ export function AccountButton({ className }: { className?: string }) {
             <BookOpen weight="regular" />
             My Sticker Book
           </DropdownMenuItem>
+          {isAdmin ? (
+            <DropdownMenuItem
+              className={item}
+              onClick={() => void navigate({ to: "/admin" })}
+            >
+              <ShieldCheck weight="regular" />
+              Admin
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem
             className={cn(item, "text-red-600")}
             onClick={() => void logOut()}

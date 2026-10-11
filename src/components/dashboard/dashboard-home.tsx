@@ -1082,7 +1082,15 @@ function StickerSlot({
         </span>
         {/* One line, like the blank slots, so every page keeps the same height. */}
         <span className="mt-0.5 flex max-w-full items-center gap-1.5 text-[12px] text-[#8c7a5b]">
-          {coverage ? (
+          {sticker.hiddenAt ? (
+            <>
+              <span
+                aria-hidden
+                className="size-1.5 shrink-0 rounded-full bg-[#ff3b30]"
+              />
+              <span className="truncate">Taken down</span>
+            </>
+          ) : coverage ? (
             <>
               <span
                 aria-hidden

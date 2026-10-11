@@ -22,10 +22,16 @@ export const Route = createFileRoute("/api/stickers/$id/move")({
 
         const existing = await prisma.sticker.findFirst({
           where: { id: params.id, userId: session.user.id },
-          select: { id: true, archivedAt: true },
+          select: { id: true, archivedAt: true, hiddenAt: true },
         })
         if (!existing) {
           return Response.json({ error: "Sticker not found." }, { status: 404 })
+        }
+        if (existing.hiddenAt) {
+          return Response.json(
+            { error: "This sticker was taken down by a moderator." },
+            { status: 403 }
+          )
         }
         if (existing.archivedAt) {
           return Response.json(

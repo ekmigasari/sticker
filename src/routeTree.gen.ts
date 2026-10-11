@@ -19,12 +19,15 @@ import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ProtectedAdminRouteImport } from './routes/_protected/admin'
 import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dashboard'
 import { Route as ProtectedFilesRouteImport } from './routes/_protected/files'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
 import { Route as StickerSlugRouteImport } from './routes/sticker.$slug'
 import { Route as StickersIndexRouteImport } from './routes/stickers.index'
 import { Route as StickersSlugRouteImport } from './routes/stickers.$slug'
+import { Route as ProtectedAdminIndexRouteImport } from './routes/_protected/admin/index'
+import { Route as ProtectedAdminStickersRouteImport } from './routes/_protected/admin/stickers'
 import { Route as ProtectedDashboardIndexRouteImport } from './routes/_protected/dashboard/index'
 import { Route as ApiAccountEmailRouteImport } from './routes/api/account/email'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -32,6 +35,8 @@ import { Route as ApiStickersIndexRouteImport } from './routes/api/stickers/inde
 import { Route as ApiStickersIdRouteImport } from './routes/api/stickers/$id'
 import { Route as ApiUploadsIndexRouteImport } from './routes/api/uploads/index'
 import { Route as ApiUploadsIdRouteImport } from './routes/api/uploads/$id'
+import { Route as ProtectedAdminUsersIndexRouteImport } from './routes/_protected/admin/users.index'
+import { Route as ProtectedAdminUsersIdRouteImport } from './routes/_protected/admin/users.$id'
 import { Route as ProtectedDashboardProductsIdRouteImport } from './routes/_protected/dashboard/products.$id'
 import { Route as ProtectedDashboardStickersSlugRouteImport } from './routes/_protected/dashboard/stickers.$slug'
 import { Route as ApiStickersIdImageRouteImport } from './routes/api/stickers/$id.image'
@@ -87,6 +92,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProtectedAdminRoute = ProtectedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => ProtectedRoute,
+} as any)
 const ProtectedDashboardRoute = ProtectedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -116,6 +126,16 @@ const StickersSlugRoute = StickersSlugRouteImport.update({
   id: '/stickers/$slug',
   path: '/stickers/$slug',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ProtectedAdminIndexRoute = ProtectedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProtectedAdminRoute,
+} as any)
+const ProtectedAdminStickersRoute = ProtectedAdminStickersRouteImport.update({
+  id: '/stickers',
+  path: '/stickers',
+  getParentRoute: () => ProtectedAdminRoute,
 } as any)
 const ProtectedDashboardIndexRoute = ProtectedDashboardIndexRouteImport.update({
   id: '/',
@@ -151,6 +171,17 @@ const ApiUploadsIdRoute = ApiUploadsIdRouteImport.update({
   id: '/api/uploads/$id',
   path: '/api/uploads/$id',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ProtectedAdminUsersIndexRoute =
+  ProtectedAdminUsersIndexRouteImport.update({
+    id: '/users/',
+    path: '/users/',
+    getParentRoute: () => ProtectedAdminRoute,
+  } as any)
+const ProtectedAdminUsersIdRoute = ProtectedAdminUsersIdRouteImport.update({
+  id: '/users/$id',
+  path: '/users/$id',
+  getParentRoute: () => ProtectedAdminRoute,
 } as any)
 const ProtectedDashboardProductsIdRoute =
   ProtectedDashboardProductsIdRouteImport.update({
@@ -190,24 +221,29 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/terms': typeof TermsRoute
+  '/admin': typeof ProtectedAdminRouteWithChildren
   '/dashboard': typeof ProtectedDashboardRouteWithChildren
   '/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
   '/sticker/$slug': typeof StickerSlugRoute
   '/stickers/$slug': typeof StickersSlugRoute
   '/stickers/': typeof StickersIndexRoute
+  '/admin/stickers': typeof ProtectedAdminStickersRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
+  '/admin/': typeof ProtectedAdminIndexRoute
   '/dashboard/': typeof ProtectedDashboardIndexRoute
   '/api/stickers/': typeof ApiStickersIndexRoute
   '/api/uploads/': typeof ApiUploadsIndexRoute
+  '/admin/users/$id': typeof ProtectedAdminUsersIdRoute
   '/dashboard/products/$id': typeof ProtectedDashboardProductsIdRoute
   '/dashboard/stickers/$slug': typeof ProtectedDashboardStickersSlugRoute
   '/api/stickers/$id/image': typeof ApiStickersIdImageRoute
   '/api/stickers/$id/move': typeof ApiStickersIdMoveRoute
   '/api/stickers/$id/restore': typeof ApiStickersIdRestoreRoute
+  '/admin/users/': typeof ProtectedAdminUsersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -224,18 +260,22 @@ export interface FileRoutesByTo {
   '/sticker/$slug': typeof StickerSlugRoute
   '/stickers/$slug': typeof StickersSlugRoute
   '/stickers': typeof StickersIndexRoute
+  '/admin/stickers': typeof ProtectedAdminStickersRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
+  '/admin': typeof ProtectedAdminIndexRoute
   '/dashboard': typeof ProtectedDashboardIndexRoute
   '/api/stickers': typeof ApiStickersIndexRoute
   '/api/uploads': typeof ApiUploadsIndexRoute
+  '/admin/users/$id': typeof ProtectedAdminUsersIdRoute
   '/dashboard/products/$id': typeof ProtectedDashboardProductsIdRoute
   '/dashboard/stickers/$slug': typeof ProtectedDashboardStickersSlugRoute
   '/api/stickers/$id/image': typeof ApiStickersIdImageRoute
   '/api/stickers/$id/move': typeof ApiStickersIdMoveRoute
   '/api/stickers/$id/restore': typeof ApiStickersIdRestoreRoute
+  '/admin/users': typeof ProtectedAdminUsersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -249,24 +289,29 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/terms': typeof TermsRoute
+  '/_protected/admin': typeof ProtectedAdminRouteWithChildren
   '/_protected/dashboard': typeof ProtectedDashboardRouteWithChildren
   '/_protected/files': typeof ProtectedFilesRoute
   '/product/$id': typeof ProductIdRoute
   '/sticker/$slug': typeof StickerSlugRoute
   '/stickers/$slug': typeof StickersSlugRoute
   '/stickers/': typeof StickersIndexRoute
+  '/_protected/admin/stickers': typeof ProtectedAdminStickersRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
+  '/_protected/admin/': typeof ProtectedAdminIndexRoute
   '/_protected/dashboard/': typeof ProtectedDashboardIndexRoute
   '/api/stickers/': typeof ApiStickersIndexRoute
   '/api/uploads/': typeof ApiUploadsIndexRoute
+  '/_protected/admin/users/$id': typeof ProtectedAdminUsersIdRoute
   '/_protected/dashboard/products/$id': typeof ProtectedDashboardProductsIdRoute
   '/_protected/dashboard/stickers/$slug': typeof ProtectedDashboardStickersSlugRoute
   '/api/stickers/$id/image': typeof ApiStickersIdImageRoute
   '/api/stickers/$id/move': typeof ApiStickersIdMoveRoute
   '/api/stickers/$id/restore': typeof ApiStickersIdRestoreRoute
+  '/_protected/admin/users/': typeof ProtectedAdminUsersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -280,24 +325,29 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/terms'
+    | '/admin'
     | '/dashboard'
     | '/files'
     | '/product/$id'
     | '/sticker/$slug'
     | '/stickers/$slug'
     | '/stickers/'
+    | '/admin/stickers'
     | '/api/account/email'
     | '/api/auth/$'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
+    | '/admin/'
     | '/dashboard/'
     | '/api/stickers/'
     | '/api/uploads/'
+    | '/admin/users/$id'
     | '/dashboard/products/$id'
     | '/dashboard/stickers/$slug'
     | '/api/stickers/$id/image'
     | '/api/stickers/$id/move'
     | '/api/stickers/$id/restore'
+    | '/admin/users/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -314,18 +364,22 @@ export interface FileRouteTypes {
     | '/sticker/$slug'
     | '/stickers/$slug'
     | '/stickers'
+    | '/admin/stickers'
     | '/api/account/email'
     | '/api/auth/$'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
+    | '/admin'
     | '/dashboard'
     | '/api/stickers'
     | '/api/uploads'
+    | '/admin/users/$id'
     | '/dashboard/products/$id'
     | '/dashboard/stickers/$slug'
     | '/api/stickers/$id/image'
     | '/api/stickers/$id/move'
     | '/api/stickers/$id/restore'
+    | '/admin/users'
   id:
     | '__root__'
     | '/'
@@ -338,24 +392,29 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/terms'
+    | '/_protected/admin'
     | '/_protected/dashboard'
     | '/_protected/files'
     | '/product/$id'
     | '/sticker/$slug'
     | '/stickers/$slug'
     | '/stickers/'
+    | '/_protected/admin/stickers'
     | '/api/account/email'
     | '/api/auth/$'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
+    | '/_protected/admin/'
     | '/_protected/dashboard/'
     | '/api/stickers/'
     | '/api/uploads/'
+    | '/_protected/admin/users/$id'
     | '/_protected/dashboard/products/$id'
     | '/_protected/dashboard/stickers/$slug'
     | '/api/stickers/$id/image'
     | '/api/stickers/$id/move'
     | '/api/stickers/$id/restore'
+    | '/_protected/admin/users/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -453,6 +512,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_protected/admin': {
+      id: '/_protected/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof ProtectedAdminRouteImport
+      parentRoute: typeof ProtectedRoute
+    }
     '/_protected/dashboard': {
       id: '/_protected/dashboard'
       path: '/dashboard'
@@ -494,6 +560,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/stickers/$slug'
       preLoaderRoute: typeof StickersSlugRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_protected/admin/': {
+      id: '/_protected/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof ProtectedAdminIndexRouteImport
+      parentRoute: typeof ProtectedAdminRoute
+    }
+    '/_protected/admin/stickers': {
+      id: '/_protected/admin/stickers'
+      path: '/stickers'
+      fullPath: '/admin/stickers'
+      preLoaderRoute: typeof ProtectedAdminStickersRouteImport
+      parentRoute: typeof ProtectedAdminRoute
     }
     '/_protected/dashboard/': {
       id: '/_protected/dashboard/'
@@ -544,6 +624,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiUploadsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_protected/admin/users/': {
+      id: '/_protected/admin/users/'
+      path: '/users'
+      fullPath: '/admin/users/'
+      preLoaderRoute: typeof ProtectedAdminUsersIndexRouteImport
+      parentRoute: typeof ProtectedAdminRoute
+    }
+    '/_protected/admin/users/$id': {
+      id: '/_protected/admin/users/$id'
+      path: '/users/$id'
+      fullPath: '/admin/users/$id'
+      preLoaderRoute: typeof ProtectedAdminUsersIdRouteImport
+      parentRoute: typeof ProtectedAdminRoute
+    }
     '/_protected/dashboard/products/$id': {
       id: '/_protected/dashboard/products/$id'
       path: '/products/$id'
@@ -582,6 +676,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ProtectedAdminRouteChildren {
+  ProtectedAdminStickersRoute: typeof ProtectedAdminStickersRoute
+  ProtectedAdminIndexRoute: typeof ProtectedAdminIndexRoute
+  ProtectedAdminUsersIdRoute: typeof ProtectedAdminUsersIdRoute
+  ProtectedAdminUsersIndexRoute: typeof ProtectedAdminUsersIndexRoute
+}
+
+const ProtectedAdminRouteChildren: ProtectedAdminRouteChildren = {
+  ProtectedAdminStickersRoute: ProtectedAdminStickersRoute,
+  ProtectedAdminIndexRoute: ProtectedAdminIndexRoute,
+  ProtectedAdminUsersIdRoute: ProtectedAdminUsersIdRoute,
+  ProtectedAdminUsersIndexRoute: ProtectedAdminUsersIndexRoute,
+}
+
+const ProtectedAdminRouteWithChildren = ProtectedAdminRoute._addFileChildren(
+  ProtectedAdminRouteChildren,
+)
+
 interface ProtectedDashboardRouteChildren {
   ProtectedDashboardIndexRoute: typeof ProtectedDashboardIndexRoute
   ProtectedDashboardProductsIdRoute: typeof ProtectedDashboardProductsIdRoute
@@ -598,11 +710,13 @@ const ProtectedDashboardRouteWithChildren =
   ProtectedDashboardRoute._addFileChildren(ProtectedDashboardRouteChildren)
 
 interface ProtectedRouteChildren {
+  ProtectedAdminRoute: typeof ProtectedAdminRouteWithChildren
   ProtectedDashboardRoute: typeof ProtectedDashboardRouteWithChildren
   ProtectedFilesRoute: typeof ProtectedFilesRoute
 }
 
 const ProtectedRouteChildren: ProtectedRouteChildren = {
+  ProtectedAdminRoute: ProtectedAdminRouteWithChildren,
   ProtectedDashboardRoute: ProtectedDashboardRouteWithChildren,
   ProtectedFilesRoute: ProtectedFilesRoute,
 }

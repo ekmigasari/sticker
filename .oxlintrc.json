@@ -19,9 +19,10 @@
       }
     },
     {
-      "files": ["src/lib/product-api.ts", "src/lib/products.ts", "src/routes/api/products/**/*.ts"],
+      // Prisma names its aggregate selections _sum / _count / _avg / _min / _max.
+      "files": ["src/lib/admin.ts"],
       "rules": {
-        "no-underscore-dangle": "off"
+        "no-underscore-dangle": ["warn", { "allow": ["_sum", "_count", "_avg", "_min", "_max"] }]
       }
     }
   ],
