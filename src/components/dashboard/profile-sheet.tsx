@@ -63,12 +63,13 @@ async function uploadAvatar(file: File): Promise<string> {
   return `/api/uploads/${payload.id}`
 }
 
-type View = "profile" | "email" | "password"
+type View = "profile" | "email" | "password" | "delete"
 
 const TITLES: Record<View, string> = {
   profile: "Edit Profile",
   email: "Change Email",
   password: "Change Password",
+  delete: "Delete Account",
 }
 
 export function ProfileSheet({
@@ -128,6 +129,7 @@ export function ProfileSheet({
           onDone={finish}
         />
       ) : null}
+      {view === "delete" ? <DeleteAccountForm email={profile.email} /> : null}
     </FormSheet>
   )
 }
@@ -275,6 +277,13 @@ function ProfileForm({
             onClick={() => onOpen("password")}
           />
         </div>
+        <button
+          type="button"
+          onClick={() => onOpen("delete")}
+          className="self-start text-[14px] font-medium tracking-[-0.01em] text-[#ff3b30] hover:opacity-80"
+        >
+          Delete account
+        </button>
         {notice ? (
           <p
             role="status"
@@ -615,6 +624,99 @@ function PasswordForm({
         error={error}
         onBack={onBack}
       />
+    </form>
+  )
+}
+
+function DeleteAccountForm({ email }: { email: string }) {
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const password = String(form.get("password") ?? "")
+    const confirm = String(form.get("confirm") ?? "")
+      .trim()
+      .toLowerCase()
+    if (confirm !== "delete") {
+      setError('Type "delete" to confirm.')
+      return
+    }
+    setPending(true)
+    setError(null)
+    try {
+      const response = await fetch("/api/auth/delete-user", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ password }),
+      })
+      const payload = (await response.json().catch(() => null)) as {
+        message?: string
+        code?: string
+      } | null
+      if (!response.ok) {
+        throw new Error(
+          payload?.code === "INVALID_PASSWORD"
+            ? "Your password is incorrect."
+            : (payload?.message ?? "Could not delete the account.")
+        )
+      }
+      window.location.assign("/")
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not delete the account."
+      )
+      setPending(false)
+    }
+  }
+
+  return (
+    <form
+      onSubmit={(event) => void submit(event)}
+      className="flex flex-col gap-6"
+    >
+      <div className="flex flex-col gap-2 text-[14px] leading-snug text-neutral-600">
+        <p>
+          This permanently deletes the account for{" "}
+          <span className="font-medium break-all text-neutral-900">
+            {email}
+          </span>
+          . Your profile, password, sessions, stickers, wall plots and uploaded
+          files are removed. Spots you already paid for are not refunded.
+        </p>
+        <p>This can't be undone.</p>
+      </div>
+      <PasswordField
+        id="account-delete-password"
+        label="Current password"
+        name="password"
+        autoComplete="current-password"
+      />
+      <div className="flex flex-col gap-2">
+        <label htmlFor="account-delete-confirm" className="nk-label">
+          Type delete to confirm
+        </label>
+        <input
+          id="account-delete-confirm"
+          name="confirm"
+          autoComplete="off"
+          required
+          className="nk-field"
+        />
+      </div>
+      {error ? (
+        <p role="alert" className="text-[14px] font-medium text-red-600">
+          {error}
+        </p>
+      ) : null}
+      <button
+        type="submit"
+        disabled={pending}
+        className="press h-11 rounded-full bg-[#ff3b30] px-5 text-[15px] font-semibold tracking-[-0.01em] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+      >
+        {pending ? "Deleting…" : "Delete account"}
+      </button>
     </form>
   )
 }

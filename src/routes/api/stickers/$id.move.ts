@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { plotPrice } from "@/domain/types"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { enforceRateLimit, RATE_RULES } from "@/lib/rate-limit"
 import { ranksFor } from "@/lib/ranks"
 import { serializeSticker } from "@/lib/sticker-api"
 import { moveOnWall, parsePlacementInput } from "@/lib/wall"
@@ -19,6 +20,11 @@ export const Route = createFileRoute("/api/stickers/$id/move")({
         if (!session) {
           return Response.json({ error: "Unauthorized" }, { status: 401 })
         }
+        const limited = await enforceRateLimit(
+          session.user.id,
+          RATE_RULES.stickerWrite
+        )
+        if (limited) return limited
 
         const existing = await prisma.sticker.findFirst({
           where: { id: params.id, userId: session.user.id },

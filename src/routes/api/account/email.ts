@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { enforceRateLimit, RATE_RULES } from "@/lib/rate-limit"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -13,6 +14,11 @@ export const Route = createFileRoute("/api/account/email")({
         if (!session) {
           return Response.json({ error: "Unauthorized" }, { status: 401 })
         }
+        const limited = await enforceRateLimit(
+          session.user.id,
+          RATE_RULES.emailChange
+        )
+        if (limited) return limited
 
         const body = (await request.json().catch(() => null)) as {
           newEmail?: unknown

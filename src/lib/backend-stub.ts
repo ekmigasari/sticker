@@ -53,12 +53,23 @@ export async function createCheckoutSession(
   }
 }
 
-/** Placeholder — replace with POST /api/reports */
-export async function reportPlacement(
-  placementId: string,
-  reason: string
+/** Sends a sticker report. The signed-in user is taken from the session cookie. */
+export async function reportSticker(
+  stickerId: string,
+  reason: string,
+  details = ""
 ): Promise<{ ok: true }> {
-  console.info("[moderation stub] report", { placementId, reason })
+  const response = await fetch("/api/reports", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ stickerId, reason, details }),
+  })
+  const payload = (await response.json().catch(() => null)) as {
+    error?: string
+  } | null
+  if (!response.ok) {
+    throw new Error(payload?.error ?? "Could not send the report.")
+  }
   return { ok: true }
 }
 
@@ -66,5 +77,5 @@ export const BACKEND_STATUS = {
   auth: "planned",
   storage: "planned",
   stripe: "planned",
-  moderation: "stubbed",
+  moderation: "live",
 } as const

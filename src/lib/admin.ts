@@ -10,6 +10,8 @@ import {
   stickerImageUrl,
   type StickerDTO,
 } from "@/lib/sticker-api"
+import { purgeUserContent } from "@/lib/account-deletion"
+import { reportReasonLabel } from "@/lib/report-reasons"
 import { clearFromWall } from "@/lib/wall"
 
 export const ADMIN_PAGE_SIZE = 30
@@ -63,8 +65,10 @@ export type AdminOverview = {
   archived: number
   newStickers7d: number
   revenue: number
+  openReports: number
   recentUsers: AdminUserRow[]
   recentStickers: AdminStickerRow[]
+  recentReports: AdminReportRow[]
 }
 
 export const getAdminOverview = createServerFn({ method: "GET" }).handler(
@@ -82,8 +86,10 @@ export const getAdminOverview = createServerFn({ method: "GET" }).handler(
       archived,
       newStickers7d,
       revenue,
+      openReports,
       recentUsers,
       recentStickers,
+      recentReports,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { role: { contains: "admin" } } }),
@@ -95,8 +101,10 @@ export const getAdminOverview = createServerFn({ method: "GET" }).handler(
       prisma.sticker.count({ where: { archivedAt: { not: null } } }),
       prisma.sticker.count({ where: { createdAt: { gte: weekAgo } } }),
       prisma.sticker.aggregate({ _sum: { totalSpent: true } }),
+      prisma.report.count({ where: { status: "open" } }),
       findUserRows({}, 0, 5),
       findStickerRows({}, 0, 5),
+      findReportRows({ status: "open" }, 0, 5),
     ])
     return {
       users,
@@ -109,8 +117,10 @@ export const getAdminOverview = createServerFn({ method: "GET" }).handler(
       archived,
       newStickers7d,
       revenue: revenue._sum.totalSpent ?? 0,
+      openReports,
       recentUsers,
       recentStickers,
+      recentReports,
     }
   }
 )
@@ -381,20 +391,8 @@ export const deleteUser = createServerFn({ method: "POST" })
     const { user } = await requireAdmin()
     if (data.id === user.id) throw new Error("You can't delete yourself.")
     await assertNotAdmin(data.id, "delete")
-    await prisma.$transaction(
-      async (tx) => {
-        const stickers = await tx.sticker.findMany({
-          where: { userId: data.id },
-          select: { id: true },
-        })
-        const ids = stickers.map((s) => s.id)
-        await clearFromWall(tx, ids)
-        // Stickers restrict upload deletes, so they go before the user cascade.
-        await tx.sticker.deleteMany({ where: { id: { in: ids } } })
-        await tx.user.delete({ where: { id: data.id } })
-      },
-      { timeout: 30_000 }
-    )
+    await purgeUserContent(data.id)
+    await prisma.user.delete({ where: { id: data.id } })
     return { ok: true }
   })
 
@@ -550,6 +548,164 @@ export const unhideSticker = createServerFn({ method: "POST" })
     await prisma.sticker.update({
       where: { id: data.id },
       data: { hiddenAt: null, hiddenReason: null },
+    })
+    return { ok: true }
+  })
+
+// ─── Reports ───────────────────────────────────────────────────────────────
+
+export type AdminReportFilter = "all" | "open" | "upheld" | "dismissed"
+
+export type AdminReportRow = {
+  id: string
+  reason: string
+  reasonLabel: string
+  details: string
+  status: "open" | "upheld" | "dismissed"
+  createdAt: string
+  resolvedAt: string | null
+  sticker: {
+    id: string
+    slug: string
+    name: string
+    imageUrl: string
+    hiddenAt: string | null
+  }
+  reporter: { id: string; name: string; email: string }
+}
+
+function reportStatus(value: string): AdminReportRow["status"] {
+  return value === "upheld" || value === "dismissed" ? value : "open"
+}
+
+async function findReportRows(
+  where: Prisma.ReportWhereInput,
+  skip: number,
+  take: number
+): Promise<AdminReportRow[]> {
+  const rows = await prisma.report.findMany({
+    where,
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    skip,
+    take,
+    include: {
+      sticker: {
+        select: { id: true, slug: true, name: true, hiddenAt: true },
+      },
+      reporter: { select: { id: true, name: true, email: true } },
+    },
+  })
+  return rows.map((report) => ({
+    id: report.id,
+    reason: report.reason,
+    reasonLabel: reportReasonLabel(report.reason) ?? report.reason,
+    details: report.details,
+    status: reportStatus(report.status),
+    createdAt: report.createdAt.toISOString(),
+    resolvedAt: report.resolvedAt?.toISOString() ?? null,
+    sticker: {
+      id: report.sticker.id,
+      slug: report.sticker.slug,
+      name: report.sticker.name,
+      imageUrl: stickerImageUrl(report.sticker.id),
+      hiddenAt: report.sticker.hiddenAt?.toISOString() ?? null,
+    },
+    reporter: report.reporter,
+  }))
+}
+
+export type AdminReportQuery = {
+  q?: string
+  filter?: AdminReportFilter
+  page?: number
+}
+
+export const listAdminReports = createServerFn({ method: "GET" })
+  .validator(
+    (
+      input: AdminReportQuery
+    ): Required<Omit<AdminReportQuery, "q">> & { q?: string } => ({
+      q: searchOf(input.q),
+      filter:
+        input.filter === "upheld" ||
+        input.filter === "dismissed" ||
+        input.filter === "all"
+          ? input.filter
+          : "open",
+      page: pageOf(input.page),
+    })
+  )
+  .handler(async ({ data }): Promise<Page<AdminReportRow>> => {
+    await requireAdmin()
+    const where: Prisma.ReportWhereInput = {
+      ...(data.filter === "all" ? {} : { status: data.filter }),
+      ...(data.q
+        ? {
+            OR: [
+              { sticker: { name: { contains: data.q, mode: "insensitive" } } },
+              { sticker: { slug: { contains: data.q, mode: "insensitive" } } },
+              {
+                reporter: {
+                  email: { contains: data.q, mode: "insensitive" },
+                },
+              },
+              { details: { contains: data.q, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    }
+    const total = await prisma.report.count({ where })
+    const pageCount = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE))
+    const page = Math.min(data.page, pageCount)
+    const items = await findReportRows(
+      where,
+      (page - 1) * ADMIN_PAGE_SIZE,
+      ADMIN_PAGE_SIZE
+    )
+    return { items, page, pageCount, total }
+  })
+
+export const dismissReport = createServerFn({ method: "POST" })
+  .validator((input: { id: string }) => ({ id: idOf(input) }))
+  .handler(async ({ data }) => {
+    await requireAdmin()
+    const report = await prisma.report.findUnique({ where: { id: data.id } })
+    if (!report) throw new Error("Report not found.")
+    if (report.status !== "open")
+      throw new Error("This report is already closed.")
+    await prisma.report.update({
+      where: { id: report.id },
+      data: { status: "dismissed", resolvedAt: new Date() },
+    })
+    return { ok: true }
+  })
+
+/** Hides the sticker and closes every open report about it. */
+export const upholdReport = createServerFn({ method: "POST" })
+  .validator((input: { id: string; reason?: string }) => ({
+    id: idOf(input),
+    reason: reasonOf(input),
+  }))
+  .handler(async ({ data }) => {
+    await requireAdmin()
+    const report = await prisma.report.findUnique({
+      where: { id: data.id },
+      include: { sticker: { select: { id: true, hiddenAt: true } } },
+    })
+    if (!report) throw new Error("Report not found.")
+    const note =
+      data.reason ?? reportReasonLabel(report.reason) ?? "Reported by a user"
+    await prisma.$transaction(async (tx) => {
+      if (!report.sticker.hiddenAt) {
+        await tx.sticker.update({
+          where: { id: report.sticker.id },
+          data: { hiddenAt: new Date(), hiddenReason: note },
+        })
+      }
+      await tx.report.updateMany({
+        where: { stickerId: report.sticker.id, status: "open" },
+        data: { status: "upheld", resolvedAt: new Date() },
+      })
     })
     return { ok: true }
   })

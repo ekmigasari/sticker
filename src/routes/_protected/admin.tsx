@@ -17,6 +17,7 @@ export const Route = createFileRoute("/_protected/admin")({
 
 const TABS = [
   { to: "/admin", label: "Overview", exact: true },
+  { to: "/admin/reports", label: "Reports", exact: false },
   { to: "/admin/users", label: "Users", exact: false },
   { to: "/admin/stickers", label: "Stickers", exact: false },
 ] as const

@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { ModeratedStickerList, UserList } from "@/components/admin/admin-rows"
+import { ReportList } from "@/components/admin/report-list"
 import { Section, formatDollars } from "@/components/admin/admin-ui"
 import { getAdminOverview } from "@/lib/admin"
 import { cn } from "@/lib/utils"
@@ -73,6 +74,13 @@ function AdminOverviewPage() {
         >
           <Stat label="Archived" value={o.archived} />
         </Link>
+        <Link to="/admin/reports" className={statLink}>
+          <Stat
+            label="Open reports"
+            value={o.openReports}
+            alert={o.openReports > 0}
+          />
+        </Link>
       </div>
 
       <Section title="Newest users" action={<SeeAll to="/admin/users" />}>
@@ -80,6 +88,14 @@ function AdminOverviewPage() {
           <UserList users={o.recentUsers} />
         ) : (
           <p className="text-[15px] text-neutral-500">No users yet.</p>
+        )}
+      </Section>
+
+      <Section title="Open reports" action={<SeeAll to="/admin/reports" />}>
+        {o.recentReports.length ? (
+          <ReportList reports={o.recentReports} />
+        ) : (
+          <p className="text-[15px] text-neutral-500">No open reports.</p>
         )}
       </Section>
 
@@ -127,7 +143,11 @@ function Stat({
   )
 }
 
-function SeeAll({ to }: { to: "/admin/users" | "/admin/stickers" }) {
+function SeeAll({
+  to,
+}: {
+  to: "/admin/users" | "/admin/stickers" | "/admin/reports"
+}) {
   return (
     <Link
       to={to}

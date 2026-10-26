@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { auth } from "@/lib/auth"
 import { MAX_UPLOAD_BYTES, safeFileName } from "@/lib/files"
 import { prisma } from "@/lib/prisma"
+import { enforceRateLimit, RATE_RULES } from "@/lib/rate-limit"
 import { putObject } from "@/lib/s3"
 
 export const Route = createFileRoute("/api/uploads/")({
@@ -12,6 +13,11 @@ export const Route = createFileRoute("/api/uploads/")({
         if (!session) {
           return Response.json({ error: "Unauthorized" }, { status: 401 })
         }
+        const limited = await enforceRateLimit(
+          session.user.id,
+          RATE_RULES.upload
+        )
+        if (limited) return limited
 
         const form = await request.formData()
         const file = form.get("file")

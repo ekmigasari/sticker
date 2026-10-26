@@ -24,6 +24,7 @@ import {
   wallStatus,
 } from "@/components/stickers/wall-status"
 import { PeelToVisit } from "@/components/stickers/peel-to-visit"
+import { ReportSticker } from "@/components/stickers/report-sticker"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { StickerPromo } from "@/components/sticker-promo"
 import { StickerRow } from "@/components/sticker-row"
@@ -93,6 +94,8 @@ type Props = {
   onRestore?: (quote: RestoreQuote) => void
   /** Owner only: pick a new spot and size for a plot. */
   move?: MoveAction
+  /** Public page: anyone who isn't the owner can report the sticker. */
+  report?: { slug: string; signedIn: boolean }
 }
 
 type MoveAction = {
@@ -110,6 +113,7 @@ export function StickerDetail({
   notice,
   onRestore,
   move,
+  report,
 }: Props) {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -382,6 +386,16 @@ export function StickerDetail({
           </InfoRow>
         </dl>
       </Section>
+
+      {report ? (
+        <div className="mt-6 flex justify-center">
+          <ReportSticker
+            stickerId={sticker.id}
+            slug={report.slug}
+            signedIn={report.signedIn}
+          />
+        </div>
+      ) : null}
 
       <Section
         title={`More in ${sticker.category}`}

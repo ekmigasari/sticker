@@ -17,6 +17,7 @@ import {
   TOP_STICKER_ORDER,
 } from "@/lib/sticker-api"
 import { prisma } from "@/lib/prisma"
+import { enforceRateLimit, RATE_RULES } from "@/lib/rate-limit"
 import { putObject } from "@/lib/s3"
 import { parsePlacementInput, placeOnWall } from "@/lib/wall"
 
@@ -77,6 +78,11 @@ export const Route = createFileRoute("/api/stickers/")({
         if (!session) {
           return Response.json({ error: "Unauthorized" }, { status: 401 })
         }
+        const limited = await enforceRateLimit(
+          session.user.id,
+          RATE_RULES.stickerCreate
+        )
+        if (limited) return limited
 
         const form = await request.formData()
         const file = form.get("file")

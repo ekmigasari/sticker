@@ -31,6 +31,7 @@ model User {
   accounts      Account[]
   uploads       Upload[]
   stickers      Sticker[]
+  reports       Report[]
 
   @@unique([email])
   @@map("user")
@@ -134,6 +135,7 @@ model Sticker {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   placements       Placement[]
+  reports          Report[]
 
   @@index([userId])
   @@index([category])
@@ -171,4 +173,44 @@ model Placement {
   @@index([visibleShare])
   @@index([x, y])
   @@map("placement")
+}
+
+/// Better Auth rate-limit rows. `lastRequest` is epoch milliseconds.
+model RateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@map("rateLimit")
+}
+
+/// Fixed-window counters for application writes (uploads, stickers, reports).
+model ApiRateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@map("api_rate_limit")
+}
+
+/// A signed-in user flagging a sticker. One open report per person per sticker.
+model Report {
+  id         String    @id
+  stickerId  String
+  sticker    Sticker   @relation(fields: [stickerId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User      @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  /// One of the ids in `REPORT_REASONS`.
+  reason     String
+  details    String    @default("")
+  /// open | upheld | dismissed
+  status     String    @default("open")
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([reporterId])
+  @@index([stickerId])
+  @@map("report")
 }

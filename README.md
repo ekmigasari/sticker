@@ -70,6 +70,12 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000). Set `BETTER_AUTH_SECRET` in `.env` before signing in. The example database and S3 values match `docker-compose.yml`.
 
+The production image is `Dockerfile` (Node 26). It applies migrations, then starts the server. Postgres in Compose stays on 16 so an existing data volume keeps working.
+
+```bash
+docker compose --profile app up --build
+```
+
 ## Auth, database, and uploads
 
 - **Better Auth** handles email and password accounts at `/sign-up` and `/sign-in`.

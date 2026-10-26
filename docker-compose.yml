@@ -9,6 +9,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xmigas -d xmigas"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
@@ -21,6 +26,32 @@ services:
       - "9001:9001"
     volumes:
       - minio:/data
+
+  # Production image. Local development keeps using `pnpm dev` against the
+  # postgres and minio services above: `docker compose --profile app up --build`
+  app:
+    profiles: ["app"]
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://xmigas:xmigas@postgres:5432/xmigas
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-replace-with-a-random-string-at-least-32-characters}
+      BETTER_AUTH_URL: http://localhost:3000
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: uploads
+      S3_ACCESS_KEY_ID: minio
+      S3_SECRET_ACCESS_KEY: minio12345
+      S3_FORCE_PATH_STYLE: "true"
+      S3_AUTO_CREATE_BUCKET: "true"
+      TRUSTED_PROXIES: "127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
 
 volumes:
   postgres:

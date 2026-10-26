@@ -27,10 +27,12 @@ import { Route as StickerSlugRouteImport } from './routes/sticker.$slug'
 import { Route as StickersIndexRouteImport } from './routes/stickers.index'
 import { Route as StickersSlugRouteImport } from './routes/stickers.$slug'
 import { Route as ProtectedAdminIndexRouteImport } from './routes/_protected/admin/index'
+import { Route as ProtectedAdminReportsRouteImport } from './routes/_protected/admin/reports'
 import { Route as ProtectedAdminStickersRouteImport } from './routes/_protected/admin/stickers'
 import { Route as ProtectedDashboardIndexRouteImport } from './routes/_protected/dashboard/index'
 import { Route as ApiAccountEmailRouteImport } from './routes/api/account/email'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiReportsIndexRouteImport } from './routes/api/reports/index'
 import { Route as ApiStickersIndexRouteImport } from './routes/api/stickers/index'
 import { Route as ApiStickersIdRouteImport } from './routes/api/stickers/$id'
 import { Route as ApiUploadsIndexRouteImport } from './routes/api/uploads/index'
@@ -132,6 +134,11 @@ const ProtectedAdminIndexRoute = ProtectedAdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProtectedAdminRoute,
 } as any)
+const ProtectedAdminReportsRoute = ProtectedAdminReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => ProtectedAdminRoute,
+} as any)
 const ProtectedAdminStickersRoute = ProtectedAdminStickersRouteImport.update({
   id: '/stickers',
   path: '/stickers',
@@ -150,6 +157,11 @@ const ApiAccountEmailRoute = ApiAccountEmailRouteImport.update({
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReportsIndexRoute = ApiReportsIndexRouteImport.update({
+  id: '/api/reports/',
+  path: '/api/reports/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStickersIndexRoute = ApiStickersIndexRouteImport.update({
@@ -228,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/sticker/$slug': typeof StickerSlugRoute
   '/stickers/$slug': typeof StickersSlugRoute
   '/stickers/': typeof StickersIndexRoute
+  '/admin/reports': typeof ProtectedAdminReportsRoute
   '/admin/stickers': typeof ProtectedAdminStickersRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -235,6 +248,7 @@ export interface FileRoutesByFullPath {
   '/api/uploads/$id': typeof ApiUploadsIdRoute
   '/admin/': typeof ProtectedAdminIndexRoute
   '/dashboard/': typeof ProtectedDashboardIndexRoute
+  '/api/reports/': typeof ApiReportsIndexRoute
   '/api/stickers/': typeof ApiStickersIndexRoute
   '/api/uploads/': typeof ApiUploadsIndexRoute
   '/admin/users/$id': typeof ProtectedAdminUsersIdRoute
@@ -260,6 +274,7 @@ export interface FileRoutesByTo {
   '/sticker/$slug': typeof StickerSlugRoute
   '/stickers/$slug': typeof StickersSlugRoute
   '/stickers': typeof StickersIndexRoute
+  '/admin/reports': typeof ProtectedAdminReportsRoute
   '/admin/stickers': typeof ProtectedAdminStickersRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -267,6 +282,7 @@ export interface FileRoutesByTo {
   '/api/uploads/$id': typeof ApiUploadsIdRoute
   '/admin': typeof ProtectedAdminIndexRoute
   '/dashboard': typeof ProtectedDashboardIndexRoute
+  '/api/reports': typeof ApiReportsIndexRoute
   '/api/stickers': typeof ApiStickersIndexRoute
   '/api/uploads': typeof ApiUploadsIndexRoute
   '/admin/users/$id': typeof ProtectedAdminUsersIdRoute
@@ -296,6 +312,7 @@ export interface FileRoutesById {
   '/sticker/$slug': typeof StickerSlugRoute
   '/stickers/$slug': typeof StickersSlugRoute
   '/stickers/': typeof StickersIndexRoute
+  '/_protected/admin/reports': typeof ProtectedAdminReportsRoute
   '/_protected/admin/stickers': typeof ProtectedAdminStickersRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -303,6 +320,7 @@ export interface FileRoutesById {
   '/api/uploads/$id': typeof ApiUploadsIdRoute
   '/_protected/admin/': typeof ProtectedAdminIndexRoute
   '/_protected/dashboard/': typeof ProtectedDashboardIndexRoute
+  '/api/reports/': typeof ApiReportsIndexRoute
   '/api/stickers/': typeof ApiStickersIndexRoute
   '/api/uploads/': typeof ApiUploadsIndexRoute
   '/_protected/admin/users/$id': typeof ProtectedAdminUsersIdRoute
@@ -332,6 +350,7 @@ export interface FileRouteTypes {
     | '/sticker/$slug'
     | '/stickers/$slug'
     | '/stickers/'
+    | '/admin/reports'
     | '/admin/stickers'
     | '/api/account/email'
     | '/api/auth/$'
@@ -339,6 +358,7 @@ export interface FileRouteTypes {
     | '/api/uploads/$id'
     | '/admin/'
     | '/dashboard/'
+    | '/api/reports/'
     | '/api/stickers/'
     | '/api/uploads/'
     | '/admin/users/$id'
@@ -364,6 +384,7 @@ export interface FileRouteTypes {
     | '/sticker/$slug'
     | '/stickers/$slug'
     | '/stickers'
+    | '/admin/reports'
     | '/admin/stickers'
     | '/api/account/email'
     | '/api/auth/$'
@@ -371,6 +392,7 @@ export interface FileRouteTypes {
     | '/api/uploads/$id'
     | '/admin'
     | '/dashboard'
+    | '/api/reports'
     | '/api/stickers'
     | '/api/uploads'
     | '/admin/users/$id'
@@ -399,6 +421,7 @@ export interface FileRouteTypes {
     | '/sticker/$slug'
     | '/stickers/$slug'
     | '/stickers/'
+    | '/_protected/admin/reports'
     | '/_protected/admin/stickers'
     | '/api/account/email'
     | '/api/auth/$'
@@ -406,6 +429,7 @@ export interface FileRouteTypes {
     | '/api/uploads/$id'
     | '/_protected/admin/'
     | '/_protected/dashboard/'
+    | '/api/reports/'
     | '/api/stickers/'
     | '/api/uploads/'
     | '/_protected/admin/users/$id'
@@ -436,6 +460,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiStickersIdRoute: typeof ApiStickersIdRouteWithChildren
   ApiUploadsIdRoute: typeof ApiUploadsIdRoute
+  ApiReportsIndexRoute: typeof ApiReportsIndexRoute
   ApiStickersIndexRoute: typeof ApiStickersIndexRoute
   ApiUploadsIndexRoute: typeof ApiUploadsIndexRoute
 }
@@ -568,6 +593,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedAdminIndexRouteImport
       parentRoute: typeof ProtectedAdminRoute
     }
+    '/_protected/admin/reports': {
+      id: '/_protected/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof ProtectedAdminReportsRouteImport
+      parentRoute: typeof ProtectedAdminRoute
+    }
     '/_protected/admin/stickers': {
       id: '/_protected/admin/stickers'
       path: '/stickers'
@@ -594,6 +626,13 @@ declare module '@tanstack/react-router' {
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/reports/': {
+      id: '/api/reports/'
+      path: '/api/reports'
+      fullPath: '/api/reports/'
+      preLoaderRoute: typeof ApiReportsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/stickers/': {
@@ -677,6 +716,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface ProtectedAdminRouteChildren {
+  ProtectedAdminReportsRoute: typeof ProtectedAdminReportsRoute
   ProtectedAdminStickersRoute: typeof ProtectedAdminStickersRoute
   ProtectedAdminIndexRoute: typeof ProtectedAdminIndexRoute
   ProtectedAdminUsersIdRoute: typeof ProtectedAdminUsersIdRoute
@@ -684,6 +724,7 @@ interface ProtectedAdminRouteChildren {
 }
 
 const ProtectedAdminRouteChildren: ProtectedAdminRouteChildren = {
+  ProtectedAdminReportsRoute: ProtectedAdminReportsRoute,
   ProtectedAdminStickersRoute: ProtectedAdminStickersRoute,
   ProtectedAdminIndexRoute: ProtectedAdminIndexRoute,
   ProtectedAdminUsersIdRoute: ProtectedAdminUsersIdRoute,
@@ -760,6 +801,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiStickersIdRoute: ApiStickersIdRouteWithChildren,
   ApiUploadsIdRoute: ApiUploadsIdRoute,
+  ApiReportsIndexRoute: ApiReportsIndexRoute,
   ApiStickersIndexRoute: ApiStickersIndexRoute,
   ApiUploadsIndexRoute: ApiUploadsIndexRoute,
 }

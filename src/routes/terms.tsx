@@ -9,7 +9,7 @@ export const Route = createFileRoute("/terms")({
   component: TermsPage,
 })
 
-const LAST_UPDATED = "October 11, 2026"
+const LAST_UPDATED = "October 26, 2026"
 
 function TermsPage() {
   return (
@@ -172,9 +172,10 @@ function TermsPage() {
               warning. We may report illegal content to the authorities.
             </p>
             <p>
-              See something that breaks these rules, or content that infringes
-              your rights? <ContactLink>Contact us</ContactLink> with a link to
-              the sticker and we&apos;ll look into it.
+              See something that breaks these rules? Use Report on the sticker
+              page. We review those reports and can take the sticker down.
+              Content that infringes your rights can also be sent that way, or{" "}
+              <ContactLink>contact us</ContactLink> with a link to the sticker.
             </p>
           </Section>
 
@@ -242,11 +243,13 @@ function TermsPage() {
 
           <Section n={14} title="Closing your account">
             <p>
-              You can stop using the Service at any time.{" "}
-              <ContactLink>Contact us</ContactLink> to close your account.
-              Closing it removes your listings, and spots you&apos;ve paid for
-              aren&apos;t refunded. Sections 4, 5, 11, 12 and 13 still apply
-              after your account is closed.
+              You can stop using the Service at any time, and you can delete
+              your account yourself from Edit Profile. Deleting it removes your
+              profile, email, password, sessions, stickers, wall plots and
+              uploaded files. Spots you&apos;ve already paid for aren&apos;t
+              refunded, and the deletion can&apos;t be undone. Short-lived
+              backup copies may remain until those backups expire. Sections 4,
+              5, 11, 12 and 13 still apply after your account is closed.
             </p>
           </Section>
 

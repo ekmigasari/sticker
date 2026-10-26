@@ -1,8 +1,9 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { Readable } from "node:stream"
 import {
   CreateBucketCommand,
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
@@ -57,9 +58,12 @@ export async function ensureBucket() {
   }
 }
 
+function objectPath(key: string) {
+  return path.join(localDir(), getBucket(), key)
+}
+
 async function localPath(key: string) {
-  const root = localDir()
-  const full = path.join(root, getBucket(), key)
+  const full = objectPath(key)
   await mkdir(path.dirname(full), { recursive: true })
   return full
 }
@@ -83,6 +87,23 @@ export async function putObject(
       Key: key,
       Body: body,
       ContentType: contentType,
+    })
+  )
+}
+
+/** Removes a stored object. A missing object is not an error. */
+export async function deleteObject(key: string) {
+  if (localDir()) {
+    const filePath = objectPath(key)
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.meta.json`, { force: true })
+    return
+  }
+
+  await getS3().send(
+    new DeleteObjectCommand({
+      Bucket: getBucket(),
+      Key: key,
     })
   )
 }

@@ -36,7 +36,7 @@ placements (
 )
 
 reports (
-  id, placement_id, reason, status, created_at
+  id, sticker_id, reporter_id, reason, details, status, created_at, resolved_at
 )
 ```
 
@@ -56,7 +56,7 @@ reports (
 | POST   | `/api/webhooks/stripe` | Confirm pay → write placement |
 | GET    | `/api/products` | Directory search |
 | GET    | `/api/products/:id` | Product detail + placements |
-| POST   | `/api/reports` | Report sticker |
+| POST   | `/api/reports` | Signed-in user reports a sticker. Admins review the queue at `/admin/reports`. |
 
 ## Moderation
 

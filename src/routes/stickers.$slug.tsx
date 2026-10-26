@@ -22,12 +22,18 @@ export const Route = createFileRoute("/stickers/$slug")({
 
 function StickerPage() {
   const { sticker, all } = Route.useLoaderData()
+  const { session } = Route.useRouteContext()
+  const signedIn = Boolean(session)
+  const isOwner = Boolean(sticker && session?.user.id === sticker.userId)
   return (
     <AppChrome>
       <StickerDetail
         sticker={sticker}
         all={all}
         back={{ to: "/stickers", label: "Stickers" }}
+        report={
+          sticker && !isOwner ? { slug: sticker.slug, signedIn } : undefined
+        }
       />
     </AppChrome>
   )
