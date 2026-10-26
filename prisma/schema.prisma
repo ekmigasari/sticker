@@ -32,6 +32,7 @@ model User {
   uploads       Upload[]
   stickers      Sticker[]
   reports       Report[]
+  printSheets   PrintSheet[]
 
   @@unique([email])
   @@map("user")
@@ -136,6 +137,7 @@ model Sticker {
   updatedAt        DateTime    @updatedAt
   placements       Placement[]
   reports          Report[]
+  printItems       PrintSheetItem[]
 
   @@index([userId])
   @@index([category])
@@ -213,4 +215,42 @@ model Report {
   @@index([reporterId])
   @@index([stickerId])
   @@map("report")
+}
+
+/// A page of stickers someone saved on their account so they can print it again.
+model PrintSheet {
+  id        String           @id
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  /// a4 | letter | a5 | a3 | custom
+  paper     String
+  widthMm   Int
+  heightMm  Int
+  /// Default longest side, in millimetres, for a sticker added to this paper.
+  stickerMm Int
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  items     PrintSheetItem[]
+
+  @@index([userId, updatedAt])
+  @@map("print_sheet")
+}
+
+/// One copy of a sticker, placed and sized on the paper.
+model PrintSheetItem {
+  id        String     @id
+  sheetId   String
+  sheet     PrintSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  stickerId String
+  sticker   Sticker    @relation(fields: [stickerId], references: [id], onDelete: Cascade)
+  xMm       Float
+  yMm       Float
+  wMm       Float
+  hMm       Float
+  sort      Int
+
+  @@index([sheetId, sort])
+  @@index([stickerId])
+  @@map("print_sheet_item")
 }

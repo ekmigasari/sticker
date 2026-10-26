@@ -15,6 +15,7 @@ import { Route as CategoriesRouteImport } from './routes/categories'
 import { Route as DirectoryRouteImport } from './routes/directory'
 import { Route as MakeRouteImport } from './routes/make'
 import { Route as PlaceRouteImport } from './routes/place'
+import { Route as PrintRouteImport } from './routes/print'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
@@ -32,6 +33,7 @@ import { Route as ProtectedAdminStickersRouteImport } from './routes/_protected/
 import { Route as ProtectedDashboardIndexRouteImport } from './routes/_protected/dashboard/index'
 import { Route as ApiAccountEmailRouteImport } from './routes/api/account/email'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiPrintCatalogRouteImport } from './routes/api/print/catalog'
 import { Route as ApiReportsIndexRouteImport } from './routes/api/reports/index'
 import { Route as ApiStickersIndexRouteImport } from './routes/api/stickers/index'
 import { Route as ApiStickersIdRouteImport } from './routes/api/stickers/$id'
@@ -41,6 +43,8 @@ import { Route as ProtectedAdminUsersIndexRouteImport } from './routes/_protecte
 import { Route as ProtectedAdminUsersIdRouteImport } from './routes/_protected/admin/users.$id'
 import { Route as ProtectedDashboardProductsIdRouteImport } from './routes/_protected/dashboard/products.$id'
 import { Route as ProtectedDashboardStickersSlugRouteImport } from './routes/_protected/dashboard/stickers.$slug'
+import { Route as ApiPrintSheetsIndexRouteImport } from './routes/api/print/sheets/index'
+import { Route as ApiPrintSheetsIdRouteImport } from './routes/api/print/sheets/$id'
 import { Route as ApiStickersIdImageRouteImport } from './routes/api/stickers/$id.image'
 import { Route as ApiStickersIdMoveRouteImport } from './routes/api/stickers/$id.move'
 import { Route as ApiStickersIdRestoreRouteImport } from './routes/api/stickers/$id.restore'
@@ -72,6 +76,11 @@ const MakeRoute = MakeRouteImport.update({
 const PlaceRoute = PlaceRouteImport.update({
   id: '/place',
   path: '/place',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrintRoute = PrintRouteImport.update({
+  id: '/print',
+  path: '/print',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RulesRoute = RulesRouteImport.update({
@@ -159,6 +168,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPrintCatalogRoute = ApiPrintCatalogRouteImport.update({
+  id: '/api/print/catalog',
+  path: '/api/print/catalog',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiReportsIndexRoute = ApiReportsIndexRouteImport.update({
   id: '/api/reports/',
   path: '/api/reports/',
@@ -207,6 +221,16 @@ const ProtectedDashboardStickersSlugRoute =
     path: '/stickers/$slug',
     getParentRoute: () => ProtectedDashboardRoute,
   } as any)
+const ApiPrintSheetsIndexRoute = ApiPrintSheetsIndexRouteImport.update({
+  id: '/api/print/sheets/',
+  path: '/api/print/sheets/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPrintSheetsIdRoute = ApiPrintSheetsIdRouteImport.update({
+  id: '/api/print/sheets/$id',
+  path: '/api/print/sheets/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStickersIdImageRoute = ApiStickersIdImageRouteImport.update({
   id: '/image',
   path: '/image',
@@ -229,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/directory': typeof DirectoryRoute
   '/make': typeof MakeRoute
   '/place': typeof PlaceRoute
+  '/print': typeof PrintRoute
   '/rules': typeof RulesRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
@@ -244,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/admin/stickers': typeof ProtectedAdminStickersRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/print/catalog': typeof ApiPrintCatalogRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
   '/admin/': typeof ProtectedAdminIndexRoute
@@ -254,10 +280,12 @@ export interface FileRoutesByFullPath {
   '/admin/users/$id': typeof ProtectedAdminUsersIdRoute
   '/dashboard/products/$id': typeof ProtectedDashboardProductsIdRoute
   '/dashboard/stickers/$slug': typeof ProtectedDashboardStickersSlugRoute
+  '/api/print/sheets/$id': typeof ApiPrintSheetsIdRoute
   '/api/stickers/$id/image': typeof ApiStickersIdImageRoute
   '/api/stickers/$id/move': typeof ApiStickersIdMoveRoute
   '/api/stickers/$id/restore': typeof ApiStickersIdRestoreRoute
   '/admin/users/': typeof ProtectedAdminUsersIndexRoute
+  '/api/print/sheets/': typeof ApiPrintSheetsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -265,6 +293,7 @@ export interface FileRoutesByTo {
   '/directory': typeof DirectoryRoute
   '/make': typeof MakeRoute
   '/place': typeof PlaceRoute
+  '/print': typeof PrintRoute
   '/rules': typeof RulesRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
@@ -278,6 +307,7 @@ export interface FileRoutesByTo {
   '/admin/stickers': typeof ProtectedAdminStickersRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/print/catalog': typeof ApiPrintCatalogRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
   '/admin': typeof ProtectedAdminIndexRoute
@@ -288,10 +318,12 @@ export interface FileRoutesByTo {
   '/admin/users/$id': typeof ProtectedAdminUsersIdRoute
   '/dashboard/products/$id': typeof ProtectedDashboardProductsIdRoute
   '/dashboard/stickers/$slug': typeof ProtectedDashboardStickersSlugRoute
+  '/api/print/sheets/$id': typeof ApiPrintSheetsIdRoute
   '/api/stickers/$id/image': typeof ApiStickersIdImageRoute
   '/api/stickers/$id/move': typeof ApiStickersIdMoveRoute
   '/api/stickers/$id/restore': typeof ApiStickersIdRestoreRoute
   '/admin/users': typeof ProtectedAdminUsersIndexRoute
+  '/api/print/sheets': typeof ApiPrintSheetsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -301,6 +333,7 @@ export interface FileRoutesById {
   '/directory': typeof DirectoryRoute
   '/make': typeof MakeRoute
   '/place': typeof PlaceRoute
+  '/print': typeof PrintRoute
   '/rules': typeof RulesRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
@@ -316,6 +349,7 @@ export interface FileRoutesById {
   '/_protected/admin/stickers': typeof ProtectedAdminStickersRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/print/catalog': typeof ApiPrintCatalogRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
   '/_protected/admin/': typeof ProtectedAdminIndexRoute
@@ -326,10 +360,12 @@ export interface FileRoutesById {
   '/_protected/admin/users/$id': typeof ProtectedAdminUsersIdRoute
   '/_protected/dashboard/products/$id': typeof ProtectedDashboardProductsIdRoute
   '/_protected/dashboard/stickers/$slug': typeof ProtectedDashboardStickersSlugRoute
+  '/api/print/sheets/$id': typeof ApiPrintSheetsIdRoute
   '/api/stickers/$id/image': typeof ApiStickersIdImageRoute
   '/api/stickers/$id/move': typeof ApiStickersIdMoveRoute
   '/api/stickers/$id/restore': typeof ApiStickersIdRestoreRoute
   '/_protected/admin/users/': typeof ProtectedAdminUsersIndexRoute
+  '/api/print/sheets/': typeof ApiPrintSheetsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -339,6 +375,7 @@ export interface FileRouteTypes {
     | '/directory'
     | '/make'
     | '/place'
+    | '/print'
     | '/rules'
     | '/sign-in'
     | '/sign-up'
@@ -354,6 +391,7 @@ export interface FileRouteTypes {
     | '/admin/stickers'
     | '/api/account/email'
     | '/api/auth/$'
+    | '/api/print/catalog'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
     | '/admin/'
@@ -364,10 +402,12 @@ export interface FileRouteTypes {
     | '/admin/users/$id'
     | '/dashboard/products/$id'
     | '/dashboard/stickers/$slug'
+    | '/api/print/sheets/$id'
     | '/api/stickers/$id/image'
     | '/api/stickers/$id/move'
     | '/api/stickers/$id/restore'
     | '/admin/users/'
+    | '/api/print/sheets/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -375,6 +415,7 @@ export interface FileRouteTypes {
     | '/directory'
     | '/make'
     | '/place'
+    | '/print'
     | '/rules'
     | '/sign-in'
     | '/sign-up'
@@ -388,6 +429,7 @@ export interface FileRouteTypes {
     | '/admin/stickers'
     | '/api/account/email'
     | '/api/auth/$'
+    | '/api/print/catalog'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
     | '/admin'
@@ -398,10 +440,12 @@ export interface FileRouteTypes {
     | '/admin/users/$id'
     | '/dashboard/products/$id'
     | '/dashboard/stickers/$slug'
+    | '/api/print/sheets/$id'
     | '/api/stickers/$id/image'
     | '/api/stickers/$id/move'
     | '/api/stickers/$id/restore'
     | '/admin/users'
+    | '/api/print/sheets'
   id:
     | '__root__'
     | '/'
@@ -410,6 +454,7 @@ export interface FileRouteTypes {
     | '/directory'
     | '/make'
     | '/place'
+    | '/print'
     | '/rules'
     | '/sign-in'
     | '/sign-up'
@@ -425,6 +470,7 @@ export interface FileRouteTypes {
     | '/_protected/admin/stickers'
     | '/api/account/email'
     | '/api/auth/$'
+    | '/api/print/catalog'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
     | '/_protected/admin/'
@@ -435,10 +481,12 @@ export interface FileRouteTypes {
     | '/_protected/admin/users/$id'
     | '/_protected/dashboard/products/$id'
     | '/_protected/dashboard/stickers/$slug'
+    | '/api/print/sheets/$id'
     | '/api/stickers/$id/image'
     | '/api/stickers/$id/move'
     | '/api/stickers/$id/restore'
     | '/_protected/admin/users/'
+    | '/api/print/sheets/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -448,6 +496,7 @@ export interface RootRouteChildren {
   DirectoryRoute: typeof DirectoryRoute
   MakeRoute: typeof MakeRoute
   PlaceRoute: typeof PlaceRoute
+  PrintRoute: typeof PrintRoute
   RulesRoute: typeof RulesRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
@@ -458,11 +507,14 @@ export interface RootRouteChildren {
   StickersIndexRoute: typeof StickersIndexRoute
   ApiAccountEmailRoute: typeof ApiAccountEmailRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiPrintCatalogRoute: typeof ApiPrintCatalogRoute
   ApiStickersIdRoute: typeof ApiStickersIdRouteWithChildren
   ApiUploadsIdRoute: typeof ApiUploadsIdRoute
   ApiReportsIndexRoute: typeof ApiReportsIndexRoute
   ApiStickersIndexRoute: typeof ApiStickersIndexRoute
   ApiUploadsIndexRoute: typeof ApiUploadsIndexRoute
+  ApiPrintSheetsIdRoute: typeof ApiPrintSheetsIdRoute
+  ApiPrintSheetsIndexRoute: typeof ApiPrintSheetsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -507,6 +559,13 @@ declare module '@tanstack/react-router' {
       path: '/place'
       fullPath: '/place'
       preLoaderRoute: typeof PlaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/print': {
+      id: '/print'
+      path: '/print'
+      fullPath: '/print'
+      preLoaderRoute: typeof PrintRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rules': {
@@ -628,6 +687,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/print/catalog': {
+      id: '/api/print/catalog'
+      path: '/api/print/catalog'
+      fullPath: '/api/print/catalog'
+      preLoaderRoute: typeof ApiPrintCatalogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/reports/': {
       id: '/api/reports/'
       path: '/api/reports'
@@ -690,6 +756,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/stickers/$slug'
       preLoaderRoute: typeof ProtectedDashboardStickersSlugRouteImport
       parentRoute: typeof ProtectedDashboardRoute
+    }
+    '/api/print/sheets/': {
+      id: '/api/print/sheets/'
+      path: '/api/print/sheets'
+      fullPath: '/api/print/sheets/'
+      preLoaderRoute: typeof ApiPrintSheetsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/print/sheets/$id': {
+      id: '/api/print/sheets/$id'
+      path: '/api/print/sheets/$id'
+      fullPath: '/api/print/sheets/$id'
+      preLoaderRoute: typeof ApiPrintSheetsIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/stickers/$id/image': {
       id: '/api/stickers/$id/image'
@@ -789,6 +869,7 @@ const rootRouteChildren: RootRouteChildren = {
   DirectoryRoute: DirectoryRoute,
   MakeRoute: MakeRoute,
   PlaceRoute: PlaceRoute,
+  PrintRoute: PrintRoute,
   RulesRoute: RulesRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
@@ -799,11 +880,14 @@ const rootRouteChildren: RootRouteChildren = {
   StickersIndexRoute: StickersIndexRoute,
   ApiAccountEmailRoute: ApiAccountEmailRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiPrintCatalogRoute: ApiPrintCatalogRoute,
   ApiStickersIdRoute: ApiStickersIdRouteWithChildren,
   ApiUploadsIdRoute: ApiUploadsIdRoute,
   ApiReportsIndexRoute: ApiReportsIndexRoute,
   ApiStickersIndexRoute: ApiStickersIndexRoute,
   ApiUploadsIndexRoute: ApiUploadsIndexRoute,
+  ApiPrintSheetsIdRoute: ApiPrintSheetsIdRoute,
+  ApiPrintSheetsIndexRoute: ApiPrintSheetsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

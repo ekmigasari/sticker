@@ -41,22 +41,34 @@ function coerceLastRequest(value: unknown): void {
   }
 }
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
-
-const base = new PrismaClient({ adapter }).$extends({
-  query: {
-    rateLimit: {
-      $allOperations({ args, query }) {
-        coerceLastRequest(args)
-        return query(args)
+function createClient(): PrismaClient {
+  return new PrismaClient({ adapter }).$extends({
+    query: {
+      rateLimit: {
+        $allOperations({ args, query }) {
+          coerceLastRequest(args)
+          return query(args)
+        },
       },
     },
-  },
-})
+  }) as unknown as PrismaClient
+}
 
-export const prisma = (globalForPrisma.prisma ??
-  base) as unknown as PrismaClient
+/**
+ * Dev reuses one client across reloads, but only while it was built from the
+ * same generated client. After `prisma generate` the class changes, so a
+ * cached client would still validate against the old schema.
+ */
+const globalForPrisma = globalThis as unknown as {
+  prismaCache?: { client: PrismaClient; source: typeof PrismaClient }
+}
+
+const cached = globalForPrisma.prismaCache
+const reusable = cached?.source === PrismaClient ? cached.client : null
+if (cached && !reusable) void cached.client.$disconnect().catch(() => {})
+
+export const prisma = reusable ?? createClient()
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma
+  globalForPrisma.prismaCache = { client: prisma, source: PrismaClient }
 }

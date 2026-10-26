@@ -11,6 +11,7 @@ import {
   PaintBrush,
   Palette,
   Plus,
+  Printer,
   PushPin,
   Ruler,
   SlidersHorizontal,
@@ -149,6 +150,7 @@ type Props = {
   actionsOpen: boolean
   onActionsOpenChange: (open: boolean) => void
   onDownload: () => void
+  onPrint: () => void
   onPlace: () => void
   onNewSticker: () => void
   placeLabel: string
@@ -164,6 +166,7 @@ export function EditorToolbar(props: Props) {
     actionsOpen,
     onActionsOpenChange,
     onDownload,
+    onPrint,
     onPlace,
     onNewSticker,
     placeLabel,
@@ -343,6 +346,7 @@ export function EditorToolbar(props: Props) {
                   label="Download PNG"
                   onClick={onDownload}
                 />
+                <ToolbarAction icon={Printer} label="Print" onClick={onPrint} />
                 <ToolbarAction
                   icon={PushPin}
                   label={placeLabel}

@@ -44,6 +44,12 @@ import {
   type Size,
 } from "@/lib/image-edit"
 import { useWallStore } from "@/store/wall-store"
+import { PRINT_MAKE_KEY } from "@/lib/print-layout"
+import {
+  clearMakeSession,
+  readMakeSession,
+  stashMakeSession,
+} from "./make-session"
 import { TopBar } from "@/components/layout/app-chrome"
 import { firePeelConfetti } from "./confetti"
 import { CropStage } from "./crop-stage"
@@ -206,6 +212,19 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
       window.clearTimeout(t)
     }
   }, [original, edit])
+
+  useEffect(() => {
+    if (stickerId) return
+    const t = window.setTimeout(() => {
+      const saved = readMakeSession<Look>()
+      if (!saved) return
+      setOriginal(saved.original)
+      setOriginalSize(saved.originalSize)
+      setSourceId((n) => n + 1)
+      reset(() => saved.look)
+    }, 0)
+    return () => window.clearTimeout(t)
+  }, [stickerId, reset])
 
   useEffect(() => {
     if (!source) return
@@ -458,6 +477,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
   }
 
   function resetToNew() {
+    clearMakeSession()
     setOriginal(null)
     setOriginalSize(null)
     setSourceId((n) => n + 1)
@@ -507,6 +527,37 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         maxSide: Math.round(mmToPx(sizeMm)),
       })
       downloadDataUrl(url, `sticker-${style}.png`)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function handlePrint() {
+    if (!source) return
+    setExporting(true)
+    setActionsOpen(false)
+    try {
+      const url = await renderSticker(source, {
+        style,
+        filter,
+        filterStrength: filterStrength / 100,
+        finish,
+        finishStrength: finishStrength / 100,
+        outlineColor,
+        outlineThickness: thickness,
+        maxSide: PLACE_MAX_SIDE,
+        format: "webp",
+      })
+      const { width, height } = await probeImageSize(url)
+      clearMakeSession()
+      sessionStorage.setItem(
+        PRINT_MAKE_KEY,
+        JSON.stringify({ imageUrl: url, width, height, sizeMm })
+      )
+      if (original) stashMakeSession({ original, originalSize, look })
+      void navigate({ to: "/print", search: { from: "make" } })
+    } catch {
+      setError("Couldn't prepare your sticker for print. Try again.")
     } finally {
       setExporting(false)
     }
@@ -867,6 +918,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
           actionsOpen={actionsOpen}
           onActionsOpenChange={setActionsOpen}
           onDownload={() => void handleDownload()}
+          onPrint={() => void handlePrint()}
           onPlace={requestPlace}
           onNewSticker={requestNewSticker}
           placeLabel="Put on wall"

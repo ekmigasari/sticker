@@ -14,6 +14,7 @@ import {
   CurrencyDollar,
   PencilSimple,
   Plus,
+  Printer,
   SquaresFour,
   Sticker as StickerIcon,
   X,
@@ -40,10 +41,12 @@ import {
 } from "@/domain/types"
 import type { MySticker } from "@/lib/stickers"
 import { cn } from "@/lib/utils"
+import { SavedSheets } from "@/components/print/saved-sheets"
+import type { PrintSheetSummary } from "@/lib/print-layout"
 import { FormSheet } from "./form-sheet"
 import { ProfileSheet, type Profile } from "./profile-sheet"
 
-type Tab = "book" | "wall" | "archived"
+type Tab = "book" | "wall" | "archived" | "prints"
 
 /** `page` counts spreads (two book pages, 12 slots), 1-based. */
 export type BookView = { page: number; tab: Tab }
@@ -156,11 +159,13 @@ function isTyping(target: EventTarget | null) {
 export function DashboardHome({
   user,
   stickers,
+  sheets,
   view,
   onViewChange,
 }: {
   user: Profile
   stickers: MySticker[]
+  sheets: PrintSheetSummary[]
   view: BookView
   onViewChange: (view: BookView) => void
 }) {
@@ -176,11 +181,13 @@ export function DashboardHome({
   const onWall = live.filter((e) => e.sticker.onWall > 0)
   const archived = numbered(ordered.filter((s) => s.archivedAt))
   const activeTab: Tab =
-    view.tab === "archived" && archived.length
-      ? "archived"
-      : view.tab === "wall" && live.length
-        ? "wall"
-        : "book"
+    view.tab === "prints"
+      ? "prints"
+      : view.tab === "archived" && archived.length
+        ? "archived"
+        : view.tab === "wall" && live.length
+          ? "wall"
+          : "book"
   const pages =
     activeTab === "archived"
       ? buildPages(archived)
@@ -265,6 +272,7 @@ export function DashboardHome({
       count: archived.length,
     })
   }
+  filters.push({ value: "prints", label: "Prints", count: sheets.length })
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 pt-6 sm:px-8 sm:pt-10">
@@ -296,7 +304,7 @@ export function DashboardHome({
         onRestore={() => startRestore(covered)}
       />
 
-      {live.length || archived.length ? (
+      {live.length || archived.length || sheets.length ? (
         <div className="mt-8 flex justify-center sm:mt-10 sm:justify-start">
           <Segmented
             value={activeTab}
@@ -315,24 +323,28 @@ export function DashboardHome({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
           >
-            <FlipBook
-              spreads={spreads}
-              index={spreadIndex}
-              title={
-                activeTab === "archived"
-                  ? "Archived"
-                  : activeTab === "wall"
-                    ? "On the wall"
-                    : "Sticker Book"
-              }
-              firstSticker={live.length === 0}
-              overlay={wallEmpty ? <WallEmpty /> : null}
-            />
+            {activeTab === "prints" ? (
+              <SavedSheets sheets={sheets} />
+            ) : (
+              <FlipBook
+                spreads={spreads}
+                index={spreadIndex}
+                title={
+                  activeTab === "archived"
+                    ? "Archived"
+                    : activeTab === "wall"
+                      ? "On the wall"
+                      : "Sticker Book"
+                }
+                firstSticker={live.length === 0}
+                overlay={wallEmpty ? <WallEmpty /> : null}
+              />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {spreads.length > 1 ? (
+      {activeTab !== "prints" && spreads.length > 1 ? (
         <Pager
           label={pageLabel}
           canBack={spreadIndex > 0}
@@ -647,6 +659,10 @@ function BookCover({
           >
             <PencilSimple weight="bold" className="size-[18px]" />
           </button>
+          <Link to="/print" className="nk-btn-secondary">
+            <Printer weight="bold" className="size-4" />
+            Print
+          </Link>
           <Link to="/make" className="nk-btn">
             <Plus weight="bold" className="size-4" />
             Make a sticker

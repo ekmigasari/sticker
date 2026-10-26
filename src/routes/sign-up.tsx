@@ -16,6 +16,9 @@ export const Route = createFileRoute("/sign-up")({
     if (context.session) {
       const next = safeNextPath(search.next)
       if (next === "/place") throw redirect({ to: "/place" })
+      if (next === "/print" || next.startsWith("/print?")) {
+        throw redirect({ to: "/print" })
+      }
       if (next === "/dashboard") throw redirect({ to: "/dashboard" })
       throw redirect({ to: "/dashboard" })
     }

@@ -388,7 +388,7 @@ export function StickerDetail({
       </Section>
 
       {report ? (
-        <div className="mt-6 flex justify-center">
+        <div className="mt-8 flex flex-col items-center gap-4">
           <ReportSticker
             stickerId={sticker.id}
             slug={report.slug}

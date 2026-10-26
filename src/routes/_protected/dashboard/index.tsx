@@ -4,6 +4,7 @@ import {
   DashboardHome,
   type BookView,
 } from "@/components/dashboard/dashboard-home"
+import { listMyPrintSheets } from "@/lib/print-sheet-list"
 import { listMyStickers } from "@/lib/stickers"
 
 export const Route = createFileRoute("/_protected/dashboard/")({
@@ -12,17 +13,25 @@ export const Route = createFileRoute("/_protected/dashboard/")({
     return {
       page: page > 1 ? page : undefined,
       tab:
-        search.tab === "archived" || search.tab === "wall"
+        search.tab === "archived" ||
+        search.tab === "wall" ||
+        search.tab === "prints"
           ? search.tab
           : undefined,
     }
   },
-  loader: () => listMyStickers(),
+  loader: async () => {
+    const [stickers, sheets] = await Promise.all([
+      listMyStickers(),
+      listMyPrintSheets(),
+    ])
+    return { stickers, sheets }
+  },
   component: DashboardPage,
 })
 
 function DashboardPage() {
-  const stickers = Route.useLoaderData()
+  const { stickers, sheets } = Route.useLoaderData()
   const { user } = Route.useRouteContext()
   const { page = 1, tab = "book" } = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -32,6 +41,7 @@ function DashboardPage() {
       <DashboardHome
         user={{ name: user.name, email: user.email, image: user.image }}
         stickers={stickers}
+        sheets={sheets}
         view={{ page, tab }}
         onViewChange={(next) =>
           navigate({

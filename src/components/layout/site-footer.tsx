@@ -26,7 +26,10 @@ export function SiteFooter() {
             @ekmigasari
           </a>
         </p>
-        <nav aria-label="Footer" className="mt-3 flex justify-center gap-5">
+        <nav
+          aria-label="Footer"
+          className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-2"
+        >
           {links.map((link) => (
             <Link
               key={link.to}

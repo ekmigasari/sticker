@@ -266,7 +266,7 @@ function Rule({
           <Icon weight="bold" className="size-5" />
         </span>
         <h2 className="text-[20px] leading-tight font-semibold tracking-[-0.025em] text-neutral-900">
-          <span className="mr-1.5 text-neutral-400 tabular-nums">{n}.</span>
+          <span className="mr-1.5 text-[#0071e3] tabular-nums">{n}.</span>
           {title}
         </h2>
       </div>

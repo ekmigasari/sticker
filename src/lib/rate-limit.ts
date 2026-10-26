@@ -23,6 +23,8 @@ export const RATE_RULES = {
   report: { name: "report", max: 10, windowSec: 60 * 60 },
   /** Email changes go through our route, not the auth handler. */
   emailChange: { name: "email-change", max: 5, windowSec: 15 * 60 },
+  /** Saving, updating, and deleting print sheets. */
+  printSheet: { name: "print-sheet", max: 30, windowSec: 60 * 60 },
 } as const
 
 export type RateRule = (typeof RATE_RULES)[keyof typeof RATE_RULES]
