@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 import { AuthScreen } from "@/components/auth-form"
 import { AppChrome } from "@/components/layout/app-chrome"
 import { safeNextPath } from "@/lib/auth-redirect"
+import { seo } from "@/lib/seo"
 
 type AuthSearch = { next?: string }
 
@@ -23,6 +24,13 @@ export const Route = createFileRoute("/sign-up")({
       throw redirect({ to: "/dashboard" })
     }
   },
+  head: () => ({
+    meta: seo({
+      title: "Create an account",
+      description:
+        "Get on the wall. One account for every cool thing you make.",
+    }),
+  }),
   component: SignUpPage,
 })
 

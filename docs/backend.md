@@ -1,4 +1,4 @@
-# Sticker Wall — Production Backend (Phase 5)
+# Cool Things on the Internet — Production Backend (Phase 5)
 
 Prototype today is client-only (Zustand + `localStorage`). This doc is the production contract to implement next.
 

@@ -3,6 +3,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma"
 import { admin } from "better-auth/plugins"
 import { tanstackStartCookies } from "better-auth/tanstack-start"
 import { assertSelfDeletable, purgeUserContent } from "./account-deletion"
+import { sendEmail, verificationEmail } from "./email"
 import { prisma } from "./prisma"
 
 const production = process.env.NODE_ENV === "production"
@@ -52,6 +53,14 @@ const adminEmails = (process.env.ADMIN_EMAILS ?? "")
   .map((email) => email.trim().toLowerCase())
   .filter(Boolean)
 
+const google =
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    ? {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      }
+    : undefined
+
 export const auth = betterAuth({
   secret,
   baseURL,
@@ -59,6 +68,20 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  emailVerification: {
+    sendOnSignUp: Boolean(process.env.RESEND_API_KEY),
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user, url }) => {
+      // Not awaited, so response timing doesn't reveal whether the email exists.
+      void sendEmail({
+        to: user.email,
+        ...verificationEmail(user.name, url),
+      }).catch((error: unknown) => {
+        console.error("Verification email failed", error)
+      })
+    },
+  },
+  socialProviders: google ? { google } : {},
   user: {
     // No email sender is configured, so a change applies immediately (only
     // possible while the account's email is unverified).

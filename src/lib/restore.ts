@@ -1,4 +1,5 @@
 import type { Placement } from "@/domain/types"
+import { readPurchase } from "@/lib/checkout-client"
 import type { StickerRankPair } from "@/lib/ranks"
 import type { StickerDTO } from "@/lib/sticker-api"
 
@@ -33,16 +34,14 @@ export async function restoreSticker(input: {
       expectedPrice: input.expectedPrice,
     }),
   })
-  const payload = (await response.json().catch(() => null)) as {
-    error?: string
-    price?: number
-  } | null
-  if (!response.ok) {
-    if (response.status === 409 && typeof payload?.price === "number") {
+  if (response.status === 409) {
+    const payload = (await response
+      .clone()
+      .json()
+      .catch(() => null)) as { price?: number } | null
+    if (typeof payload?.price === "number") {
       throw new PriceChangedError(payload.price)
     }
-    if (response.status === 401) throw new Error("Sign in to restore it.")
-    throw new Error(payload?.error ?? "Could not restore your sticker.")
   }
-  return payload as Awaited<ReturnType<typeof restoreSticker>>
+  return readPurchase(response, "Sign in to restore it.")
 }

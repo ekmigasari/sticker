@@ -1,4 +1,4 @@
-# Sticker Wall — Product Brief (MVP)
+# Cool Things on the Internet — Product Brief (MVP)
 
 ## One-liner
 

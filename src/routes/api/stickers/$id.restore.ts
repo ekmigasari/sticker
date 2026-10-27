@@ -1,10 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { auth } from "@/lib/auth"
+import { purchase } from "@/lib/payments"
 import { prisma } from "@/lib/prisma"
 import { enforceRateLimit, RATE_RULES } from "@/lib/rate-limit"
-import { ranksFor } from "@/lib/ranks"
-import { serializeSticker } from "@/lib/sticker-api"
-import { restoreOnWall } from "@/lib/wall"
+import { currentRestorePrice } from "@/lib/wall"
 
 /** Put a sticker's covered plots back on top, paying for the covered units. */
 export const Route = createFileRoute("/api/stickers/$id/restore")({
@@ -58,47 +57,29 @@ export const Route = createFileRoute("/api/stickers/$id/restore")({
           )
         }
 
-        const before = (await ranksFor([existing.id])).get(existing.id)
-        const result = await prisma.$transaction(async (tx) => {
-          const restored = await restoreOnWall(
-            tx,
-            existing.id,
-            placementIds,
-            expectedPrice
-          )
-          if (!restored.ok || !restored.price) return restored
-          await tx.sticker.update({
-            where: { id: existing.id },
-            data: { totalSpent: { increment: restored.price } },
-          })
-          return restored
-        })
-
-        if (!result.ok) {
-          return Response.json(
-            {
-              error: "The price changed while you were checking out.",
-              price: result.price,
-            },
-            { status: 409 }
-          )
-        }
-        if (!result.placements.length) {
+        const price = await currentRestorePrice(
+          prisma,
+          existing.id,
+          placementIds
+        )
+        if (!price) {
           return Response.json(
             { error: "Those spots are already fully visible." },
             { status: 409 }
           )
         }
+        if (price !== expectedPrice) {
+          return Response.json(
+            { error: "The price changed while you were checking out.", price },
+            { status: 409 }
+          )
+        }
 
-        const sticker = await prisma.sticker.findUniqueOrThrow({
-          where: { id: existing.id },
-        })
-        const after = (await ranksFor([existing.id])).get(existing.id)
-        return Response.json({
-          sticker: serializeSticker(sticker),
-          placements: result.placements,
-          price: result.price,
-          rank: after ? { before, after } : null,
+        return purchase({
+          user: session.user,
+          amount: price,
+          cancelPath: "/dashboard",
+          intent: { kind: "restore", stickerId: existing.id, placementIds },
         })
       },
     },

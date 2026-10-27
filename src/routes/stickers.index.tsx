@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { AppChrome } from "@/components/layout/app-chrome"
 import { StickerList } from "@/components/stickers/sticker-list"
+import { categoryHead, seo } from "@/lib/seo"
 import { listStickerPage } from "@/lib/stickers"
 import { WALL_FILTER, parseStickersSearch } from "@/lib/stickers-search"
 
@@ -18,7 +19,19 @@ export const Route = createFileRoute("/stickers/")({
         page: deps.page ?? 1,
       },
     }),
-  head: () => ({ meta: [{ title: "Wall of Fame · CoolThingsOnTheInternet" }] }),
+  head: ({ loaderData, match }) => {
+    const { category, q, page } = match.search
+    if (loaderData && category && category !== WALL_FILTER && !q) {
+      return categoryHead(category, loaderData.total, { canonical: !page })
+    }
+    return {
+      meta: seo({
+        title: "Wall of Fame",
+        description:
+          "Every cool thing that made the wall, in one list. Find your next favorite.",
+      }),
+    }
+  },
   component: StickersPage,
 })
 

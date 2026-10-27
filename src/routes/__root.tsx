@@ -1,9 +1,15 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
+import {
+  HeadContent,
+  Link,
+  Scripts,
+  createRootRoute,
+} from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import { useEffect } from "react"
 import { recordPageVisit } from "@/lib/analytics"
 import { getSession } from "@/lib/session"
+import { SITE_NAME, seo } from "@/lib/seo"
 
 import appCss from "../styles.css?url"
 
@@ -25,16 +31,21 @@ export const Route = createRootRoute({
         name: "theme-color",
         content: "#ffffff",
       },
-      {
-        name: "description",
-        content:
-          "CoolThingsOnTheInternet: cool things made by people on the internet. Make a sticker and put it on the wall.",
-      },
-      {
-        title: "CoolThingsOnTheInternet",
-      },
+      { name: "application-name", content: SITE_NAME },
+      { name: "apple-mobile-web-app-title", content: "Cool Things" },
+      { property: "og:site_name", content: SITE_NAME },
+      { property: "og:type", content: "website" },
+      { property: "og:locale", content: "en_US" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:creator", content: "@ekmigasari" },
+      ...seo(),
     ],
     links: [
+      {
+        rel: "icon",
+        sizes: "any",
+        href: "/favicon.ico",
+      },
       {
         rel: "icon",
         type: "image/png",
@@ -68,8 +79,15 @@ export const Route = createRootRoute({
         404
       </h1>
       <p className="mt-2 text-[15px] text-neutral-500">
-        That sticker peeled off the wall.
+        This one peeled off the wall. Plenty of cool things are still stuck up
+        there, though.
       </p>
+      <Link
+        to="/"
+        className="mt-6 inline-flex h-10 items-center rounded-full bg-neutral-900 px-5 text-[14px] font-semibold tracking-[-0.01em] text-white transition-opacity hover:opacity-90"
+      >
+        Back to the wall
+      </Link>
     </main>
   ),
   shellComponent: RootDocument,

@@ -232,7 +232,7 @@ const SEED_DEFS: SeedDef[] = [
   {
     id: "wallflower",
     name: "Wallflower",
-    oneLiner: "The first sticker on Sticker Wall.",
+    oneLiner: "The first sticker on Cool Things on the Internet.",
     url: "https://stickerwall.local",
     category: "Other",
     x: 470,

@@ -1,5 +1,6 @@
 import { Link, Outlet, createFileRoute, notFound } from "@tanstack/react-router"
 import { AppChrome } from "@/components/layout/app-chrome"
+import { SITE_NAME } from "@/lib/seo"
 
 export const Route = createFileRoute("/_protected/admin")({
   // UI gate only; every admin server function checks the role again.
@@ -8,7 +9,7 @@ export const Route = createFileRoute("/_protected/admin")({
   },
   head: () => ({
     meta: [
-      { title: "Admin · CoolThingsOnTheInternet" },
+      { title: `Admin · ${SITE_NAME}` },
       { name: "robots", content: "noindex" },
     ],
   }),

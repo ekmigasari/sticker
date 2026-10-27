@@ -135,15 +135,17 @@ export function FilterChips<T extends string>({
   options,
   value,
   onChange,
+  label = "Filter",
 }: {
   options: readonly { id: T; label: string }[]
   value: T
   onChange: (value: T) => void
+  label?: string
 }) {
   return (
     <div
       role="radiogroup"
-      aria-label="Filter"
+      aria-label={label}
       className="flex h-12 shrink-0 items-center overflow-x-auto rounded-[14px] bg-[#f5f5f7] p-1"
     >
       {options.map((o) => (

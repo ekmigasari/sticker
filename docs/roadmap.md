@@ -1,0 +1,4 @@
+- add analytics
+- setup for productions
+- move to docker
+- deploy

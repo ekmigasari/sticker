@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router"
+import { SITE_NAME } from "@/lib/seo"
 
 const links = [
   { to: "/make", label: "Make" },
@@ -12,11 +13,20 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-black/[0.06] font-ui text-[13px] tracking-[-0.01em] text-neutral-500">
       <div className="mx-auto max-w-lg px-4 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))] text-center">
-        <p>
-          <span className="font-hand text-[18px] font-bold text-neutral-900">
-            CoolThingsOnTheInternet
-          </span>{" "}
-          built by{" "}
+        <img
+          src="/logo-mark.webp"
+          alt=""
+          width={40}
+          height={40}
+          loading="lazy"
+          decoding="async"
+          className="mx-auto mb-2 size-10 select-none"
+        />
+        <p className="font-hand text-[20px] leading-tight font-bold text-neutral-900">
+          {SITE_NAME}
+        </p>
+        <p className="mt-1">
+          Make it. Stick it. Get famous. Built by{" "}
           <a
             href="https://x.com/ekmigasari"
             target="_blank"

@@ -93,9 +93,11 @@ import {
 } from "@/components/place/sheet-controls"
 import { cn } from "@/lib/utils"
 import { track } from "@/lib/analytics"
+import { EmailUnverifiedError } from "@/lib/checkout-client"
 import { publishMove, publishPlaceListing } from "@/lib/place-publish"
 import type { RankChange } from "@/lib/restore"
 import { RankMove } from "@/components/stickers/restore-sheet"
+import { VerifyEmailNotice } from "@/components/verify-email-notice"
 import { wallStickerFromDTO } from "@/lib/wall-sticker"
 import { isValidStickerUrl, normalizeStickerUrl } from "@/lib/sticker-meta"
 import { probeImageSize } from "@/lib/sticker-process"
@@ -461,6 +463,7 @@ export function PlaceFlow() {
   const [paying, setPaying] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null)
   const [saved, setSaved] = useState<{
     slug: string
     category: Category
@@ -1107,6 +1110,7 @@ export function PlaceFlow() {
 
     setSaving(true)
     setSaveError(null)
+    setUnverifiedEmail(null)
     try {
       const plot = {
         x: draft.x,
@@ -1155,21 +1159,23 @@ export function PlaceFlow() {
       })
       setStep("done")
     } catch (err) {
-      setSaveError(
-        err instanceof Error ? err.message : "Could not save sticker."
-      )
+      if (err instanceof EmailUnverifiedError) {
+        setUnverifiedEmail(err.email)
+      } else {
+        setSaveError(
+          err instanceof Error ? err.message : "Could not save sticker."
+        )
+      }
     } finally {
       setSaving(false)
       setPaying(false)
     }
   }
 
-  function mockPay() {
+  function pay() {
     if (paying || saving) return
     setPaying(true)
-    window.setTimeout(() => {
-      void finalizePlacement()
-    }, 900)
+    void finalizePlacement()
   }
 
   if (step === "done") {
@@ -1856,7 +1862,7 @@ export function PlaceFlow() {
                   {move
                     ? "It goes on top of everything."
                     : "After pay, your sticker stays where you pinned it."}{" "}
-                  Mock payment for this prototype.
+                  You pay on a secure Dodo Payments checkout.
                 </p>
               </div>
 
@@ -1891,14 +1897,10 @@ export function PlaceFlow() {
                   type="button"
                   className="nk-btn flex-1"
                   disabled={paying || saving}
-                  onClick={mockPay}
+                  onClick={pay}
                 >
                   <CreditCard weight="bold" className="size-4" />
-                  {paying || saving
-                    ? saving
-                      ? "Saving…"
-                      : "Processing…"
-                    : `Pay $${price}`}
+                  {paying || saving ? "Processing…" : `Pay $${price}`}
                 </button>
                 <button
                   type="button"
@@ -1916,6 +1918,9 @@ export function PlaceFlow() {
                 >
                   {saveError}
                 </p>
+              ) : null}
+              {unverifiedEmail ? (
+                <VerifyEmailNotice email={unverifiedEmail} />
               ) : null}
             </div>
           )}

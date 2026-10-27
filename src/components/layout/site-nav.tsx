@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ProfileAvatar } from "@/components/profile-avatar"
 import { authClient } from "@/lib/auth-client"
+import { SITE_NAME } from "@/lib/seo"
 import { cn } from "@/lib/utils"
 
 const publicLinks = [
@@ -164,23 +165,21 @@ export function BrandMark({
   return (
     <Link
       to="/"
-      aria-label={compact ? "CoolThingsOnTheInternet" : undefined}
-      className={cn(
-        "group flex items-center gap-2.5 font-ui text-neutral-900",
-        className
-      )}
+      aria-label={`${SITE_NAME} home`}
+      className={cn("group flex items-center", className)}
     >
-      <span
-        aria-hidden
-        className="grid size-8 place-items-center rounded-[10px] bg-neutral-900 pb-0.5 font-hand text-[24px] leading-none font-bold text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:scale-[1.04]"
-      >
-        C
-      </span>
-      {!compact ? (
-        <span className="font-hand text-[25px] leading-none font-bold">
-          CoolThingsOnTheInternet
-        </span>
-      ) : null}
+      <img
+        src={compact ? "/logo-mark.webp" : "/logo.webp"}
+        alt=""
+        width={compact ? 40 : 103}
+        height={compact ? 40 : 48}
+        decoding="async"
+        draggable={false}
+        className={cn(
+          "drop-shadow-[0_2px_6px_rgba(0,0,0,0.12)] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] select-none group-hover:scale-[1.04] group-active:scale-[0.97]",
+          compact ? "size-10" : "h-12 w-auto"
+        )}
+      />
     </Link>
   )
 }

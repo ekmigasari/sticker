@@ -21,8 +21,16 @@ import {
   plotPrice,
   type PlotVisibility,
 } from "@/domain/types"
+import { seo } from "@/lib/seo"
+
 export const Route = createFileRoute("/rules")({
-  head: () => ({ meta: [{ title: "Rules · CoolThingsOnTheInternet" }] }),
+  head: () => ({
+    meta: seo({
+      title: "Rules",
+      description:
+        "One wall. Newest sticker on top. $1 per unit. Here's how it works.",
+    }),
+  }),
   component: RulesPage,
 })
 

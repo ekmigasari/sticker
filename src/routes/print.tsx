@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { AppChrome } from "@/components/layout/app-chrome"
 import { PrintStudio } from "@/components/print/print-studio"
+import { seo } from "@/lib/seo"
 
 type PrintSearch = {
   from?: "make"
@@ -21,7 +22,10 @@ export const Route = createFileRoute("/print")({
         : undefined,
   }),
   head: () => ({
-    meta: [{ title: "Print stickers · CoolThingsOnTheInternet" }],
+    meta: seo({
+      title: "Print stickers",
+      description: "Print your stickers and take the wall offline.",
+    }),
   }),
   component: PrintPage,
 })

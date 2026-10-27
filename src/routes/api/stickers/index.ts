@@ -8,8 +8,8 @@ import {
 } from "@/domain/types"
 import { auth } from "@/lib/auth"
 import { MAX_UPLOAD_BYTES, safeFileName } from "@/lib/files"
+import { purchase, unverifiedBuyer } from "@/lib/payments"
 import {
-  allocateUniqueSlug,
   isCategory,
   listedStickerWhere,
   parseStickerDetails,
@@ -19,7 +19,7 @@ import {
 import { prisma } from "@/lib/prisma"
 import { enforceRateLimit, RATE_RULES } from "@/lib/rate-limit"
 import { putObject } from "@/lib/s3"
-import { parsePlacementInput, placeOnWall } from "@/lib/wall"
+import { parsePlacementInput } from "@/lib/wall"
 
 function isStyle(value: string): value is StickerStyle {
   return (STICKER_STYLES as readonly string[]).includes(value)
@@ -162,53 +162,47 @@ export const Route = createFileRoute("/api/stickers/")({
             { status: 400 }
           )
         }
-        const totalSpent = plotPrice(plot.unitsW, plot.unitsH)
+        const unverified = unverifiedBuyer(session.user)
+        if (unverified) return unverified
 
         const uploadId = crypto.randomUUID()
-        const stickerId = crypto.randomUUID()
-        const slug = await allocateUniqueSlug(parsed.data.name)
-        const fileName = safeFileName(file.name || `sticker-${stickerId}.png`)
+        const fileName = safeFileName(file.name || `sticker-${uploadId}.png`)
         const key = `stickers/${session.user.id}/${uploadId}-${fileName}`
         const bytes = new Uint8Array(await file.arrayBuffer())
 
         await putObject(key, bytes, file.type || "image/png")
+        await prisma.upload.create({
+          data: {
+            id: uploadId,
+            userId: session.user.id,
+            key,
+            fileName,
+            contentType: file.type || "image/png",
+            sizeBytes: file.size,
+          },
+        })
 
-        const { sticker, placement } = await prisma.$transaction(async (tx) => {
-          await tx.upload.create({
-            data: {
-              id: uploadId,
-              userId: session.user.id,
-              key,
-              fileName,
-              contentType: file.type || "image/png",
-              sizeBytes: file.size,
-            },
-          })
-          const created = await tx.sticker.create({
-            data: {
-              id: stickerId,
-              userId: session.user.id,
-              slug,
-              ...parsed.data,
-              uploadId,
+        const { offerExpiresOn, ...details } = parsed.data
+        return purchase({
+          user: session.user,
+          amount: plotPrice(plot.unitsW, plot.unitsH),
+          cancelPath: "/place",
+          intent: {
+            kind: "place",
+            uploadId,
+            plot,
+            listing: {
+              ...details,
+              offerExpiresOn:
+                offerExpiresOn?.toISOString().slice(0, 10) ?? null,
               style: styleRaw,
               filter: filterRaw,
               finish: finishRaw,
               outlineColor: outlineColor.slice(0, 32),
               outlineThickness: Math.round(outlineThickness),
-              totalSpent,
             },
-          })
-          return {
-            sticker: created,
-            placement: await placeOnWall(tx, stickerId, plot),
-          }
+          },
         })
-
-        return Response.json(
-          { sticker: serializeSticker(sticker), placement },
-          { status: 201 }
-        )
       },
     },
   },

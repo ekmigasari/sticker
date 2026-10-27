@@ -8,7 +8,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* CoolThingsOnTheInternet — white canvas, near-black ink, soft gray surfaces */
+  /* Cool Things on the Internet — white canvas, near-black ink, soft gray surfaces */
   --background: oklch(1 0 0);
   --foreground: oklch(0.21 0.005 260);
   --card: oklch(1 0 0);

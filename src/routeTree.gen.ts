@@ -23,6 +23,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ProtectedAdminRouteImport } from './routes/_protected/admin'
 import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dashboard'
 import { Route as ProtectedFilesRouteImport } from './routes/_protected/files'
+import { Route as CheckoutOrderIdRouteImport } from './routes/checkout.$orderId'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
 import { Route as StickerSlugRouteImport } from './routes/sticker.$slug'
 import { Route as StickersIndexRouteImport } from './routes/stickers.index'
@@ -33,6 +34,7 @@ import { Route as ProtectedAdminStickersRouteImport } from './routes/_protected/
 import { Route as ProtectedDashboardIndexRouteImport } from './routes/_protected/dashboard/index'
 import { Route as ApiAccountEmailRouteImport } from './routes/api/account/email'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiOrdersIdRouteImport } from './routes/api/orders/$id'
 import { Route as ApiPrintCatalogRouteImport } from './routes/api/print/catalog'
 import { Route as ApiReportsIndexRouteImport } from './routes/api/reports/index'
 import { Route as ApiStatsVisitRouteImport } from './routes/api/stats/visit'
@@ -40,6 +42,7 @@ import { Route as ApiStickersIndexRouteImport } from './routes/api/stickers/inde
 import { Route as ApiStickersIdRouteImport } from './routes/api/stickers/$id'
 import { Route as ApiUploadsIndexRouteImport } from './routes/api/uploads/index'
 import { Route as ApiUploadsIdRouteImport } from './routes/api/uploads/$id'
+import { Route as ApiWebhooksDodoRouteImport } from './routes/api/webhooks/dodo'
 import { Route as ProtectedAdminUsersIndexRouteImport } from './routes/_protected/admin/users.index'
 import { Route as ProtectedAdminUsersIdRouteImport } from './routes/_protected/admin/users.$id'
 import { Route as ProtectedDashboardProductsIdRouteImport } from './routes/_protected/dashboard/products.$id'
@@ -120,6 +123,11 @@ const ProtectedFilesRoute = ProtectedFilesRouteImport.update({
   path: '/files',
   getParentRoute: () => ProtectedRoute,
 } as any)
+const CheckoutOrderIdRoute = CheckoutOrderIdRouteImport.update({
+  id: '/checkout/$orderId',
+  path: '/checkout/$orderId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProductIdRoute = ProductIdRouteImport.update({
   id: '/product/$id',
   path: '/product/$id',
@@ -170,6 +178,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOrdersIdRoute = ApiOrdersIdRouteImport.update({
+  id: '/api/orders/$id',
+  path: '/api/orders/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPrintCatalogRoute = ApiPrintCatalogRouteImport.update({
   id: '/api/print/catalog',
   path: '/api/print/catalog',
@@ -203,6 +216,11 @@ const ApiUploadsIndexRoute = ApiUploadsIndexRouteImport.update({
 const ApiUploadsIdRoute = ApiUploadsIdRouteImport.update({
   id: '/api/uploads/$id',
   path: '/api/uploads/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebhooksDodoRoute = ApiWebhooksDodoRouteImport.update({
+  id: '/api/webhooks/dodo',
+  path: '/api/webhooks/dodo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProtectedAdminUsersIndexRoute =
@@ -273,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof ProtectedAdminRouteWithChildren
   '/dashboard': typeof ProtectedDashboardRouteWithChildren
   '/files': typeof ProtectedFilesRoute
+  '/checkout/$orderId': typeof CheckoutOrderIdRoute
   '/product/$id': typeof ProductIdRoute
   '/sticker/$slug': typeof StickerSlugRoute
   '/stickers/$slug': typeof StickersSlugRoute
@@ -281,10 +300,12 @@ export interface FileRoutesByFullPath {
   '/admin/stickers': typeof ProtectedAdminStickersRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/orders/$id': typeof ApiOrdersIdRoute
   '/api/print/catalog': typeof ApiPrintCatalogRoute
   '/api/stats/visit': typeof ApiStatsVisitRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
+  '/api/webhooks/dodo': typeof ApiWebhooksDodoRoute
   '/admin/': typeof ProtectedAdminIndexRoute
   '/dashboard/': typeof ProtectedDashboardIndexRoute
   '/api/reports/': typeof ApiReportsIndexRoute
@@ -313,6 +334,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/terms': typeof TermsRoute
   '/files': typeof ProtectedFilesRoute
+  '/checkout/$orderId': typeof CheckoutOrderIdRoute
   '/product/$id': typeof ProductIdRoute
   '/sticker/$slug': typeof StickerSlugRoute
   '/stickers/$slug': typeof StickersSlugRoute
@@ -321,10 +343,12 @@ export interface FileRoutesByTo {
   '/admin/stickers': typeof ProtectedAdminStickersRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/orders/$id': typeof ApiOrdersIdRoute
   '/api/print/catalog': typeof ApiPrintCatalogRoute
   '/api/stats/visit': typeof ApiStatsVisitRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
+  '/api/webhooks/dodo': typeof ApiWebhooksDodoRoute
   '/admin': typeof ProtectedAdminIndexRoute
   '/dashboard': typeof ProtectedDashboardIndexRoute
   '/api/reports': typeof ApiReportsIndexRoute
@@ -357,6 +381,7 @@ export interface FileRoutesById {
   '/_protected/admin': typeof ProtectedAdminRouteWithChildren
   '/_protected/dashboard': typeof ProtectedDashboardRouteWithChildren
   '/_protected/files': typeof ProtectedFilesRoute
+  '/checkout/$orderId': typeof CheckoutOrderIdRoute
   '/product/$id': typeof ProductIdRoute
   '/sticker/$slug': typeof StickerSlugRoute
   '/stickers/$slug': typeof StickersSlugRoute
@@ -365,10 +390,12 @@ export interface FileRoutesById {
   '/_protected/admin/stickers': typeof ProtectedAdminStickersRoute
   '/api/account/email': typeof ApiAccountEmailRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/orders/$id': typeof ApiOrdersIdRoute
   '/api/print/catalog': typeof ApiPrintCatalogRoute
   '/api/stats/visit': typeof ApiStatsVisitRoute
   '/api/stickers/$id': typeof ApiStickersIdRouteWithChildren
   '/api/uploads/$id': typeof ApiUploadsIdRoute
+  '/api/webhooks/dodo': typeof ApiWebhooksDodoRoute
   '/_protected/admin/': typeof ProtectedAdminIndexRoute
   '/_protected/dashboard/': typeof ProtectedDashboardIndexRoute
   '/api/reports/': typeof ApiReportsIndexRoute
@@ -401,6 +428,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/files'
+    | '/checkout/$orderId'
     | '/product/$id'
     | '/sticker/$slug'
     | '/stickers/$slug'
@@ -409,10 +437,12 @@ export interface FileRouteTypes {
     | '/admin/stickers'
     | '/api/account/email'
     | '/api/auth/$'
+    | '/api/orders/$id'
     | '/api/print/catalog'
     | '/api/stats/visit'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
+    | '/api/webhooks/dodo'
     | '/admin/'
     | '/dashboard/'
     | '/api/reports/'
@@ -441,6 +471,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/terms'
     | '/files'
+    | '/checkout/$orderId'
     | '/product/$id'
     | '/sticker/$slug'
     | '/stickers/$slug'
@@ -449,10 +480,12 @@ export interface FileRouteTypes {
     | '/admin/stickers'
     | '/api/account/email'
     | '/api/auth/$'
+    | '/api/orders/$id'
     | '/api/print/catalog'
     | '/api/stats/visit'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
+    | '/api/webhooks/dodo'
     | '/admin'
     | '/dashboard'
     | '/api/reports'
@@ -484,6 +517,7 @@ export interface FileRouteTypes {
     | '/_protected/admin'
     | '/_protected/dashboard'
     | '/_protected/files'
+    | '/checkout/$orderId'
     | '/product/$id'
     | '/sticker/$slug'
     | '/stickers/$slug'
@@ -492,10 +526,12 @@ export interface FileRouteTypes {
     | '/_protected/admin/stickers'
     | '/api/account/email'
     | '/api/auth/$'
+    | '/api/orders/$id'
     | '/api/print/catalog'
     | '/api/stats/visit'
     | '/api/stickers/$id'
     | '/api/uploads/$id'
+    | '/api/webhooks/dodo'
     | '/_protected/admin/'
     | '/_protected/dashboard/'
     | '/api/reports/'
@@ -525,16 +561,19 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   TermsRoute: typeof TermsRoute
+  CheckoutOrderIdRoute: typeof CheckoutOrderIdRoute
   ProductIdRoute: typeof ProductIdRoute
   StickerSlugRoute: typeof StickerSlugRoute
   StickersSlugRoute: typeof StickersSlugRoute
   StickersIndexRoute: typeof StickersIndexRoute
   ApiAccountEmailRoute: typeof ApiAccountEmailRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiOrdersIdRoute: typeof ApiOrdersIdRoute
   ApiPrintCatalogRoute: typeof ApiPrintCatalogRoute
   ApiStatsVisitRoute: typeof ApiStatsVisitRoute
   ApiStickersIdRoute: typeof ApiStickersIdRouteWithChildren
   ApiUploadsIdRoute: typeof ApiUploadsIdRoute
+  ApiWebhooksDodoRoute: typeof ApiWebhooksDodoRoute
   ApiReportsIndexRoute: typeof ApiReportsIndexRoute
   ApiStickersIndexRoute: typeof ApiStickersIndexRoute
   ApiUploadsIndexRoute: typeof ApiUploadsIndexRoute
@@ -642,6 +681,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProtectedFilesRouteImport
       parentRoute: typeof ProtectedRoute
     }
+    '/checkout/$orderId': {
+      id: '/checkout/$orderId'
+      path: '/checkout/$orderId'
+      fullPath: '/checkout/$orderId'
+      preLoaderRoute: typeof CheckoutOrderIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/product/$id': {
       id: '/product/$id'
       path: '/product/$id'
@@ -712,6 +758,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/orders/$id': {
+      id: '/api/orders/$id'
+      path: '/api/orders/$id'
+      fullPath: '/api/orders/$id'
+      preLoaderRoute: typeof ApiOrdersIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/print/catalog': {
       id: '/api/print/catalog'
       path: '/api/print/catalog'
@@ -759,6 +812,13 @@ declare module '@tanstack/react-router' {
       path: '/api/uploads/$id'
       fullPath: '/api/uploads/$id'
       preLoaderRoute: typeof ApiUploadsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/dodo': {
+      id: '/api/webhooks/dodo'
+      path: '/api/webhooks/dodo'
+      fullPath: '/api/webhooks/dodo'
+      preLoaderRoute: typeof ApiWebhooksDodoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_protected/admin/users/': {
@@ -915,16 +975,19 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   TermsRoute: TermsRoute,
+  CheckoutOrderIdRoute: CheckoutOrderIdRoute,
   ProductIdRoute: ProductIdRoute,
   StickerSlugRoute: StickerSlugRoute,
   StickersSlugRoute: StickersSlugRoute,
   StickersIndexRoute: StickersIndexRoute,
   ApiAccountEmailRoute: ApiAccountEmailRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiOrdersIdRoute: ApiOrdersIdRoute,
   ApiPrintCatalogRoute: ApiPrintCatalogRoute,
   ApiStatsVisitRoute: ApiStatsVisitRoute,
   ApiStickersIdRoute: ApiStickersIdRouteWithChildren,
   ApiUploadsIdRoute: ApiUploadsIdRoute,
+  ApiWebhooksDodoRoute: ApiWebhooksDodoRoute,
   ApiReportsIndexRoute: ApiReportsIndexRoute,
   ApiStickersIndexRoute: ApiStickersIndexRoute,
   ApiUploadsIndexRoute: ApiUploadsIndexRoute,

@@ -1,5 +1,6 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { authClient } from "@/lib/auth-client"
+import { SITE_NAME } from "@/lib/seo"
 import { Button } from "@/components/ui/button"
 
 export function SiteHeader({
@@ -18,8 +19,15 @@ export function SiteHeader({
 
   return (
     <header className="flex items-center justify-between gap-4">
-      <Link to="/" className="font-mono text-xs tracking-[0.25em] uppercase">
-        xmigas FE prototype
+      <Link to="/" aria-label={`${SITE_NAME} home`}>
+        <img
+          src="/logo.webp"
+          alt=""
+          width={77}
+          height={36}
+          decoding="async"
+          className="h-9 w-auto select-none"
+        />
       </Link>
       <nav className="flex items-center gap-4">
         {user ? (

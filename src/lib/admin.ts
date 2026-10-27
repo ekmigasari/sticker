@@ -12,6 +12,8 @@ import {
 } from "@/lib/sticker-api"
 import { purgeUserContent } from "@/lib/account-deletion"
 import { reportReasonLabel } from "@/lib/report-reasons"
+import { shiftDay, visitorSeries, type VisitorPoint } from "@/lib/visitor"
+import { statsToday } from "@/lib/visits"
 import { clearFromWall } from "@/lib/wall"
 
 export const ADMIN_PAGE_SIZE = 30
@@ -66,9 +68,37 @@ export type AdminOverview = {
   newStickers7d: number
   revenue: number
   openReports: number
+  visitors: AdminVisitorStats
   recentUsers: AdminUserRow[]
   recentStickers: AdminStickerRow[]
   recentReports: AdminReportRow[]
+}
+
+/** Longest range the overview chart offers. */
+export const VISITOR_DAYS = 90
+
+export type AdminVisitorStats = {
+  allTime: number
+  /** The last `VISITOR_DAYS` days, oldest first, ending today. */
+  series: VisitorPoint[]
+}
+
+async function visitorStats(): Promise<AdminVisitorStats> {
+  const today = statsToday()
+  const from = new Date(`${shiftDay(today, 1 - VISITOR_DAYS)}T00:00:00Z`)
+  const [rows, sum] = await Promise.all([
+    prisma.siteDailyStat.findMany({
+      where: { day: { gte: from } },
+      orderBy: { day: "asc" },
+    }),
+    prisma.siteDailyStat.aggregate({ _sum: { visitors: true } }),
+  ])
+  const allTime = sum._sum.visitors ?? 0
+  const days = rows.map((r) => ({
+    day: r.day.toISOString().slice(0, 10),
+    visitors: r.visitors,
+  }))
+  return { allTime, series: visitorSeries(days, today, VISITOR_DAYS, allTime) }
 }
 
 export const getAdminOverview = createServerFn({ method: "GET" }).handler(
@@ -87,6 +117,7 @@ export const getAdminOverview = createServerFn({ method: "GET" }).handler(
       newStickers7d,
       revenue,
       openReports,
+      visitors,
       recentUsers,
       recentStickers,
       recentReports,
@@ -102,6 +133,7 @@ export const getAdminOverview = createServerFn({ method: "GET" }).handler(
       prisma.sticker.count({ where: { createdAt: { gte: weekAgo } } }),
       prisma.sticker.aggregate({ _sum: { totalSpent: true } }),
       prisma.report.count({ where: { status: "open" } }),
+      visitorStats(),
       findUserRows({}, 0, 5),
       findStickerRows({}, 0, 5),
       findReportRows({ status: "open" }, 0, 5),
@@ -118,6 +150,7 @@ export const getAdminOverview = createServerFn({ method: "GET" }).handler(
       newStickers7d,
       revenue: revenue._sum.totalSpent ?? 0,
       openReports,
+      visitors,
       recentUsers,
       recentStickers,
       recentReports,

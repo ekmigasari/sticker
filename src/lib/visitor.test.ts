@@ -1,5 +1,31 @@
 import { describe, expect, it } from "vitest"
-import { hashVisitor, isBot, statsDay } from "@/lib/visitor"
+import {
+  hashVisitor,
+  isBot,
+  shiftDay,
+  statsDay,
+  visitorSeries,
+} from "@/lib/visitor"
+
+describe("visitorSeries", () => {
+  it("fills missing days and keeps a running all-time total", () => {
+    const rows = [
+      { day: "2026-10-25", visitors: 4 },
+      { day: "2026-10-27", visitors: 2 },
+    ]
+    // 10 visitors before the window, 6 inside it.
+    expect(visitorSeries(rows, "2026-10-27", 3, 16)).toEqual([
+      { day: "2026-10-25", visitors: 4, total: 14 },
+      { day: "2026-10-26", visitors: 0, total: 14 },
+      { day: "2026-10-27", visitors: 2, total: 16 },
+    ])
+  })
+
+  it("crosses month boundaries", () => {
+    expect(shiftDay("2026-11-01", -1)).toBe("2026-10-31")
+    expect(shiftDay("2026-12-31", 1)).toBe("2027-01-01")
+  })
+})
 
 describe("statsDay", () => {
   const lateUtc = new Date("2026-10-27T20:30:00.000Z")

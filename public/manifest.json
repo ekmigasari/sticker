@@ -1,20 +1,23 @@
 {
-  "name": "CoolThingsOnTheInternet",
-  "short_name": "CoolThings",
-  "description": "Cool things made by people on the internet. Make a sticker and put it on the wall.",
+  "name": "Cool Things on the Internet",
+  "short_name": "Cool Things",
+  "description": "Every cool thing deserves fame. Make it a sticker and stick it on the internet's wall of fame.",
+  "categories": ["entertainment", "social", "lifestyle"],
   "icons": [
     {
       "src": "/icon-192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/icon-maskable-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"
@@ -25,5 +28,5 @@
   "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#ffffff",
-  "background_color": "#ffffff"
+  "background_color": "#f1f1f3"
 }

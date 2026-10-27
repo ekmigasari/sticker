@@ -102,8 +102,8 @@ export function StickerList({ data, search, onSearchChange }: Props) {
           className="sm:row-span-2 sm:self-center"
         />
         <p className="nk-subtitle col-span-2 text-pretty sm:col-span-1">
-          Cool things made by people on the internet. Apps, tools, and side
-          projects that earned a spot on the wall.
+          The coolest things people are making on the internet. Apps, tools, and
+          side projects that earned their spot on the wall.
         </p>
       </header>
 

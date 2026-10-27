@@ -1,10 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { AppChrome } from "@/components/layout/app-chrome"
 import { PROHIBITED } from "@/lib/content-policy"
+import { seo } from "@/lib/seo"
 
 export const Route = createFileRoute("/terms")({
   head: () => ({
-    meta: [{ title: "Terms and Conditions · CoolThingsOnTheInternet" }],
+    meta: seo({
+      title: "Terms and Conditions",
+      description:
+        "The fine print for making stickers, buying wall placements, and keeping Cool Things on the Internet fun for everyone.",
+    }),
   }),
   component: TermsPage,
 })
@@ -21,16 +26,16 @@ function TermsPage() {
           </p>
           <h1 className="nk-title">Terms and Conditions</h1>
           <p className="nk-subtitle">
-            The agreement between you and CoolThingsOnTheInternet when you make
-            stickers, buy spots on the wall, or list anything here.
+            The agreement between you and Cool Things on the Internet when you
+            make stickers, buy spots on the wall, or list anything here.
           </p>
         </header>
 
         <div className="flex flex-col gap-9 text-[15px] leading-relaxed tracking-[-0.01em] text-neutral-600">
           <Section n={1} title="Agreeing to these terms">
             <p>
-              CoolThingsOnTheInternet (&quot;we&quot;, &quot;us&quot;) runs this
-              website, the sticker maker and the shared wall (together, the
+              Cool Things on the Internet (&quot;we&quot;, &quot;us&quot;) runs
+              this website, the sticker maker and the shared wall (together, the
               &quot;Service&quot;). By using the Service or creating an account,
               you agree to these Terms. If you don&apos;t agree, please
               don&apos;t use the Service.

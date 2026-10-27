@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import {
   ArrowUp,
@@ -8,6 +8,8 @@ import {
   Trophy,
 } from "@phosphor-icons/react"
 import { FormSheet } from "@/components/dashboard/form-sheet"
+import { VerifyEmailNotice } from "@/components/verify-email-notice"
+import { EmailUnverifiedError } from "@/lib/checkout-client"
 import {
   RESTORE_MIN_PRICE,
   type Category,
@@ -28,9 +30,6 @@ export type RestoreTarget = {
 }
 
 type Done = { placements: Placement[]; price: number; rank: RankChange | null }
-
-/** Mock checkout delay, matching the place flow. */
-const PAY_MS = 900
 
 /** Checkout for putting covered plots back on top at the same spot and size. */
 export function RestoreSheet({
@@ -54,6 +53,7 @@ export function RestoreSheet({
   const [repriced, setRepriced] = useState(false)
   const [paying, setPaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null)
   const [done, setDone] = useState<Done | null>(null)
   if (target && target !== shown) {
     setShown(target)
@@ -61,11 +61,9 @@ export function RestoreSheet({
     setRepriced(false)
     setPaying(false)
     setError(null)
+    setUnverifiedEmail(null)
     setDone(null)
   }
-
-  const payTimer = useRef<number | undefined>(undefined)
-  useEffect(() => () => window.clearTimeout(payTimer.current), [])
 
   const view = target ?? shown
   if (!view) return null
@@ -73,7 +71,10 @@ export function RestoreSheet({
   const spots = quote.placementIds.length
 
   async function pay() {
+    if (paying) return
+    setPaying(true)
     setError(null)
+    setUnverifiedEmail(null)
     try {
       const result = await restoreSticker({
         stickerId: sticker.id,
@@ -87,18 +88,14 @@ export function RestoreSheet({
       if (err instanceof PriceChangedError) {
         setPrice(err.price)
         setRepriced(true)
+      } else if (err instanceof EmailUnverifiedError) {
+        setUnverifiedEmail(err.email)
       } else {
         setError(err instanceof Error ? err.message : "Could not restore.")
       }
     } finally {
       setPaying(false)
     }
-  }
-
-  function startPay() {
-    if (paying) return
-    setPaying(true)
-    payTimer.current = window.setTimeout(() => void pay(), PAY_MS)
   }
 
   function viewOnWall() {
@@ -189,7 +186,7 @@ export function RestoreSheet({
           <p className="mt-3 text-[13px] leading-snug text-neutral-500">
             You only pay for the covered part. It goes on top of everything and
             adds ${price.toLocaleString("en-US")} to your sticker&apos;s spend
-            and rank. Mock payment for this prototype.
+            and rank. You pay on a secure Dodo Payments checkout.
           </p>
 
           {repriced ? (
@@ -209,11 +206,14 @@ export function RestoreSheet({
               {error}
             </p>
           ) : null}
+          {unverifiedEmail ? (
+            <VerifyEmailNotice email={unverifiedEmail} className="mt-3" />
+          ) : null}
 
           <button
             type="button"
             disabled={paying}
-            onClick={startPay}
+            onClick={pay}
             className="nk-btn mt-5 w-full"
           >
             <ArrowUp weight="bold" className="size-4" />

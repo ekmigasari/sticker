@@ -2,7 +2,9 @@ import { Link, createFileRoute } from "@tanstack/react-router"
 import { ModeratedStickerList, UserList } from "@/components/admin/admin-rows"
 import { ReportList } from "@/components/admin/report-list"
 import { Section, formatDollars } from "@/components/admin/admin-ui"
+import { VisitorChart } from "@/components/admin/visitor-chart"
 import { getAdminOverview } from "@/lib/admin"
+import type { VisitorPoint } from "@/lib/visitor"
 import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/_protected/admin/")({
@@ -16,8 +18,18 @@ const statLink = cn(
   "press transition-colors outline-none hover:bg-[#ededf0] focus-visible:ring-2 focus-visible:ring-[#0071e3]"
 )
 
+function sumVisitors(series: VisitorPoint[], days: number): number {
+  return series.slice(-days).reduce((sum, p) => sum + p.visitors, 0)
+}
+
 function AdminOverviewPage() {
   const o = Route.useLoaderData()
+  const visitorTiles = [
+    { label: "Today", value: sumVisitors(o.visitors.series, 1) },
+    { label: "Last 7 days", value: sumVisitors(o.visitors.series, 7) },
+    { label: "Last 30 days", value: sumVisitors(o.visitors.series, 30) },
+    { label: "All time", value: o.visitors.allTime },
+  ]
 
   return (
     <div className="flex flex-col gap-10">
@@ -82,6 +94,17 @@ function AdminOverviewPage() {
           />
         </Link>
       </div>
+
+      <Section title="Visitors">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {visitorTiles.map((tile) => (
+            <div key={tile.label} className={statBox}>
+              <Stat label={tile.label} value={tile.value} />
+            </div>
+          ))}
+        </div>
+        <VisitorChart series={o.visitors.series} />
+      </Section>
 
       <Section title="Newest users" action={<SeeAll to="/admin/users" />}>
         {o.recentUsers.length ? (

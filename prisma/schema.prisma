@@ -33,6 +33,7 @@ model User {
   stickers      Sticker[]
   reports       Report[]
   printSheets   PrintSheet[]
+  wallOrders    WallOrder[]
 
   @@unique([email])
   @@map("user")
@@ -287,4 +288,29 @@ model PrintSheetItem {
   @@index([sheetId, sort])
   @@index([stickerId])
   @@map("print_sheet_item")
+}
+
+/// A paid wall action (new sticker, move, or restore) waiting on its Dodo
+/// payment. It runs once, when the payment succeeds.
+model WallOrder {
+  id         String   @id
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// place | move | restore
+  kind       String
+  /// Whole dollars charged.
+  amount     Int
+  /// What to do on the wall once paid.
+  intent     Json
+  /// pending | fulfilled | failed (refunded) | refund_failed (refund by hand).
+  status     String   @default("pending")
+  checkoutId String?  @unique
+  paymentId  String?  @unique
+  result     Json?
+  error      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@map("wall_order")
 }

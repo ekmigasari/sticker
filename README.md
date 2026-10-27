@@ -1,6 +1,16 @@
-# xmigas FE Prototype Boilerplate
+<p align="center">
+  <img src="public/logo.webp" alt="Cool Things on the Internet" height="110" />
+</p>
 
-A minimal prototype boilerplate built with **TanStack Start**, **React**, **TypeScript**, and **shadcn/ui**.
+# Cool Things on the Internet
+
+Every cool thing deserves fame. Make it a sticker and stick it on the internet's wall of fame: one shared wall where cool products, people, projects, and services get seen. Make it. Stick it. Get famous.
+
+Built with **TanStack Start**, **React**, **TypeScript**, and **shadcn/ui**.
+
+## Brand assets
+
+Source logos live in `public/Logo/` (`main-logo.png` wordmark, `logo-square.png` mark). The served copies are generated from them: `logo.webp` (navbar wordmark), `logo-mark.webp` (compact mark), the favicons, `apple-touch-icon.png`, the PWA icons in `manifest.json`, and `og-image.jpg` (1200×630 share card). Share-card URLs are made absolute from `BETTER_AUTH_URL`, so set it to the public origin in production.
 
 ## Stack
 

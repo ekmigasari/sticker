@@ -1,4 +1,5 @@
 import type { DraftSticker, Placement } from "@/domain/types"
+import { readPurchase } from "@/lib/checkout-client"
 import type { RankChange } from "@/lib/restore"
 import type { StickerDTO } from "@/lib/sticker-api"
 
@@ -20,13 +21,6 @@ function dataUrlToFile(dataUrl: string, fileName: string) {
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
   return new File([bytes], fileName, { type: mime })
-}
-
-async function readError(response: Response) {
-  const payload = (await response.json().catch(() => null)) as {
-    error?: string
-  } | null
-  return payload?.error ?? "Request failed."
 }
 
 export type PlotInput = {
@@ -77,16 +71,10 @@ export async function publishPlaceListing(input: {
     method: "POST",
     body: form,
   })
-  if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("Sign in to list your sticker.")
-    }
-    throw new Error(await readError(response))
-  }
-  const payload = (await response.json()) as {
+  const payload = await readPurchase<{
     sticker: StickerDTO
     placement: Placement | null
-  }
+  }>(response, "Sign in to list your sticker.")
   if (!payload.placement)
     throw new Error("Could not place sticker on the wall.")
   return { sticker: payload.sticker, placement: payload.placement }
@@ -112,9 +100,5 @@ export async function publishMove(input: {
     method: "POST",
     body: form,
   })
-  if (!response.ok) {
-    if (response.status === 401) throw new Error("Sign in to move it.")
-    throw new Error(await readError(response))
-  }
-  return response.json()
+  return readPurchase(response, "Sign in to move it.")
 }

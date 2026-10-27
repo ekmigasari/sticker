@@ -288,22 +288,13 @@ export type RestoreResult =
   /** Coverage moved since the owner saw the price; nothing was written. */
   | { ok: false; price: number }
 
-/**
- * Put covered plots back on top at the same spot and size. The price is read
- * under the wall lock, so it's exactly what the coverage is right now.
- */
-export async function restoreOnWall(
-  tx: Prisma.TransactionClient,
-  stickerId: string,
-  placementIds: string[],
-  expectedPrice: number
-): Promise<RestoreResult> {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${WALL_WRITE_LOCK})`
+type CoverageRow = {
+  unitsW: number
+  unitsH: number
+  visibleShare: number
+}
 
-  const rows = await tx.placement.findMany({
-    where: { id: { in: placementIds }, stickerId },
-    orderBy: { zIndex: "asc" },
-  })
+function coveredOf<T extends CoverageRow>(rows: T[]) {
   const covered = rows.filter((p) =>
     restorePrice(p.unitsW, p.unitsH, p.visibleShare)
   )
@@ -311,7 +302,43 @@ export async function restoreOnWall(
     (sum, p) => sum + restorePrice(p.unitsW, p.unitsH, p.visibleShare),
     0
   )
-  if (price !== expectedPrice) return { ok: false, price }
+  return { covered, price }
+}
+
+/** What restoring these plots costs right now, without taking the wall lock. */
+export async function currentRestorePrice(
+  db: Prisma.TransactionClient,
+  stickerId: string,
+  placementIds: string[]
+): Promise<number> {
+  const rows = await db.placement.findMany({
+    where: { id: { in: placementIds }, stickerId },
+    select: { unitsW: true, unitsH: true, visibleShare: true },
+  })
+  return coveredOf(rows).price
+}
+
+/**
+ * Put covered plots back on top at the same spot and size. The price is read
+ * under the wall lock, so it's exactly what the coverage is right now. A null
+ * `expectedPrice` restores at whatever it costs (the price was already paid).
+ */
+export async function restoreOnWall(
+  tx: Prisma.TransactionClient,
+  stickerId: string,
+  placementIds: string[],
+  expectedPrice: number | null
+): Promise<RestoreResult> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${WALL_WRITE_LOCK})`
+
+  const rows = await tx.placement.findMany({
+    where: { id: { in: placementIds }, stickerId },
+    orderBy: { zIndex: "asc" },
+  })
+  const { covered, price } = coveredOf(rows)
+  if (expectedPrice != null && price !== expectedPrice) {
+    return { ok: false, price }
+  }
 
   const placements: Placement[] = []
   // Oldest first, so the restored plots keep their order among themselves.

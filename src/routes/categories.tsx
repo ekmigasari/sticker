@@ -2,12 +2,19 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { CaretLeft, CaretRight } from "@phosphor-icons/react"
 import { CategoryIcon, categoryAccent } from "@/components/category-icon"
 import { AppChrome } from "@/components/layout/app-chrome"
+import { seo } from "@/lib/seo"
 import { cn } from "@/lib/utils"
 import { listCategorySummaries, type CategorySummary } from "@/lib/stickers"
 
 export const Route = createFileRoute("/categories")({
   loader: () => listCategorySummaries(),
-  head: () => ({ meta: [{ title: "Categories · CoolThingsOnTheInternet" }] }),
+  head: () => ({
+    meta: seo({
+      title: "Categories",
+      description:
+        "From AI tools to personal brands, find cool things by category.",
+    }),
+  }),
   component: CategoriesPage,
 })
 

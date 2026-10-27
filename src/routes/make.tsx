@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { StickerGenerator } from "@/components/make/sticker-generator"
+import { seo } from "@/lib/seo"
 
 type MakeSearch = {
   stickerId?: string
@@ -17,6 +18,13 @@ export const Route = createFileRoute("/make")({
           : undefined
     return { stickerId }
   },
+  head: () => ({
+    meta: seo({
+      title: "Make a sticker",
+      description:
+        "Turn anything into a sticker in seconds. Free, no account needed.",
+    }),
+  }),
   component: MakePage,
 })
 
