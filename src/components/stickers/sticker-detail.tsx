@@ -44,6 +44,7 @@ import {
   type RestoreQuote,
 } from "@/domain/types"
 import { rankStickers, type StickerRank } from "@/domain/ranking"
+import { track, visitLink } from "@/lib/analytics"
 import { cn } from "@/lib/utils"
 import type { StickerDTO } from "@/lib/sticker-api"
 import type { StickerWithPlacements } from "@/lib/stickers"
@@ -214,6 +215,7 @@ export function StickerDetail({
             src={sticker.imageUrl}
             name={sticker.name}
             url={sticker.url}
+            sticker={sticker}
             holo={isHoloFinish(sticker.finish)}
             displayPx={isMobile ? 224 : 288}
           />
@@ -256,6 +258,7 @@ export function StickerDetail({
             href={sticker.url}
             target="_blank"
             rel="noreferrer"
+            {...visitLink(sticker, "detail")}
             className="press inline-flex h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-neutral-900 px-5 text-[16px] font-semibold tracking-[-0.01em] text-white"
           >
             <span className="truncate">Visit website</span>
@@ -273,7 +276,7 @@ export function StickerDetail({
         <ShareButton
           title={sticker.name}
           text={sticker.oneLiner}
-          path={`/stickers/${sticker.slug}`}
+          slug={sticker.slug}
         />
       </div>
       {move?.error ? (
@@ -288,6 +291,7 @@ export function StickerDetail({
       />
 
       <StickerPromo
+        slug={sticker.slug}
         offer={sticker.offer}
         offerCode={sticker.offerCode}
         offerExpiresOn={sticker.offerExpiresOn}
@@ -371,6 +375,7 @@ export function StickerDetail({
               href={sticker.url}
               target="_blank"
               rel="noreferrer"
+              {...visitLink(sticker, "detail")}
               className="inline-flex max-w-full items-center gap-1 text-[#0071e3] hover:underline"
             >
               <span className="truncate">{domain}</span>
@@ -383,6 +388,9 @@ export function StickerDetail({
           <InfoRow label="Placements">{wallItems.length}</InfoRow>
           <InfoRow label="Spent on the wall">
             ${sticker.totalSpent.toLocaleString("en-US")}
+          </InfoRow>
+          <InfoRow label="Clicks">
+            {sticker.clicks.toLocaleString("en-US")}
           </InfoRow>
         </dl>
       </Section>
@@ -416,10 +424,12 @@ export function StickerDetail({
               return (
                 <StickerRow
                   key={s.id}
+                  id={s.id}
                   slug={s.slug}
                   name={s.name}
                   oneLiner={s.oneLiner}
                   url={s.url}
+                  source="related"
                   imageSrc={s.imageSrc}
                   meta={
                     <>
@@ -881,11 +891,11 @@ function InfoRow({
 function ShareButton({
   title,
   text,
-  path,
+  slug,
 }: {
   title: string
   text: string
-  path: string
+  slug: string
 }) {
   const [copied, setCopied] = useState(false)
   const resetTimer = useRef<number | undefined>(undefined)
@@ -893,7 +903,8 @@ function ShareButton({
   useEffect(() => () => window.clearTimeout(resetTimer.current), [])
 
   async function share() {
-    const url = new URL(path, window.location.origin).toString()
+    track("share_clicked", { slug })
+    const url = new URL(`/stickers/${slug}`, window.location.origin).toString()
     if (navigator.share) {
       try {
         await navigator.share({ title, text, url })

@@ -1,6 +1,8 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { TanStackDevtools } from "@tanstack/react-devtools"
+import { useEffect } from "react"
+import { recordPageVisit } from "@/lib/analytics"
 import { getSession } from "@/lib/session"
 
 import appCss from "../styles.css?url"
@@ -73,11 +75,30 @@ export const Route = createRootRoute({
   shellComponent: RootDocument,
 })
 
+const umamiScriptUrl = import.meta.env.VITE_UMAMI_SCRIPT_URL
+const umamiWebsiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID
+
+/** Must exist before the tracker loads. Drops admin pages so our own moderation doesn't count. */
+const umamiBeforeSend = `window.umamiBeforeSend=function(t,p){try{if(/^\\/admin(\\/|$)/.test(new URL(p.url,location.origin).pathname))return false}catch(e){}return p}`
+
 function RootDocument({ children }: { children: React.ReactNode }) {
+  useEffect(recordPageVisit, [])
+
   return (
     <html lang="en">
       <head>
         <HeadContent />
+        {umamiScriptUrl && umamiWebsiteId ? (
+          <>
+            <script dangerouslySetInnerHTML={{ __html: umamiBeforeSend }} />
+            <script
+              defer
+              src={umamiScriptUrl}
+              data-website-id={umamiWebsiteId}
+              data-before-send="umamiBeforeSend"
+            />
+          </>
+        ) : null}
       </head>
       <body>
         {children}

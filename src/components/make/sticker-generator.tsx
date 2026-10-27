@@ -20,6 +20,7 @@ import {
   STICKER_FINISHES,
   STICKER_STYLES,
 } from "@/domain/types"
+import { track } from "@/lib/analytics"
 import type { StickerDTO } from "@/lib/sticker-api"
 import { cn } from "@/lib/utils"
 import {
@@ -451,6 +452,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
       setUploadProgress(Math.round((e.loaded / e.total) * 50))
     }
     reader.onload = () => {
+      track("make_upload")
       const dataUrl = String(reader.result)
       setUploadProgress((p) => Math.max(p, 52))
       setOriginal(dataUrl)
@@ -527,6 +529,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         maxSide: Math.round(mmToPx(sizeMm)),
       })
       downloadDataUrl(url, `sticker-${style}.png`)
+      track("make_download", { style })
     } finally {
       setExporting(false)
     }
@@ -555,6 +558,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         JSON.stringify({ imageUrl: url, width, height, sizeMm })
       )
       if (original) stashMakeSession({ original, originalSize, look })
+      track("make_print", { style })
       void navigate({ to: "/print", search: { from: "make" } })
     } catch {
       setError("Couldn't prepare your sticker for print. Try again.")
@@ -595,6 +599,7 @@ export function StickerGenerator({ stickerId }: { stickerId?: string }) {
         sizeMm,
       })
       setPlaceDraft(null)
+      track("make_put_on_wall", { style })
       void navigate({ to: "/place" })
     } catch {
       setError("Couldn't prepare your sticker for the wall. Try again.")

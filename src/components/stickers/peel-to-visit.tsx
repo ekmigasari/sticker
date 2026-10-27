@@ -1,10 +1,13 @@
 import { useState } from "react"
 import { FloatingSticker } from "@/components/make/floating-sticker"
+import { trackVisit } from "@/lib/analytics"
 
 type Props = {
   src: string
   name: string
   url: string
+  /** Counts the peel as an outbound visit. Omit on the owner's own dashboard. */
+  sticker?: { id: string; slug: string }
   holo: boolean
   displayPx: number
   onTap?: () => void
@@ -20,6 +23,7 @@ export function PeelToVisit({
   src,
   name,
   url,
+  sticker,
   holo,
   displayPx,
   appearOnMount = true,
@@ -28,6 +32,7 @@ export function PeelToVisit({
   const [session, setSession] = useState(0)
 
   function visit() {
+    if (sticker) trackVisit(sticker, "peel")
     // `noopener` in the features string makes window.open return null even on
     // success, so drop the opener by hand to still detect a blocked popup.
     const tab = window.open(url, "_blank")

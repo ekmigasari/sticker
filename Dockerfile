@@ -17,6 +17,9 @@ ENV DATABASE_URL="postgresql://xmigas:xmigas@127.0.0.1:5432/xmigas"
 RUN pnpm install --frozen-lockfile
 
 COPY . .
+# Public client config, inlined by Vite at build time.
+ARG VITE_UMAMI_SCRIPT_URL=""
+ARG VITE_UMAMI_WEBSITE_ID=""
 RUN pnpm exec prisma generate && pnpm build
 
 FROM node:26-bookworm-slim AS runner

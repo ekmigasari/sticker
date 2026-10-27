@@ -25,6 +25,9 @@ export const RATE_RULES = {
   emailChange: { name: "email-change", max: 5, windowSec: 15 * 60 },
   /** Saving, updating, and deleting print sheets. */
   printSheet: { name: "print-sheet", max: 30, windowSec: 60 * 60 },
+  /** Visitor and click counters, per IP: rotating user agents can't inflate them. */
+  statsVisit: { name: "stats-visit", max: 60, windowSec: 60 * 60 },
+  statsClick: { name: "stats-click", max: 60, windowSec: 60 * 60 },
 } as const
 
 export type RateRule = (typeof RATE_RULES)[keyof typeof RATE_RULES]

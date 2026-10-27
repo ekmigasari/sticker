@@ -4,13 +4,17 @@ import {
   CaretRight,
   Sticker as StickerIcon,
 } from "@phosphor-icons/react"
+import { visitLink, type VisitSource } from "@/lib/analytics"
 import { cn } from "@/lib/utils"
 
 type Props = {
+  id: string
   slug: string
   name: string
   oneLiner: string
   url: string
+  /** Where the row is shown, for outbound click analytics. */
+  source: VisitSource
   imageSrc?: string
   /** Rendered before the name, e.g. a rank badge. */
   badge?: React.ReactNode
@@ -26,10 +30,12 @@ type Props = {
  * Detail sits above the row-wide link so both stay clickable.
  */
 export function StickerRow({
+  id,
   slug,
   name,
   oneLiner,
   url,
+  source,
   imageSrc,
   badge,
   meta,
@@ -50,6 +56,7 @@ export function StickerRow({
         target="_blank"
         rel="noreferrer"
         aria-label={`Visit ${name} website`}
+        {...visitLink({ id, slug }, source)}
         className="absolute inset-0 rounded-[20px] focus-visible:ring-2 focus-visible:ring-[#0071e3] focus-visible:outline-none"
       />
       <div className="pointer-events-none my-3 flex size-16 shrink-0 items-center justify-center">

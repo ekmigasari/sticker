@@ -1,6 +1,7 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
 import { useId, useState } from "react"
 import { Eye, EyeSlash, WarningCircle } from "@phosphor-icons/react"
+import { track } from "@/lib/analytics"
 import { authClient } from "@/lib/auth-client"
 import { safeNextPath } from "@/lib/auth-redirect"
 import { cn } from "@/lib/utils"
@@ -113,6 +114,7 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
       setError(result.error.message ?? "Something went wrong.")
       return
     }
+    if (isSignUp) track("signup_completed")
 
     await router.invalidate()
     if (destination === "/place") {

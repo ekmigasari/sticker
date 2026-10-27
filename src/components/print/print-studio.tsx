@@ -19,6 +19,7 @@ import {
   SliderRow,
   parseDim,
 } from "@/components/place/sheet-controls"
+import { track } from "@/lib/analytics"
 import { cn } from "@/lib/utils"
 import {
   GRID_MM,
@@ -492,6 +493,7 @@ export function PrintStudio({ signedIn, from, sheetId, autoprint }: Props) {
       return false
     }
     const saved = draftFromSaved(payload.sheet)
+    track("print_sheet_saved", { copies: saved.copies.length })
     dirtyRef.current = false
     setDraft(saved)
     setBaseline(snapshot(saved))

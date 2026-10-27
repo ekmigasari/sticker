@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react"
 import { Check, Copy, Ticket } from "@phosphor-icons/react"
 import { isOfferExpired, localIsoDate } from "@/domain/types"
+import { track } from "@/lib/analytics"
 import { cn } from "@/lib/utils"
 
 type Props = {
+  /** Sticker the promo belongs to, for analytics. */
+  slug: string
   offer?: string
   offerCode?: string
   offerExpiresOn?: string
@@ -25,6 +28,7 @@ function formatEndDate(isoDate: string): string {
 }
 
 export function StickerPromo({
+  slug,
   offer,
   offerCode,
   offerExpiresOn,
@@ -40,6 +44,7 @@ export function StickerPromo({
 
   async function copyCode() {
     if (!offerCode) return
+    track("promo_code_copied", { slug })
     try {
       await navigator.clipboard.writeText(offerCode)
       setCopied(true)

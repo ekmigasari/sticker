@@ -92,6 +92,7 @@ import {
   parseDim,
 } from "@/components/place/sheet-controls"
 import { cn } from "@/lib/utils"
+import { track } from "@/lib/analytics"
 import { publishMove, publishPlaceListing } from "@/lib/place-publish"
 import type { RankChange } from "@/lib/restore"
 import { RankMove } from "@/components/stickers/restore-sheet"
@@ -1141,6 +1142,11 @@ export function PlaceFlow() {
         published.placement,
         published.movedFrom ?? undefined
       )
+      track("place_published", {
+        units: formatPlot(plot.unitsW, plot.unitsH),
+        price: plotPrice(plot.unitsW, plot.unitsH),
+        moved: !!published.movedFrom,
+      })
       setSaved({
         slug: published.sticker.slug,
         category: published.sticker.category,

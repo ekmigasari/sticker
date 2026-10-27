@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Link } from "@tanstack/react-router"
 import { Flag } from "@phosphor-icons/react"
 import { FormSheet } from "@/components/dashboard/form-sheet"
+import { track } from "@/lib/analytics"
 import { REPORT_REASONS, type ReportReason } from "@/lib/report-reasons"
 import { reportSticker } from "@/lib/backend-stub"
 
@@ -76,6 +77,7 @@ function ReportSheet({
     setError(null)
     try {
       await reportSticker(stickerId, reason, details)
+      track("sticker_reported", { reason })
       setSent(true)
     } catch (err) {
       setError(

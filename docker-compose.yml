@@ -31,7 +31,11 @@ services:
   # postgres and minio services above: `docker compose --profile app up --build`
   app:
     profiles: ["app"]
-    build: .
+    build:
+      context: .
+      args:
+        VITE_UMAMI_SCRIPT_URL: ${VITE_UMAMI_SCRIPT_URL:-}
+        VITE_UMAMI_WEBSITE_ID: ${VITE_UMAMI_WEBSITE_ID:-}
     ports:
       - "3000:3000"
     environment:

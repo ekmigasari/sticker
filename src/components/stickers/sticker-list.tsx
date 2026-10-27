@@ -15,6 +15,7 @@ import {
 import { glassCapsule } from "@/components/layout/site-nav"
 import { StickerRow } from "@/components/sticker-row"
 import { CATEGORIES, type Category } from "@/domain/types"
+import { visitLink } from "@/lib/analytics"
 import {
   STICKERS_PAGE_SIZE,
   type StickerListItem,
@@ -281,10 +282,12 @@ function ListRow({
       : null
   return (
     <StickerRow
+      id={sticker.id}
       slug={sticker.slug}
       name={sticker.name}
       oneLiner={sticker.oneLiner}
       url={sticker.url}
+      source="list"
       imageSrc={sticker.imageUrl}
       badge={
         sort === "top" && position ? <RankBadge position={position} /> : null
@@ -292,6 +295,10 @@ function ListRow({
       meta={
         <>
           <CategoryTag category={sticker.category} />
+          <span className="shrink-0">
+            · {sticker.clicks.toLocaleString("en-US")}{" "}
+            {sticker.clicks === 1 ? "click" : "clicks"}
+          </span>
           {spent ? (
             <span className="shrink-0 font-semibold text-neutral-600 sm:hidden">
               · {spent}
@@ -466,6 +473,7 @@ function StickerCluster({
           rel="noreferrer"
           aria-label={`Visit ${s.name} website`}
           title={s.name}
+          {...visitLink(s, "featured")}
           className={cn(
             "absolute size-12 rounded-[12px] transition-[translate,rotate,scale] duration-300 ease-out hover:z-20 hover:scale-110 focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-[#0071e3] focus-visible:outline-none sm:size-[72px]",
             CLUSTER_SLOTS[i]

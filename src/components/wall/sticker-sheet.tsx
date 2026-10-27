@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router"
 import type { Placement, Sticker } from "@/domain/types"
 import { CategoryTag } from "@/components/category-icon"
 import { StickerPromo } from "@/components/sticker-promo"
+import { visitLink } from "@/lib/analytics"
 
 type Props = {
   sticker: Sticker
@@ -65,6 +66,7 @@ export function StickerSheet({ sticker, placement, onClose, ref }: Props) {
       ) : null}
 
       <StickerPromo
+        slug={sticker.slug}
         variant="feature"
         offer={sticker.offer}
         offerCode={sticker.offerCode}
@@ -77,6 +79,7 @@ export function StickerSheet({ sticker, placement, onClose, ref }: Props) {
           href={sticker.url}
           target="_blank"
           rel="noreferrer"
+          {...visitLink(sticker, "wall")}
           className="press inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-neutral-900 px-4 text-[15px] font-semibold tracking-[-0.01em] text-white transition-opacity hover:opacity-90"
         >
           <span className="truncate">Visit {hostname(sticker.url)}</span>

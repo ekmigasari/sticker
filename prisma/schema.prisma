@@ -128,6 +128,8 @@ model Sticker {
   outlineThickness Int
   /// Whole dollars paid for wall placements. Ranks are derived from this at read time.
   totalSpent       Int         @default(0)
+  /// Click-throughs to `url`, once per visitor per day. The owner's own clicks don't count.
+  clicks           Int         @default(0)
   /// Archived stickers leave the directory and rankings; their wall plots stay.
   archivedAt       DateTime?
   /// Taken down by an admin: off the wall, directory and rankings. Owners can't undo it.
@@ -138,6 +140,7 @@ model Sticker {
   placements       Placement[]
   reports          Report[]
   printItems       PrintSheetItem[]
+  clickLog         StickerClick[]
 
   @@index([userId])
   @@index([category])
@@ -185,6 +188,37 @@ model RateLimit {
   lastRequest BigInt
 
   @@map("rateLimit")
+}
+
+/// Unique visitors per day. The lifetime total is the sum of every day.
+model SiteDailyStat {
+  day      DateTime @id @db.Date
+  visitors Int      @default(0)
+
+  @@map("site_daily_stat")
+}
+
+/// Who visited today, so each visitor counts once a day. `visitor` is a hash
+/// with a daily salt, never an IP. Older days are pruned.
+model SiteVisitor {
+  day     DateTime @db.Date
+  visitor String
+
+  @@id([day, visitor])
+  @@map("site_visitor")
+}
+
+/// Who clicked a sticker today, so each visitor counts once per sticker a day.
+/// Older days are pruned; `Sticker.clicks` keeps the total.
+model StickerClick {
+  stickerId String
+  sticker   Sticker  @relation(fields: [stickerId], references: [id], onDelete: Cascade)
+  day       DateTime @db.Date
+  visitor   String
+
+  @@id([stickerId, day, visitor])
+  @@index([day])
+  @@map("sticker_click")
 }
 
 /// Fixed-window counters for application writes (uploads, stickers, reports).
